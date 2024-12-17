@@ -19,21 +19,21 @@ if [ $2 = "pedestal" ]; then
 fi
 
 if [ $2 == "mergemuons" ]; then
-	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
-	hadd -f $dataDirRaw/raw_muonScanA2_45V.root $dataDirRaw/raw_283.root $dataDirRaw/raw_282.root
+# 	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
+# 	hadd -f $dataDirRaw/raw_muonScanA2_45V.root $dataDirRaw/raw_283.root $dataDirRaw/raw_282.root
 	hadd -f $dataDirRaw/raw_muonScanD1_45V.root $dataDirRaw/raw_412.root $dataDirRaw/raw_417.root
-	hadd -f $dataDirRaw/raw_muonScanD2_45V.root $dataDirRaw/raw_460.root $dataDirRaw/raw_456.root $dataDirRaw/raw_457.root
-	hadd -f $dataDirRaw/raw_muonScanH1_45V.root $dataDirRaw/raw_526.root $dataDirRaw/raw_527.root
-	hadd -f $dataDirRaw/raw_muonScanH2_45V.root $dataDirRaw/raw_554.root $dataDirRaw/raw_559.root
-	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
-	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
-	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
-	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_510.root $dataDirRaw/raw_408.root
-	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
-	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
-	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
-	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
-	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
+# 	hadd -f $dataDirRaw/raw_muonScanD2_45V.root $dataDirRaw/raw_460.root $dataDirRaw/raw_456.root $dataDirRaw/raw_457.root
+# 	hadd -f $dataDirRaw/raw_muonScanH1_45V.root $dataDirRaw/raw_526.root $dataDirRaw/raw_527.root
+# 	hadd -f $dataDirRaw/raw_muonScanH2_45V.root $dataDirRaw/raw_554.root $dataDirRaw/raw_559.root
+# 	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
+# 	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
+# 	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
+# 	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_510.root $dataDirRaw/raw_408.root
+# 	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
+# 	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
+# 	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
+# 	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
+# 	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
 fi
 
 
@@ -114,6 +114,7 @@ fi
 muonScanA_45V='244 250 282 283'
 pedScanA_45V='271 277'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA" ]; then
+	# 192K events
 	echo "running muon calib for 45V runs, campaing A1"
 	if [ $3 == "transfer" ]; then 
 		./Analyse -d 1 -f -P $dataDirOut/PedestalCalib_271.root -i $dataDirRaw/raw_muonScanA1_45V.root -o $dataDirRaw/rawPed_muonScanA1_45V.root -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -123,6 +124,8 @@ if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA" ]; then
 	else 
 		./Analyse -f -d 1 -S -i $dataDirOut/rawPedAndMuon_muonScanA1_45V.root -o $dataDirOut/rawPedAndMuonImp_muonScanA1_45V.root -O ../PlotsCalibMuonImproved_2024/muonScanA1_45V -r ../configs/DataTakingDB_202409_CAEN.csv
 	fi
+	
+	# 201.6K events
 	echo "running muon calib for 45V runs, campaing A2"
 	if [ $3 == "transfer" ]; then 
 		./Analyse -d 1 -f -P $dataDirOut/PedestalCalib_277.root -i $dataDirRaw/raw_muonScanA2_45V.root -o $dataDirRaw/rawPed_muonScanA2_45V.root -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -134,6 +137,7 @@ if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA" ]; then
 	fi
 fi
 
+#102.2K events
 muonScanD1_45V='412 417'
 pedScanD1_45V='420'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD" ]; then
@@ -147,19 +151,23 @@ if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD" ]; then
 		./Analyse -f -d 1 -S -i $dataDirOut/rawPedAndMuon_muonScanD1_45V.root -o $dataDirOut/rawPedAndMuonImp_muonScanD1_45V.root -O ../PlotsCalibMuonImproved_2024/muonScanD1_45V -r ../configs/DataTakingDB_202409_CAEN.csv
 	fi
 fi
-muonScanD2_45V='460 456 457'
-pedScanD2_45V='454'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD" ]; then
-	echo "running muon calib for 45V runs, campaing D2"
-	if [ $3 == "transfer" ]; then 
-		./Analyse -d 1 -f -P $dataDirOut/PedestalCalib_$pedScanD2_45V.root -i $dataDirRaw/raw_muonScanD2_45V.root -o $dataDirRaw/rawPed_muonScanD2_45V.root -r ../configs/DataTakingDB_202409_CAEN.csv
-	fi
-	if [ $3 == "default" ]; then  
-		./Analyse -f -d 1 -s -i $dataDirRaw/rawPed_muonScanD2_45V.root -o $dataDirOut/rawPedAndMuon_muonScanD2_45V.root -O ../PlotsCalibMuon_2024/muonScanD2_45V -r ../configs/DataTakingDB_202409_CAEN.csv
-	else
-		./Analyse -f -d 1 -S -i $dataDirOut/rawPedAndMuon_muonScanD2_45V.root -o $dataDirOut/rawPedAndMuonImp_muonScanD2_45V.root -O ../PlotsCalibMuonImproved_2024/muonScanD2_45V -r ../configs/DataTakingDB_202409_CAEN.csv
-	fi
-fi
+
+# # 29.3K events
+# muonScanD2_45V='460 456 457'
+# pedScanD2_45V='454'
+# if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD" ]; then
+# 	echo "running muon calib for 45V runs, campaing D2"
+# 	if [ $3 == "transfer" ]; then 
+# 		./Analyse -d 1 -f -P $dataDirOut/PedestalCalib_$pedScanD2_45V.root -i $dataDirRaw/raw_muonScanD2_45V.root -o $dataDirRaw/rawPed_muonScanD2_45V.root -r ../configs/DataTakingDB_202409_CAEN.csv
+# 	fi
+# 	if [ $3 == "default" ]; then  
+# 		./Analyse -f -d 1 -s -i $dataDirRaw/rawPed_muonScanD2_45V.root -o $dataDirOut/rawPedAndMuon_muonScanD2_45V.root -O ../PlotsCalibMuon_2024/muonScanD2_45V -r ../configs/DataTakingDB_202409_CAEN.csv
+# 	else
+# 		./Analyse -f -d 1 -S -i $dataDirOut/rawPedAndMuon_muonScanD2_45V.root -o $dataDirOut/rawPedAndMuonImp_muonScanD2_45V.root -O ../PlotsCalibMuonImproved_2024/muonScanD2_45V -r ../configs/DataTakingDB_202409_CAEN.csv
+# 	fi
+# fi
+
+
 muonScanH1_45V='526 527'
 pedScanH1_45V='528'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH" ]; then

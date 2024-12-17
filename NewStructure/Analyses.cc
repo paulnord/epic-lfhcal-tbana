@@ -1509,7 +1509,7 @@ bool Analyses::GetImprovedScaling(void){
   }
     
   // setup trigger sel
-  double factorMinTrigg   = 1.1;
+  double factorMinTrigg   = 0.8;
   double factorMaxTrigg   = 2.5;
   if (yearData == 2023){
     factorMinTrigg    = 0.9;
