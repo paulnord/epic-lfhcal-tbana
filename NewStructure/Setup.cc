@@ -3,7 +3,9 @@
 #include <iostream>
 #include <fstream>
 
-//Setup* Setup::instancePtr = nullptr; // Add for use on Mac OS
+#ifdef __APPLE__
+Setup* Setup::instancePtr = nullptr;
+#endif
 
 ClassImp(Setup);
 

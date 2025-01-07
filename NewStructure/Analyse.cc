@@ -3,7 +3,9 @@
 #include <vector>
 #include <map>
 #include <utility>
-//#include <unistd.h> // Add for use on Mac OS -> Same goes for Analyses.cc
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
 #include "TString.h"
 #include "TFile.h"
 #include "TTree.h"
@@ -21,7 +23,9 @@
 #include "Caen.h"
 #include "Analyses.h"
 
-Setup* Setup::instancePtr=nullptr; // Remove for use on Mac OS -> Add to Setup.cc instead
+#ifndef __APPLE__
+Setup* Setup::instancePtr=nullptr;
+#endif
 //Calib* Calib::instancePtr=nullptr;
 
 void PrintHelp(char* exe){

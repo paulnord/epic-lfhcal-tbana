@@ -3,7 +3,9 @@
 #include <vector>
 #include <map>
 #include <utility>
-//#include <unistd.h> // Add for use on Mac OS -> Same goes for Analyses.cc
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
 #include "TString.h"
 #include "TFile.h"
 #include "TTree.h"
