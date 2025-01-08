@@ -203,8 +203,8 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   if (vov != -1000){
     if (verbosity > 1) std::cout << "adjusting according to V_ov: " << vov<< std::endl;
     if (vov < 2.5){
-      parlimitslo[1]  = 30;    
-      fitrange[0]     = 20;
+      parlimitslo[1]  = 20;    
+      fitrange[0]     = 15;
     }
   }  
   SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);

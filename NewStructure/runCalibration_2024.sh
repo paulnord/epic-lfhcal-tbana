@@ -36,6 +36,8 @@ function MuonCalib()
 		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp2nd_$3.root -o $5/rawPedAndMuonWBCImp3rd_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_3rdIte -r $runNrFile
 	elif [ $1 == "improvedWBC4th" ]; then 
 		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp3rd_$3.root -o $5/rawPedAndMuonWBCImp4th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_4thIte -r $runNrFile
+	elif [ $1 == "improvedWBC5th" ]; then 
+		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp4th_$3.root -o $5/rawPedAndMuonWBCImp5th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_5thIte -r $runNrFile
 	elif [ $1 == "noise" ]; then 
 		./Analyse -f -d 1  -n -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonNoise_$2.root -O ../PlotsCalibNoiseRe_2024/$6 -r $runNrFile
 	elif [ $1 == "transferAlt" ]; then 
@@ -67,9 +69,9 @@ else
 fi
 
 # pedestal runs 
-pedestalRuns='303 306 308 311 315 271 277 420 454 528 552 553 332 369 377 404 465 476 492 505 521'
-
+# pedestalRuns='303 306 308 311 315 271 277 420 454 528 552 553 332 369 377 404 465 476 492 505 521'
 # pedestalRuns='420'
+pedestalRuns='417 412'
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./Analyse -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O ../PlotsCalib_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -95,13 +97,14 @@ if [ $2 == "mergemuons" ]; then
 fi
 
 
+badChannelMap='../configs/badChannelMap_TBSetup_CAEN_202408.txt'
 # # muon runs different scans in groups with separate pedestal
 #50.3 events
 muonHVScan_44V='305'
 pedHVScan_44V='303'
 if [ $2 == "muoncalibHV" ] || [ $2 == "muoncalibHV44" ]; then
 	echo "running muon calib for 44V runs"
-		MuonCalib $3 $pedHVScan_44V $muonHVScan_44V $dataDirRaw $dataDirOut muonHVScan_44V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+		MuonCalib $3 $pedHVScan_44V $muonHVScan_44V $dataDirRaw $dataDirOut muonHVScan_44V $badChannelMap
 fi
 
 #50.1K events
@@ -109,7 +112,7 @@ muonHVScan_43V='307'
 pedHVScan_43V='306'
 if [ $2 == "muoncalibHV" ] || [ $2 == "muoncalibHV43" ]; then
 	echo "running muon calib for 43V runs"
-	MuonCalib $3 $pedHVScan_43V $muonHVScan_43V $dataDirRaw $dataDirOut muonHVScan_43V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+	MuonCalib $3 $pedHVScan_43V $muonHVScan_43V $dataDirRaw $dataDirOut muonHVScan_43V $badChannelMap
 fi
 
 #50.6K events
@@ -117,7 +120,7 @@ muonHVScan_42V='309'
 pedHVScan_42V='308'
 if [ $2 == "muoncalibHV" ] || [ $2 == "muoncalibHV42" ]; then
 	echo "running muon calib for 42V runs"
-	MuonCalib $3 $pedHVScan_42V $muonHVScan_42V $dataDirRaw $dataDirOut muonHVScan_42V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+	MuonCalib $3 $pedHVScan_42V $muonHVScan_42V $dataDirRaw $dataDirOut muonHVScan_42V $badChannelMap
 fi
 
 #51K events
@@ -125,7 +128,7 @@ muonHVScan_41V='312'
 pedHVScan_41V='311'
 if [ $2 == "muoncalibHV" ] || [ $2 == "muoncalibHV41" ]; then
 	echo "running muon calib for 41V runs"
-	MuonCalib $3 $pedHVScan_41V $muonHVScan_41V $dataDirRaw $dataDirOut muonHVScan_41V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+	MuonCalib $3 $pedHVScan_41V $muonHVScan_41V $dataDirRaw $dataDirOut muonHVScan_41V $badChannelMap
 fi
 
 #50.8K events
@@ -133,7 +136,7 @@ muonHVScan_40V='316'
 pedHVScan_40V='315'
 if [ $2 == "muoncalibHV" ] || [ $2 == "muoncalibHV40" ]; then
 	echo "running muon calib for 40V runs"
-	MuonCalib $3 $pedHVScan_40V $muonHVScan_40V $dataDirRaw $dataDirOut muonHVScan_40V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+	MuonCalib $3 $pedHVScan_40V $muonHVScan_40V $dataDirRaw $dataDirOut muonHVScan_40V $badChannelMap
 fi
 
 muonScanA_45V='244 250 282 283'
@@ -141,27 +144,29 @@ pedScanA_45V='271 277'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA" ]; then
 	# 192K events
 	echo "running muon calib for 45V runs, campaing A1"
-	MuonCalib $3 271 muonScanA1_45V $dataDirRaw $dataDirOut muonScanA1_45V
+	MuonCalib $3 271 muonScanA1_45V $dataDirRaw $dataDirOut muonScanA1_45V $badChannelMap
 
 	# 201.6K events
 	echo "running muon calib for 45V runs, campaing A2"
-	MuonCalib $3 277 muonScanA2_45V $dataDirRaw $dataDirOut muonScanA2_45V
+	MuonCalib $3 277 muonScanA2_45V $dataDirRaw $dataDirOut muonScanA2_45V $badChannelMap
 fi
 
 #102.2K events
-muonScanD1_45V='412 417'
+muonScanD1_45V='412 417'		# these runs are messed up don't analyze
 pedScanD1_45V='420'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD1" ]; then
-	echo "running muon calib for 45V runs, campaing D1"
-	MuonCalib $3 $pedScanD1_45V muonScanD1_45V $dataDirRaw $dataDirOut muonScanD1_45V
-fi
+# if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD1" ]; then
+# 	echo "running muon calib for 45V runs, campaing D1"
+# # 	MuonCalib $3 $pedScanD1_45V muonScanD1_45V $dataDirRaw $dataDirOut muonScanD1_45V  $badChannelMap
+# # 	MuonCalib $3 $pedScanD1_45V 412 $dataDirRaw $dataDirOut 412
+# # 	MuonCalib $3 $pedScanD1_45V 417 $dataDirRaw $dataDirOut 417
+# fi
 
 # 29.3K events
 muonScanD2_45V='460 456 457'
 pedScanD2_45V='454'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD2" ]; then
 	echo "running muon calib for 45V runs, campaing D2"
-	MuonCalib $3 $pedScanD2_45V muonScanD2_45V $dataDirRaw $dataDirOut muonScanD2_45V
+	MuonCalib $3 $pedScanD2_45V muonScanD2_45V $dataDirRaw $dataDirOut muonScanD2_45V $badChannelMap
 fi
 
 # 50.6K events 2nd column underrespresented
@@ -169,7 +174,7 @@ muonScanH1_45V='526 527'
 pedScanH1_45V='528'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH" ]; then
 	echo "running muon calib for 45V runs, campaing H1"
-	MuonCalib $3 $pedScanH1_45V muonScanH1_45V $dataDirRaw $dataDirOut muonScanH1_45V
+	MuonCalib $3 $pedScanH1_45V muonScanH1_45V $dataDirRaw $dataDirOut muonScanH1_45V $badChannelMap
 fi
 
 #33.5K events 1st-2nd column only
@@ -178,7 +183,7 @@ muonScanH2_45V='554 559'
 pedScanH2_45V='552'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH" ]; then
 	echo "running muon calib for 45V runs, campaing H2"
-	MuonCalib $3 $pedScanH2_45V muonScanH2_45V $dataDirRaw $dataDirOut muonScanH2_45V
+	MuonCalib $3 $pedScanH2_45V muonScanH2_45V $dataDirRaw $dataDirOut muonScanH2_45V $badChannelMap
 fi
 
 # 202.6K events
@@ -186,7 +191,7 @@ muonScanB1_42V='331 322'
 pedScanB1_42V='332'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB1" ]; then
 	echo "running muon calib for 42V runs, campaing B1"
-	MuonCalib $3 $pedScanB1_42V muonScanB1_42V $dataDirRaw $dataDirOut muonScanB1_42V
+	MuonCalib $3 $pedScanB1_42V muonScanB1_42V $dataDirRaw $dataDirOut muonScanB1_42V $badChannelMap
 fi
 
 # 214.8k events
@@ -194,7 +199,7 @@ muonScanB2_42V='370 371 374'
 pedScanB2_42V='369'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB2" ]; then
 	echo "running muon calib for 42V runs, campaing B2"
-	MuonCalib $3 $pedScanB2_42V muonScanB2_42V $dataDirRaw $dataDirOut muonScanB2_42V
+	MuonCalib $3 $pedScanB2_42V muonScanB2_42V $dataDirRaw $dataDirOut muonScanB2_42V $badChannelMap
 fi
 
 # 240.2K events
@@ -202,13 +207,13 @@ muonScanC1_43_5V='376 375'
 pedScanC1_43_5V='377'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC1" ]; then
 	echo "running muon calib for 43.5V runs, campaing C1"
-	MuonCalib $3 $pedScanC1_43_5V muonScanC1_43_5V $dataDirRaw $dataDirOut muonScanC1_43_5V
+	MuonCalib $3 $pedScanC1_43_5V muonScanC1_43_5V $dataDirRaw $dataDirOut muonScanC1_43_5V $badChannelMap
 fi
 muonScanC2_43_5V='405 410 408'
 pedScanC2_43_5V='404'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC" ]; then
 	echo "running muon calib for 43.5V runs, campaing C2"
-	MuonCalib $3 $pedScanC2_43_5V muonScanC2_43_5V $dataDirRaw $dataDirOut muonScanC2_43_5V
+	MuonCalib $3 $pedScanC2_43_5V muonScanC2_43_5V $dataDirRaw $dataDirOut muonScanC2_43_5V $badChannelMap
 fi
 
 # 40.7K events
@@ -216,13 +221,13 @@ muonScanE1_40V='463 464'
 pedScanE1_40V='465'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE" ]; then
 	echo "running muon calib for 40V runs, campaing E1"
-	MuonCalib $3 $pedScanE1_40V muonScanE1_40V $dataDirRaw $dataDirOut muonScanE1_40V
+	MuonCalib $3 $pedScanE1_40V muonScanE1_40V $dataDirRaw $dataDirOut muonScanE1_40V $badChannelMap
 fi
 
 muonScanE2_40V='481 478'
 pedScanE2_40V='476'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE" ]; then
-	MuonCalib $3 $pedScanE2_40V muonScanE2_40V $dataDirRaw $dataDirOut muonScanE2_40V
+	MuonCalib $3 $pedScanE2_40V muonScanE2_40V $dataDirRaw $dataDirOut muonScanE2_40V $badChannelMap
 fi
 
 # 22.6K events
@@ -230,15 +235,15 @@ muonScanF1_41V='486 489'
 pedScanF1_41V='492'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF1" ]; then
 	echo "running muon calib for 41V runs, campaing F1"
-	MuonCalib $3 $pedScanF1_41V muonScanF1_41V $dataDirRaw $dataDirOut muonScanF1_41V ../configs/badChannelMap_TBSetup_202308_Run305.txt
+	MuonCalib $3 $pedScanF1_41V muonScanF1_41V $dataDirRaw $dataDirOut muonScanF1_41V $badChannelMap
 fi
 
 # 42.8K events
 muonScanF2_41V='507 506'
 pedScanF2_41V='505'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF2" ]; then
 	echo "running muon calib for 41V runs, campaing F2"
-	MuonCalib $3 $pedScanF2_41V muonScanF2_41V $dataDirRaw $dataDirOut muonScanF2_41V		
+	MuonCalib $3 $pedScanF2_41V muonScanF2_41V $dataDirRaw $dataDirOut muonScanF2_41V $badChannelMap
 fi
 
 # 101.7K events
@@ -246,6 +251,6 @@ muonScanG_46V='508 510 511 525'
 pedScanG_46V='521'
 if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibG" ]; then
 	echo "running muon calib for 46V runs, campaing G"
-	MuonCalib $3 $pedScanG_46V muonScanG_46V $dataDirRaw $dataDirOut muonScanG_46V		
+	MuonCalib $3 $pedScanG_46V muonScanG_46V $dataDirRaw $dataDirOut muonScanG_46V $badChannelMap
 fi
 
