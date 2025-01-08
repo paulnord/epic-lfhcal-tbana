@@ -72,8 +72,37 @@
       if (debug > 1) std::cout << "Run " << tempRun.runNr << "\t species: " << tempRun.species << "\t energy: "  << tempRun.energy << "\t Vop: " << tempRun.vop << "\t Vov: " << tempRun.vop-tempRun.vbr << "\t Xbeam: " << tempRun.posX<< "\t Ybeam: " << tempRun.posY<< std::endl;
       runs[tempRun.runNr]=tempRun;
     }
-    std::cout << "registered " << runs.size() << std::endl;
+    std::cout << "registered " << runs.size() << " runs from  "<< runListFileName.Data() << std::endl;
     return runs;
   };
 
+  Double_t ReturnMipPlotRangeDepVov(double Vov, bool isHG){
+    if (isHG){
+      if (Vov < 2)
+        return 550.;
+      else if (Vov < 3)
+        return 750.;
+      else if (Vov < 4)
+        return 950.;
+      else if (Vov < 5)
+        return 1150.;
+      else
+        return 1350.;
+    } else {
+      if (Vov < 2)
+        return 85.;
+      else if (Vov < 3)
+        return 105.;
+      else if (Vov < 4)
+        return 125.;
+      else if (Vov < 5)
+        return 145.;
+      else
+        return 165.;      
+    }
+  }
+  
+
+  
+  
 #endif

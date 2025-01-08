@@ -45,13 +45,20 @@ class TileSpectra: public TObject{
   bool FillCorr(double, double);
   bool FillTrigger(double);
   
-  bool FitNoise(double*, int);
-  bool FitMipHG(double*, double*, int, int, bool, double );
+  bool FitNoise(double*, int, bool);
+  void FitFixedNoise();
+  bool FitMipHG(double*, double*, int, int, bool, double, double );
   bool FitMipLG(double*, double*, int, int, bool, double );
   bool FitCorr(int);
   bool FitNoiseWithBG(double*);
+  short DetermineBadChannel();
 
   int GetCellID();
+  void SetBadChannelInCalib(short);
+  
+  double GetMaxXInRangeLG(double, double);
+  double GetMaxXInRangeHG(double, double);
+
   TH1D* GetHG();
   TH1D* GetLG();
   TH1D* GetTriggPrim();
@@ -63,7 +70,6 @@ class TileSpectra: public TObject{
   TF1* GetSignalModel(int);
   TF1* GetCorrModel(int);
   TileCalib* GetCalib();
-  
   
   void Write(bool);
  protected:

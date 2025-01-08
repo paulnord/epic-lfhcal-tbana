@@ -36,10 +36,18 @@ void PrintHelp(char* exe){
   std::cout<<"-i uuu   Input file in root format"<<std::endl;
   std::cout<<"-o vvv   Output file name (mandatory)"<<std::endl;
   std::cout<<"-O kkk   Output directory name for plots (mandatory)"<<std::endl;
+  std::cout<<"-b       calculate bad channel map internally"<<std::endl;
+  std::cout<<"-B lll   apply external bad channel map during transfer of calibs"<<std::endl;
+  std::cout<<"-s       extract scaling constant from input data"<<std::endl;
+  std::cout<<"-S       extract scaling constant from input data in 2nd iteration based on pretriggered data"<<std::endl;
+  std::cout<<"-N       save noise triggered cells only"<<std::endl;
+  std::cout<<"-M       save mip triggered cells only"<<std::endl;
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
   std::cout<<"-m www   Name of mapping file  2024 PS TB [../configs/mappingFile_202409_CAEN.txt] "<<std::endl;
   std::cout<<"-r rrr   Name of run list file  2024 PS TB [../configs/DataTakingDB_202409_CAEN.csv] "<<std::endl;
   std::cout<<"-d [0-3] switch on debug info with debug level 0 to 3"<<std::endl;
+  std::cout<<"-e       extended plotting = 1"<<std::endl;
+  std::cout<<"-E       extended plotting = 2"<<std::endl;
   std::cout<<"-h       this help"<<std::endl<<std::endl;
   std::cout<<"Examples:"<<std::endl;
   std::cout<<exe<<" -c input.txt -o output.root (Convert ASCII to root)"<<std::endl;
@@ -58,8 +66,12 @@ int main(int argc, char* argv[]){
   }
   Analyses AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"c:psP:SC:fo:O:m:d:i:y:r:h"))!=-1){
+  while((c=getopt(argc,argv,"c:psP:SnbB:NMC:fo:O:aeEm:d:i:y:r:h"))!=-1){
     switch(c){
+    case 'a':
+      std::cout<<"printing calib object to file"<<std::endl;
+      AnAnalysis.IsCalibSaveToFile(true);
+      break;
     case 'c':
       std::cout<<"Convert ASCII input '"<<optarg<<"' to root format"<<std::endl;
       AnAnalysis.SetASCIIinput(Form("%s",optarg));
@@ -82,6 +94,27 @@ int main(int argc, char* argv[]){
       std::cout<<"Extract scaling improved from 2nd iteration"<<std::endl;
       AnAnalysis.IsToExtractScalingImproved(true);
       break;
+    case 'n':
+      std::cout<<"Extract noise after 1st mip fits and reevaluate pedestals"<<std::endl;
+      AnAnalysis.IsToReextractNoise(true);
+      break;
+    case 'b':
+      std::cout<<"run Bad channel determination"<<std::endl;
+      AnAnalysis.SetCalcBadChannel(2);
+      break;
+    case 'B':
+      std::cout<<"read bad channel map from external file: "<<optarg<<std::endl;
+      AnAnalysis.SetExternalBadChannelMap(Form("%s",optarg));
+      AnAnalysis.SetCalcBadChannel(1);
+      break;
+    case 'N':
+      std::cout<<"Save noise only cells to create new pedestal"<<std::endl;
+      AnAnalysis.IsToSaveNoiseOnly(true);
+      break;
+    case 'M':
+      std::cout<<"Save mip triggered cells only to create minimal sample"<<std::endl;
+      AnAnalysis.IsToSaveMipsOnly(true);
+      break;
     case 'C':
       std::cout<<"Apply calibration (pedestal correction and scaling factor) from: "<<optarg<<std::endl;
       AnAnalysis.SetRootCalibInput(Form("%s",optarg));
@@ -98,6 +131,14 @@ int main(int argc, char* argv[]){
     case 'O':
       std::cout<<"Outputdir plots to be saved in: "<<optarg<<std::endl;
       AnAnalysis.SetPlotOutputDir(Form("%s",optarg));
+      break;
+    case 'e':
+      std::cout<<"enabling extended plotting"<<std::endl;
+      AnAnalysis.SetExtPlotting(1);
+      break;
+    case 'E':
+      std::cout<<"enabling more extended plotting"<<std::endl;
+      AnAnalysis.SetExtPlotting(2);
       break;
     case 'm':
       std::cout<<"Mapping file from: "<<optarg<<std::endl;

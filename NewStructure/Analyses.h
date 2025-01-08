@@ -34,6 +34,7 @@ class Analyses{
   inline TString GetRootPedestalInputName() const {return RootPedestalInputName;};
   inline TString GetRootOutputName()        const {return RootOutputName;};
   inline TString GetPlotOutputDir()         const {return OutputNameDirPlots;};
+  inline TString GetExternalBadChannelMap() const {return ExternalBadChannelMap;};
   
   inline std::fstream* GetASCIIinput() {return &ASCIIinput;};
   inline std::fstream* GetMapInput()   {return &MapInput;};
@@ -50,17 +51,30 @@ class Analyses{
   inline bool IsToExtractPedestal(void)         const {return ExtractPedestal;};
   inline bool IsToExtractScaling(void)          const {return ExtractScaling;};
   inline bool IsToExtractScalingImproved(void)  const {return ExtractScalingImproved;};
-  
+  inline bool IsToReextractNoise(void)          const {return ReextractNoise;};
+  inline bool IsToSaveNoiseOnly(void)           const {return SaveNoiseOnly;};
+  inline bool IsToSaveMipsOnly(void)            const {return SaveMipsOnly;};
+  inline bool IsCalibSaveToFile(void)           const {return SaveCalibToFile;};
+  inline short GetCalcBadChannel(void)          const {return CalcBadChannel;};
+  inline short GetExtPlotting(void)             const {return ExtPlot;};
+
   //setter methods
   //Overload method for boolean...or is it too dangerous?
   inline void CanOverWrite(bool b)               {Overwrite=b;};
+  inline void IsCalibSaveToFile(bool b)          {SaveCalibToFile=b;};
   inline void IsToApplyPedestalCorrection(bool b){ApplyPedestalCorrection=b;};
   inline void IsToApplyCalibration(bool b)       {ApplyCalibration=b;};
   inline void IsToConvert(bool b)                {Convert=b;};
   inline void IsToExtractPedestal(bool b)        {ExtractPedestal=b;};
   inline void IsToExtractScaling(bool b)         {ExtractScaling=b;};
   inline void IsToExtractScalingImproved(bool b) {ExtractScalingImproved=b;};
+  inline void IsToReextractNoise(bool b)         {ReextractNoise=b;};
+  inline void IsToSaveNoiseOnly(bool b)          {SaveNoiseOnly = b;};
+  inline void IsToSaveMipsOnly(bool b)           {SaveMipsOnly = b;};
+  inline void SetCalcBadChannel(short b)         {CalcBadChannel = b;};
+  inline void SetExtPlotting(short b)            {ExtPlot = b;};
   inline void EnableDebug(int i)                 {debug=i;};
+  
   
   inline void SetYear(int year)                  {yearData=year;};
   inline void SetASCIIinput(TString name)        {ASCIIinputName=name;};
@@ -72,7 +86,7 @@ class Analyses{
   inline void SetRootOutput(TString name)        {RootOutputName =name;};
   inline void SetRootOutputHists(TString name)   {RootOutputNameHist =name;};
   inline void SetPlotOutputDir(TString name)     {OutputNameDirPlots =name;};
-  
+  inline void SetExternalBadChannelMap(TString name)     {ExternalBadChannelMap =name;};
   
   
   //General methods
@@ -90,6 +104,7 @@ class Analyses{
   TString RootPedestalInputName;          // file name of pedestal root file (pedestal values)
   TString MapInputName;                   // file name geometry mapping
   TString RunListInputName;               // file name run list 
+  TString ExternalBadChannelMap;          // file name external bad channel map
   TFile* RootOutput         =nullptr;     // root file output tree
   TFile* RootOutputHist     =nullptr;     // root file output histos
   TFile* RootInput          =nullptr;     // root file input 
@@ -101,8 +116,14 @@ class Analyses{
   bool ExtractPedestal        =false;     // Flag for pedestal extraction
   bool ExtractScaling         =false;     // Flag for mip scaling extraction
   bool ExtractScalingImproved =false;     // Flag for mip scaling extraction 2nd pass
+  bool ReextractNoise         =false;     // Flag to enable noise trigger extraction and alternative pass for pedestals
   bool ApplyPedestalCorrection=false;     // Flag for application of pedestals
   bool ApplyCalibration       =false;     // Flag for aplication of calibration
+  bool SaveNoiseOnly          =false;     // Flag to reduce file to noise/pedestal only
+  bool SaveMipsOnly           =false;     // Flag to reduce file to mips only
+  bool SaveCalibToFile        =false;     // Flag to save calib objects to text file
+  short CalcBadChannel        =0;         // Flag to create bad channel map
+  short ExtPlot               =0;         // Enable extended plotting
   bool Overwrite              =false;     // Flag to overwrite outputs
   int debug                   =0;         // debug level 
   int yearData                =-1;        // data taking year externally set
@@ -131,8 +152,12 @@ class Analyses{
   bool CorrectPedestal(void);
   bool GetScaling(void);
   bool GetImprovedScaling(void);
+  bool GetNoiseSampleAndRefitPedestal(void);
   bool Calibrate(void);
-};
+  bool SaveNoiseTriggersOnly(void);
+  bool SaveMuonTriggersOnly(void);
+  std::map<int,short> ReadExternalBadChannelMap(void);
+ };
 
 
 #endif
