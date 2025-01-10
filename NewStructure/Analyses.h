@@ -50,6 +50,7 @@ class Analyses{
   inline bool IsToExtractPedestal(void)         const {return ExtractPedestal;};
   inline bool IsToExtractScaling(void)          const {return ExtractScaling;};
   inline bool IsToExtractScalingImproved(void)  const {return ExtractScalingImproved;};
+  inline bool IsHGCROC(void)                    const {return HGCROC;};
   
   //setter methods
   //Overload method for boolean...or is it too dangerous?
@@ -60,6 +61,7 @@ class Analyses{
   inline void IsToExtractPedestal(bool b)        {ExtractPedestal=b;};
   inline void IsToExtractScaling(bool b)         {ExtractScaling=b;};
   inline void IsToExtractScalingImproved(bool b) {ExtractScalingImproved=b;};
+  inline void IsHGCROC(bool b)                   {HGCROC=b;};
   inline void EnableDebug(int i)                 {debug=i;};
   
   inline void SetYear(int year)                  {yearData=year;};
@@ -98,6 +100,7 @@ class Analyses{
   std::fstream ASCIIinput;                // ASCII file streamer for CAEN data
   std::fstream MapInput;                  // file streamer for geometry mapping
   bool Convert                =false;     // Flag for data conversion 
+  bool HGCROC                 =false;     // Flag for HGCROC data conversion
   bool ExtractPedestal        =false;     // Flag for pedestal extraction
   bool ExtractScaling         =false;     // Flag for mip scaling extraction
   bool ExtractScalingImproved =false;     // Flag for mip scaling extraction 2nd pass

@@ -37,6 +37,9 @@ Caen.o: Caen.cc Caen.h
 HGCROC.o: HGCROC.cc HGCROC.h
 	$(CXX) $(FLAGS) -I. -c HGCROC.cc -o HGCROC.o
 
+HGCROC_Convert.o: HGCROC_Convert.cc HGCROC_Convert.h
+	$(CXX) $(FLAGS) -I. -c HGCROC_Convert.cc -o HGCROC_Convert.o
+
 Tile.o: Tile.cc Tile.h Setup.h
 	$(CXX) $(FLAGS) -I. -c Tile.cc -o Tile.o
 
@@ -61,8 +64,8 @@ ComparisonCalib.o: ComparisonCalib.cc ComparisonCalib.h PlottHelper.h CommonHelp
 #Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o RootCalibWrapper.o Tile.o HGCROC.o Caen.o libLFHCAL.so Analyse.o Analyses.o
 #	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o RootCalibWrapper.o Tile.o HGCROC.o Caen.o Analyses.o Analyse.o $(FLAGS) -I. libLFHCAL.so -o Analyse
 
-Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Analyse.o Analyses.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Analyse.o $(FLAGS) -I. libLFHCAL.so -o Analyse
+Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Analyse.o Analyses.o HGCROC_Convert.o
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Analyse.o HGCROC_Convert.o $(FLAGS) -I. libLFHCAL.so -Llib -lh2g_decode -o Analyse
 
 Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Compare.o ComparisonCalib.o
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare

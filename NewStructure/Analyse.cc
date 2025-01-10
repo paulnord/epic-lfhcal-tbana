@@ -33,6 +33,7 @@ void PrintHelp(char* exe){
   std::cout<<exe<<" [-option (arguments)]"<<std::endl;
   std::cout<<"Options:"<<std::endl;
   std::cout<<"-c xxx   Convert ASCII input file xxx into root format output"<<std::endl;
+  std::cout<<"-w       Run HGCROC data convserion.  Omit to process CAEN data"<<std::endl;
   std::cout<<"-C yyy   Apply calibrations stored in yyy root file to the input uncalibrated file"<<std::endl;
   std::cout<<"-p       Extract pedestal from input file and store it in output file"<<std::endl;
   std::cout<<"-y yyyy  setting year externally to narrow parameters"<<std::endl;
@@ -62,12 +63,16 @@ int main(int argc, char* argv[]){
   }
   Analyses AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"c:psP:SC:fo:O:m:d:i:y:r:h"))!=-1){
+  while((c=getopt(argc,argv,"c:wpsP:SC:fo:O:m:d:i:y:r:h"))!=-1){
     switch(c){
     case 'c':
       std::cout<<"Convert ASCII input '"<<optarg<<"' to root format"<<std::endl;
       AnAnalysis.SetASCIIinput(Form("%s",optarg));
       AnAnalysis.IsToConvert(true);
+      break;
+    case 'w':
+      std::cout<<"Convert HGCROC data"<<std::endl;
+      AnAnalysis.IsHGCROC(true);
       break;
     case 'p':
       std::cout<<"Extract pedestal from input data"<<std::endl;

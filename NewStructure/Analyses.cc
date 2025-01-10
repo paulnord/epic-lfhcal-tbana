@@ -16,6 +16,8 @@
 #include "PlottHelper.h"
 #include "TRandom3.h"
 
+#include "HGCROC_Convert.h"
+
 // ****************************************************************************
 // Checking and opening input and output files
 // ****************************************************************************
@@ -192,15 +194,20 @@ bool Analyses::CheckAndOpenIO(void){
 // Primary process function to start all calibrations
 // ****************************************************************************
 bool Analyses::Process(void){
-  bool status;
+  bool status = true;
   ROOT::EnableImplicitMT();
   
   if(Convert){
-    if (!(GetASCIIinputName().EndsWith(".root"))){
-      status=ConvertASCII2Root();
+    if (HGCROC) {
+      std::cout << "Running HGCROC conversion" << std::endl;
+      status=run_hgcroc_conversion(this);
     } else {
-      std::cout << "WARNING: This option should only be used for the 2023 SPS test beam for which the CAEN raw data was lost!" << std::endl;
-      status=ConvertOldRootFile2Root();
+      if (!(GetASCIIinputName().EndsWith(".root"))){
+        status=ConvertASCII2Root();
+      } else {
+        std::cout << "WARNING: This option should only be used for the 2023 SPS test beam for which the CAEN raw data was lost!" << std::endl;
+        status=ConvertOldRootFile2Root();
+      }
     }
   }
   if(ExtractPedestal){
