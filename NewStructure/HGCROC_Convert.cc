@@ -10,6 +10,7 @@
 
 
 int run_hgcroc_conversion(Analyses *analysis) {
+    #ifdef DECODE_HGCROC // Built for HGCROC decoding
     std::cout << "Setting up event parameters for HGCROC data" << std::endl;
     // Check mapping file
     if (analysis->MapInputName.IsNull()) {
@@ -116,6 +117,26 @@ int run_hgcroc_conversion(Analyses *analysis) {
 
     analysis->RootOutput->Close();
     return true;
+
+    #else
+    std::cout << "This code is not built for HGCROC decoding" << std::endl;
+    analysis->RootOutput->cd();
+    // setup 
+    RootSetupWrapper rswtmp=RootSetupWrapper(analysis->setup);
+    analysis->rsw=rswtmp;
+    analysis->TsetupOut->Fill();
+    // calib
+    analysis->TcalibOut->Fill();
+    analysis->TcalibOut->Write();
+    // event data
+    analysis->TdataOut->Fill();
+    analysis->TsetupOut->Write();
+    analysis->TdataOut->Write();
+
+    analysis->RootOutput->Close();
+    return false;
+    
+    #endif
 }
 
 bool decode_position(int channel, int &x, int &y, int &z) {
