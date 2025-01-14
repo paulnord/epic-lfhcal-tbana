@@ -164,8 +164,14 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   //
 
   if (verbosity > 2) std::cout << "FitHG cell ID: " << cellID << std::endl;
+  
   TString funcName = Form("fmip%sHGCellID%d",TileName.Data(),cellID);
   bmipHG           = false;
+  
+  if (calib->BadChannel != -64 && calib->BadChannel < 1 ){
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " channel dead" << std::endl;
+    return false;
+  }
   
   double fitrange[2]      = {50, 2000};
   if (impE){
@@ -181,12 +187,12 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   double intAN3s    = hspectraHG.Integral(hspectraHG.FindBin(+3*calib->PedestalSigH),hspectraHG.FindBin(fitrange[1]));
   
   if (intArea/intNoise < 1e-5 && intAN3s > 200){
-    if (verbosity > 0) std::cout << "Skipped HG cell " << cellID << " S/B too small!" << std::endl;
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " S/B too small!" << std::endl;
     return false;
   }
   double startvalues[4]   = {50, 300, intArea, calib->PedestalSigH};
-  double parlimitslo[4]   = {0.5, 50, 1.0, calib->PedestalSigH*0.1};
-  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*10};
+  double parlimitslo[4]   = {0.5, 50, 1.0, calib->PedestalSigH*0.01};
+  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*20};
   if (year == 2023){
     startvalues[0]  = 200;
     startvalues[1]  = 500;    
@@ -197,7 +203,7 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   
   if (impE && (avmip =! -1000)){
     startvalues[1]  = avmip;    
-    parlimitslo[1]  = 0.7*avmip;    
+    parlimitslo[1]  = 0.5*avmip;    
     parlimitshi[1]  = 1.7*avmip;
   }
   if (vov != -1000){
@@ -205,6 +211,8 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
     if (vov < 2.5){
       parlimitslo[1]  = 20;    
       fitrange[0]     = 15;
+    } else if (vov > 5){
+      fitrange[0]     = 150;      
     }
   }  
   SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);
@@ -238,19 +246,21 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   
   int limitStatus = 0;
   for (int i=0; i<4; i++) {
-    if ( TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) 
+    if ( TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) {
       limitStatus++;
+      if (verbosity > 0) std::cout << i << "\t" << SignalHG.GetParameter(i) << "\t : \t"<< parlimitslo[i] << "\t" << parlimitshi[i] << std::endl;
+    }
   }
   if (verbosity > 1){
     std::cout << "Fit status HG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
   }
   
-  if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
-    if (verbosity > 0) std::cout << "Skipped HG cell " << cellID << " fit failed" << std::endl;
+  if (!(fitStatus == 4000 || fitStatus == 0 || fitStatus == 4070 || fitStatus == 70 )){ // only accept fits which succeeded in general
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " fit failed" << std::endl;
     return false;
   }
   if (limitStatus > 0){                        // don't accept fits which reached the set limits
-    if (verbosity > 0) std::cout << "Skipped HG cell " << cellID << " too many limits reached" << std::endl;
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " too many limits reached" << std::endl;
     return false;
   }
   bmipHG = true;
@@ -292,12 +302,17 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
     fitrange[1] = 4*avmip;
   }
 
+  if (calib->BadChannel != -64 && calib->BadChannel < 1 ){
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " channel dead" << std::endl;
+    return false;
+  }
+
   double intArea    = hspectraLG.Integral(hspectraLG.FindBin(fitrange[0]),hspectraLG.FindBin(fitrange[1]));
   double intNoise   = hspectraLG.Integral(hspectraLG.FindBin(-2*calib->PedestalSigL),hspectraLG.FindBin(+2*calib->PedestalSigL));
   double intAN3s    = hspectraLG.Integral(hspectraLG.FindBin(+3*calib->PedestalSigL),hspectraLG.FindBin(fitrange[1]));
   
   if (intArea/intNoise < 1e-5 && intAN3s > 200){
-    if (verbosity > 0) std::cout << "Skipped LG cell " << cellID << " S/B too small!" << std::endl;
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " S/B too small!" << std::endl;
     return false;
   }
   double startvalues[4]   = {calib->PedestalSigL, 20, intArea, calib->PedestalSigL};
@@ -335,19 +350,21 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
   
   int limitStatus = 0;
   for (int i=0; i<4; i++) {
-    if ( TMath::Abs(SignalLG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalLG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) 
+    if ( TMath::Abs(SignalLG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalLG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) {
       limitStatus++;
+      if (verbosity > 0) std::cout << i << "\t" << SignalLG.GetParameter(i) << "\t : \t"<< parlimitslo[i] << "\t" << parlimitshi[i] << std::endl;
+    }
   }
   if (verbosity > 1){
-    std::cout << "Fit status HG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
+    std::cout << "Fit status LG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
   }
   
-  if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
-    if (verbosity > 0) std::cout << "Skipped LG cell " << cellID << " fit failed" << std::endl;
+  if (!(fitStatus == 4000 || fitStatus == 0 || fitStatus == 4070 || fitStatus == 70)){ // only accept fits which succeeded or problems in general
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " fit failed" << std::endl;
     return false;
   }
   if (limitStatus > 0){                        // don't accept fits which reached the set limits
-    if (verbosity > 0) std::cout << "Skipped LG cell " << cellID << " too many limits reached" << std::endl;
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " too many limits reached" << std::endl;
     return false;
   }
   bmipLG = true;

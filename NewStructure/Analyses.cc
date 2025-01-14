@@ -1756,9 +1756,9 @@ bool Analyses::GetImprovedScaling(void){
     RootOutputHist = new TFile(RootOutputNameHist.Data(),"CREATE");
   }
     
-  ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");  
+  ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");
   // setup trigger sel
-  double factorMinTrigg   = 0.9;
+  double factorMinTrigg   = 0.8;
   double factorMaxTrigg   = 2.5;
   if (yearData == 2023){
     factorMinTrigg    = 0.9;
