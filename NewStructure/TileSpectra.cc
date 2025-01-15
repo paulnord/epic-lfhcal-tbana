@@ -192,7 +192,7 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   }
   double startvalues[4]   = {50, 300, intArea, calib->PedestalSigH};
   double parlimitslo[4]   = {0.5, 50, 1.0, calib->PedestalSigH*0.01};
-  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*20};
+  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*40};
   if (year == 2023){
     startvalues[0]  = 200;
     startvalues[1]  = 500;    

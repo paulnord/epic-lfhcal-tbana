@@ -38,6 +38,8 @@ class Calib{
   double GetScaleHigh(int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleWidthHigh(int /**/) const;
   double GetScaleWidthHigh(int /**/, int /**/, int /**/, int /**/) const;
+  double GetCalcScaleLow (int /**/) const;
+  double GetCalcScaleLow (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleLow (int /**/) const;
   double GetScaleLow (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleWidthLow (int /**/) const;
@@ -47,6 +49,7 @@ class Calib{
   double GetScaleHGLGCorr (int /**/) const;
   double GetScaleHGLGCorr (int /**/, int /**/, int /**/, int /**/) const;
   double GetAveragePedestalMeanHigh() const;
+  double GetAverageScaleHigh() const;
   double GetAverageScaleHigh(int &) const;
   double GetAverageScaleWidthHigh() const;
   double GetAverageScaleLow() const;

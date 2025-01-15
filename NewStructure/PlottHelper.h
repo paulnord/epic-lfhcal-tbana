@@ -789,6 +789,34 @@
     canvas2D->SaveAs(nameOutput.Data());
   }
 
+
+  //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotSimple1D( TCanvas* canvas2D, 
+                     TH1* hist, Int_t maxy, Int_t maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1,
+                     TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH1ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      
+      SetMarkerDefaults(hist, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (maxy > -10000)hist->GetYaxis()->SetRangeUser(-0.5,maxy+0.1);
+      if (maxx > -10000)hist->GetXaxis()->SetRangeUser(0.5,maxx+0.1);
+    
+      hist->Draw("p,e");
+      
+      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+
   //__________________________________________________________________________________________________________
   // Plot 2D fit variables overview
   //__________________________________________________________________________________________________________  

@@ -62,7 +62,9 @@ dataDirRaw=""
 dataDirOut=""
 if [ $1 = "fbock" ]; then 
 	dataDirRaw=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/MuonRuns
+	dataDirRawE=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/ElectronRuns
 	dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
+	dataDirOutE=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/ElectronRuns
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit
@@ -71,7 +73,8 @@ fi
 # pedestal runs 
 # pedestalRuns='303 306 308 311 315 271 277 420 454 528 552 553 332 369 377 404 465 476 492 505 521'
 # pedestalRuns='420'
-pedestalRuns='417 412'
+# pedestalRuns='417 412'
+pedestalRuns='492 505'
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./Analyse -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O ../PlotsCalib_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -255,3 +258,19 @@ if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibG" ]; then
 	MuonCalib $3 $pedScanG_46V muonScanG_46V $dataDirRaw $dataDirOut muonScanG_46V $badChannelMap
 fi
 
+
+runNrFile='../configs/DataTakingDB_202409_CAEN.csv'
+muonScanA_45V='244 250 282 283'
+pedScanA_45V='271 277'
+if [ $2 == "calibrate" ]; then
+	# 192K events
+	echo "running calibrate for 45V runs, campaing A1"
+# 	time ./Analyse -f -d 1 -a -C $dataDirOut/rawPedAndMuonWBCImp4th_muonScanA1_45V.root -i $dataDirRaw/raw_muonScanA1_45V.root -o $dataDirOut/calibratedMuon_muonScanA1_45V.root -O ../PlotsMuonCalibrated_2024/MuonA1 -r $runNrFile
+	time ./Analyse -f -d 1 -a -C $dataDirOut/rawPedAndMuonWBCImp3rd_muonScanA2_45V.root -i $dataDirRaw/raw_muonScanA2_45V.root -o $dataDirOut/calibratedMuon_muonScanA2_45V.root -O ../PlotsMuonCalibrated_2024/MuonA2 -r $runNrFile
+# 	runs='251 252 254 257 258 ' 
+# 	for runNr in $runs; do 
+# 		time ./Analyse -f -d 1 -a -C $dataDirOut/rawPedAndMuonWBCImp4th_muonScanA1_45V.root -i $dataDirRawE/raw_$runNr.root -o $dataDirOutE/calibrated_Run_$runNr.root -O ../PlotsElectronCalibrated_2024/Run_$runNr -r $runNrFile
+# 	done;
+# 	echo "running calibrate for 45V runs, campaing "
+# 	time ./Analyse -f -d 1 -a -C $dataDirOut/rawPedAndMuonWBCImp4th_muonScanA1_45V.root -i $dataDirRaw/raw_muonScanA1_45V.root -o $dataDirOut/calibratedMuon_muonScanA1_45V.root -O ../PlotsMuonCalibrated_2024/MuonA1 -r $runNrFile
+fi

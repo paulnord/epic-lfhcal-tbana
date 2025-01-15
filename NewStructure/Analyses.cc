@@ -148,6 +148,7 @@ bool Analyses::CheckAndOpenIO(void){
       std::cout<<"Error opening '"<<RootCalibInputName<<"', does the file exist?"<<std::endl;
       return false;
     }
+    TcalibIn = nullptr;
     TcalibIn = (TTree*) RootCalibInput->Get("Calib");
     if(!TcalibIn){
       std::cout<<"Could not retrieve Calib tree, leaving"<<std::endl;
@@ -2375,28 +2376,91 @@ bool Analyses::GetNoiseSampleAndRefitPedestal(void){
 //***********************************************************************************************
 bool Analyses::Calibrate(void){
   std::cout<<"Calibrate"<<std::endl;
+
+  std::map<int,RunInfo> ri=readRunInfosFromFile(RunListInputName.Data(),debug,0);
+
+  std::cout << "Additional Output with histos being created: " << RootOutputNameHist.Data() << std::endl;
+  if(Overwrite){
+    std::cout << "recreating file with hists" << std::endl;
+    RootOutputHist = new TFile(RootOutputNameHist.Data(),"RECREATE");
+  } else{
+    std::cout << "newly creating file with hists" << std::endl;
+    RootOutputHist = new TFile(RootOutputNameHist.Data(),"CREATE");
+  }
+  
+  // create HG and LG histo's per channel
+  TH2D* hspectraHGCorrvsCellID      = new TH2D( "hspectraHGCorr_vsCellID","ADC spectrum High Gain corrected vs CellID; cell ID; ADC_{HG} (arb. units)  ; counts ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraHGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraLGCorrvsCellID      = new TH2D( "hspectraLGCorr_vsCellID","ADC spectrum Low Gain corrected vs CellID; cell ID; ADC_{LG} (arb. units)  ; counts  ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraLGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraHGvsCellID      = new TH2D( "hspectraHG_vsCellID","ADC spectrum High Gain vs CellID; cell ID; ADC_{HG} (arb. units)   ; counts ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,0,4000);
+  hspectraHGvsCellID->SetDirectory(0);
+  TH2D* hspectraLGvsCellID      = new TH2D( "hspectraLG_vsCellID","ADC spectrum Low Gain vs CellID; cell ID; ADC_{LG} (arb. units)  ; counts",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,0,4000);
+  hspectraLGvsCellID->SetDirectory(0);
+  TH2D* hspectraEnergyvsCellID  = new TH2D( "hspectraEnergy_vsCellID","Energy vs CellID; cell ID; E (mip eq./tile)    ; counts",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 6000,0,200);
+  hspectraEnergyvsCellID->SetDirectory(0);
+  TH2D* hspectraEnergyTotvsNCells  = new TH2D( "hspectraTotEnergy_vsNCells","Energy vs CellID; N_{Cells}; E_{tot} (mip eq./tile) ; counts",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 6000,0,1000);
+  hspectraEnergyTotvsNCells->SetDirectory(0);
+
+  Int_t runNr = -1;
+  RootOutput->cd();
+  std::cout << "starting to run calibration: " << TcalibIn <<  "\t" << TcalibIn->GetEntry(0) << std::endl;
   TcalibIn->GetEntry(0);
+  int actCh1st = 0;
+  double averageScale = calib.GetAverageScaleHigh(actCh1st);
+  double avLGHGCorr   = calib.GetAverageLGHGCorr();
+  std::cout << "average HG mip: " << averageScale << "\t active ch: "<< actCh1st<< std::endl;
+  
+  // setup local trigger sel
+  TRandom3* rand    = new TRandom3();
+  Int_t localTriggerTiles = 4;
+  if (yearData == 2023){
+    localTriggerTiles = 6;
+  }
+  double minMipFrac = 0.3;
+  int corrHGADCSwap = 3500;
   int evts=TdataIn->GetEntries();
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
-    if (i%5000 == 0 && i > 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    if (i%5000 == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    if (i == 0)runNr = event.GetRunNumber();
+    double Etot = 0;
+    int nCells  = 0;
     for(int j=0; j<event.GetNTiles(); j++){
       Caen* aTile=(Caen*)event.GetTile(j);
-      double energy=0;
-      if(aTile->GetADCHigh()<3800){
-        if(aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID())>calib.GetPedestalMeanH(aTile->GetCellID())){
-          energy=(aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID()))/calib.GetScaleHigh(aTile->GetCellID());
+      double energy = 0;
+      double corrHG = aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID());
+      double corrLG = aTile->GetADCLow()-calib.GetPedestalMeanL(aTile->GetCellID());
+      if(corrHG<corrHGADCSwap){
+        if(corrHG/calib.GetScaleHigh(aTile->GetCellID()) > minMipFrac){
+          energy=corrHG/calib.GetScaleHigh(aTile->GetCellID());
         }
+      } else {
+        energy=corrLG/calib.GetCalcScaleLow(aTile->GetCellID());
       }
-      else{
-        energy=(aTile->GetADCLow()-calib.GetPedestalMeanL(aTile->GetCellID()))/calib.GetScaleLow(aTile->GetCellID());
-      }
-      if(energy!=0) aTile->SetE(energy);
-      else {
+      hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCHigh());
+      hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCLow());
+      hspectraHGCorrvsCellID->Fill(aTile->GetCellID(), corrHG);
+      hspectraLGCorrvsCellID->Fill(aTile->GetCellID(), corrLG);
+      if(energy!=0){ 
+        // calculate trigger primitives
+        aTile->SetLocalTriggerPrimitive(event.CalculateLocalMuonTrigg(calib, rand, aTile->GetCellID(), localTriggerTiles, avLGHGCorr));
+        aTile->SetE(energy);
+        hspectraEnergyvsCellID->Fill(aTile->GetCellID(), energy);
+        Etot=Etot+energy;
+        nCells++;
+      } else {
         event.RemoveTile(aTile);
         j--;
       }
     }
+    hspectraEnergyTotvsNCells->Fill(nCells,Etot);
     RootOutput->cd();
     TdataOut->Fill();
   }
@@ -2408,11 +2472,65 @@ bool Analyses::Calibrate(void){
     fileCalibPrint         = fileCalibPrint.ReplaceAll(".root","_calib.txt");
     calib.PrintCalibToFile(fileCalibPrint);
   }
-
+  
   TcalibOut->Fill();
   TcalibOut->Write();
+  
+  
   RootOutput->Close();
   RootInput->Close();      
+  
+  RootOutputHist->cd();
+
+  hspectraHGvsCellID->Write();
+  hspectraLGvsCellID->Write();
+  hspectraHGCorrvsCellID->Write();
+  hspectraLGCorrvsCellID->Write();
+  hspectraEnergyvsCellID->Write();
+  hspectraEnergyTotvsNCells->Write();
+  
+  TH1D* hspectraEnergyTot = (TH1D*)hspectraEnergyTotvsNCells->ProjectionY();
+  hspectraEnergyTot->SetDirectory(0);
+  TH1D* hspectraNCells = (TH1D*)hspectraEnergyTotvsNCells->ProjectionX();
+  hspectraNCells->SetDirectory(0);
+  hspectraEnergyTot->Write("hTotEnergy");
+  hspectraNCells->Write("hNCells");
+
+  RootOutputHist->Close();
+  //**********************************************************************
+  //********************* Plotting ***************************************
+  //**********************************************************************
+  // Get run info object
+  std::map<int,RunInfo>::iterator it=ri.find(runNr);
+  
+  TString outputDirPlots = GetPlotOutputDir();
+  gSystem->Exec("mkdir -p "+outputDirPlots);
+  
+  //**********************************************************************
+  // Create canvases for channel overview plotting
+  //**********************************************************************
+  Double_t textSizeRel = 0.035;
+  StyleSettingsBasics("pdf");
+  SetPlotStyle();
+  
+  TCanvas* canvas2DCorr = new TCanvas("canvasCorrPlots","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.045, 0.07);
+  canvas2DCorr->SetLogz(1);
+  PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, -10000, -10000, textSizeRel, Form("%s/HG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, -10000, -10000, textSizeRel, Form("%s/LG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/LGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyvsCellID, -10000, -10000, textSizeRel, Form("%s/EnergyVsCellID.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  
+  TCanvas* canvas1DSimple = new TCanvas("canvas1DSimple","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas1DSimple, 0.08, 0.03, 0.03, 0.07);
+  hspectraEnergyTot->Scale(1./evts);
+  hspectraEnergyTot->GetYaxis()->SetTitle("counts/event");
+  PlotSimple1D(canvas1DSimple, hspectraEnergyTot, -10000, -10000, textSizeRel, Form("%s/EnergyTot.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT E_{Tot} #GT = %.1f (mip/tile eq.)",hspectraEnergyTot->GetMean() ));
+  hspectraNCells->Scale(1./evts);
+  hspectraNCells->GetYaxis()->SetTitle("counts/event");
+  PlotSimple1D(canvas1DSimple, hspectraNCells, -10000, -10000, textSizeRel, Form("%s/NCells.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT N_{Cells} #GT = %.1f",hspectraNCells->GetMean() ));
   
   return true;
 }

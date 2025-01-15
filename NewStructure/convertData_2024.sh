@@ -2,7 +2,7 @@
 
 dataDir=""
 if [ $1 = "fbock" ]; then 
-	dataDir=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
+	dataDir=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/MuonRuns
 	dataRaw=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
 elif [ $1 = "fbockExt" ]; then 
 	dataDir=/media/fbock/T7/CAEN_Sept24_TB_PS
@@ -14,7 +14,8 @@ fi
 
 if [ $2 == "single" ]; then 
 #   runs='244'
-  runs='271'
+#   runs='271'
+  runs='492 505'
   for runNr in $runs; do 
     ./Analyse -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;

@@ -40,8 +40,13 @@ double Calib::GetPedestalSigL(int cellID) const{
 
 double Calib::GetScaleHigh(int cellID)const {
   std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
-  if(it!=CaloCalib.end()) return it->second.ScaleH;
-  else return -1.;
+  if(it!=CaloCalib.end()){
+    if (it->second.ScaleH != -1000  && (BCcalc && it->second.BadChannel > 1)){
+      return it->second.ScaleH;
+    } else {
+      return GetAverageScaleHigh();
+    }
+  } else return -1.;
 }
 
 double Calib::GetScaleWidthHigh(int cellID)const {
@@ -49,6 +54,22 @@ double Calib::GetScaleWidthHigh(int cellID)const {
   //if(it!=ScaleH.end()) return it->second;
   std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
   if(it!=CaloCalib.end()) return it->second.ScaleWidthH;
+  else return -1.;
+}
+
+double Calib::GetCalcScaleLow(int cellID) const {
+  std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
+  if(it!=CaloCalib.end()){
+    if (it->second.ScaleH != -1000 && it->second.LGHGCorr != -64  && (BCcalc && it->second.BadChannel > 1)){
+      return it->second.ScaleH/it->second.LGHGCorr;
+    } else if ( it->second.LGHGCorr != -64  && (BCcalc && it->second.BadChannel > 1)){
+      return GetAverageScaleHigh()/it->second.LGHGCorr;
+    } else if (it->second.ScaleH != -1000 && (BCcalc && it->second.BadChannel > 1)){
+      return it->second.ScaleH/GetAverageLGHGCorr();
+    } else {
+      return GetAverageScaleHigh()/GetAverageLGHGCorr();
+    }
+  }
   else return -1.;
 }
 
@@ -127,6 +148,12 @@ double Calib::GetScaleLow(int row, int col, int lay, int mod=0)const{
   return GetScaleLow(key);
 }
 
+double Calib::GetCalcScaleLow(int row, int col, int lay, int mod=0)const{
+  Setup* setup = Setup::GetInstance();
+  int key=setup->GetCellID(row, col, lay, mod);
+  return GetCalcScaleLow(key);
+}
+
 double Calib::GetScaleWidthLow(int row, int col, int lay, int mod=0)const{
   Setup* setup = Setup::GetInstance();
   int key=setup->GetCellID(row, col, lay, mod);
@@ -162,6 +189,21 @@ double Calib::GetAveragePedestalMeanHigh()const{
   }
   return avSc/CaloCalib.size();
 }
+
+double Calib::GetAverageScaleHigh( )const{
+  double avSc   = 0;
+  int notCalib  = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    if (it->second.ScaleH == -1000 || (BCcalc && it->second.BadChannel < 2) ){
+      notCalib++;
+    } else {
+      avSc += it->second.ScaleH;
+    }
+  }
+  return avSc/(CaloCalib.size()-notCalib);
+}
+
 
 double Calib::GetAverageScaleHigh(int &active )const{
   double avSc   = 0;
