@@ -6,7 +6,7 @@
 #include "HGCROC.h"
 #include "CommonHelperFunctions.h"
 
-#include "include/run_decoder.h"
+#include "include/h2g_decode/run_decoder.h"
 
 
 int run_hgcroc_conversion(Analyses *analysis) {
