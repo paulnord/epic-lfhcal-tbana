@@ -27,6 +27,7 @@ class TileSpectra: public TObject{
     bmipHG        = false;
     bmipLG        = false;
     bcorrHGLG     = false;
+    bcorrLGHG     = false;
     hspectraHG    = TH1D(Form("hspectra%sHGCellID%d",name.Data(),id),Form("ADC spectrum High Gain CellID %d; HG ADC (arb. units); counts ",id),4200,-200,4000);
     hspectraHG.SetDirectory(0);
     hspectraLG    = TH1D(Form("hspectra%sLGCellID%d",name.Data(),id),Form("ADC spectrum Low  Gain CellID %d; LG ADC (arb. units); counts",id),4200,-200,4000);

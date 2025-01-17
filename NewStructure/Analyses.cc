@@ -2423,6 +2423,14 @@ bool Analyses::Calibrate(void){
   if (yearData == 2023){
     localTriggerTiles = 6;
   }
+  double factorMinTrigg   = 0.8;
+  double factorMaxTrigg   = 2.;
+  if (yearData == 2023){
+    factorMinTrigg    = 0.9;
+    factorMaxTrigg    = 2.;
+  }
+
+  
   double minMipFrac = 0.3;
   int corrHGADCSwap = 3500;
   int evts=TdataIn->GetEntries();
@@ -2434,6 +2442,13 @@ bool Analyses::Calibrate(void){
     int nCells  = 0;
     for(int j=0; j<event.GetNTiles(); j++){
       Caen* aTile=(Caen*)event.GetTile(j);
+      // remove bad channels from output
+      if (calib.GetBCCalib() && calib.GetBadChannel(aTile->GetCellID())!= 3 ){
+        event.RemoveTile(aTile);
+        j--;        
+        continue;
+      }
+      
       double energy = 0;
       double corrHG = aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID());
       double corrLG = aTile->GetADCLow()-calib.GetPedestalMeanL(aTile->GetCellID());
@@ -2451,7 +2466,12 @@ bool Analyses::Calibrate(void){
       if(energy!=0){ 
         // calculate trigger primitives
         aTile->SetLocalTriggerPrimitive(event.CalculateLocalMuonTrigg(calib, rand, aTile->GetCellID(), localTriggerTiles, avLGHGCorr));
+        bool localMuonTrigg = event.InspectIfLocalMuonTrigg(aTile->GetCellID(), averageScale, factorMinTrigg, factorMaxTrigg);
+        
         aTile->SetE(energy);
+        aTile->SetLocalTriggerBit(0);
+        
+        if (localMuonTrigg) aTile->SetLocalTriggerBit(1);
         hspectraEnergyvsCellID->Fill(aTile->GetCellID(), energy);
         Etot=Etot+energy;
         nCells++;

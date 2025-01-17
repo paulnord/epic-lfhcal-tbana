@@ -8,6 +8,14 @@
   #include <vector>
   #include <map>
   #include <utility>
+
+  struct Layer{
+    Layer(): nCells(0), energy(0.), avX(0.), avY(0.) {}
+    int nCells;
+    double energy;
+    double avX;
+    double avY;
+  } ;
   
   struct RunInfo{
     RunInfo(): runNr(0), species(""), pdg(0), energy(0), vop(0), vbr(0), lgSet(0), hgSet(0), posX(0), posY(0), assemblyNr(0){}

@@ -818,6 +818,46 @@
   }
 
   //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotContamination1D( TCanvas* canvas2D, 
+                     TH1* histAll, TH1* histMuon, TH1* histPrim, Int_t maxy, Int_t maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1,
+                     TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH1ForGraphs( histAll, histAll->GetXaxis()->GetTitle(), histAll->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      
+      SetMarkerDefaults(histAll, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (maxy > -10000)histAll->GetYaxis()->SetRangeUser(-0.5,maxy+0.1);
+      if (maxx > -10000)histAll->GetXaxis()->SetRangeUser(0.5,maxx+0.1);
+    
+      histAll->Draw("p,e");
+      SetMarkerDefaults(histMuon, 25, 1, kGray+1, kGray+1, kFALSE);   
+      histMuon->Draw("p,e,same");
+      SetMarkerDefaults(histPrim, 24, 1, kRed+1, kRed+1, kFALSE);   
+      histPrim->Draw("p,e,same");
+    
+
+      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+      
+      TLegend* legend = GetAndSetLegend2( 0.11, 0.95-3*textSizeRel, 0.4, 0.95,0.85*textSizeRel, 1, "", 42,0.2);
+      legend->AddEntry(histAll, "no evt. selection", "p");
+      legend->AddEntry(histMuon, "muon events", "p");
+      legend->AddEntry(histPrim, "remaining events", "p");
+      legend->Draw();
+      
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+  
+  
+  //__________________________________________________________________________________________________________
   // Plot 2D fit variables overview
   //__________________________________________________________________________________________________________  
   void PlotSimple2DZRange( TCanvas* canvas2D, 
@@ -1081,6 +1121,12 @@
         ithSpectra=spectra.find(tempCellID);
         if(ithSpectra==spectra.end()){
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.04, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.04, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }
           continue;
         } 
         TH1D* tempHist = nullptr;
@@ -1177,7 +1223,6 @@
         if (maxY < FindLargestBin1DHist(tempHist, xPMin , xPMax)) maxY = FindLargestBin1DHist(tempHist, xPMin , xPMax);
       }  
     }
-    
     for (int r = 0; r < nRow; r++){
       for (int c = 0; c < nCol; c++){
         canvas8Panel->cd();
@@ -1190,6 +1235,12 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }
           continue;
         } 
         ithSpectraTrigg=spectraTrigg.find(tempCellID);
@@ -1326,6 +1377,12 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }          
           continue;
         } 
         ithSpectraTrigg=spectraTrigg.find(tempCellID);
@@ -1447,7 +1504,7 @@
     int nRow = setupT->GetNMaxRow()+1;
     int nCol = setupT->GetNMaxColumn()+1;
     int skipped = 0;
-    
+
     for (int r = 0; r < nRow; r++){
       for (int c = 0; c < nCol; c++){
         canvas8Panel->cd();
@@ -1461,7 +1518,13 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
-          continue;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+          }
+        continue;
         } 
         TProfile* tempProfile = nullptr;
         if (isHG){
@@ -1565,7 +1628,7 @@
         if (maxY < FindLargestBin1DHist(tempHist, xPMin , xPMax)) maxY = FindLargestBin1DHist(tempHist, xPMin , xPMax);
       }  
     }
-    
+
     for (int r = 0; r < nRow; r++){
       for (int c = 0; c < nCol; c++){
         canvas8Panel->cd();
@@ -1578,6 +1641,13 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-2.*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-3.*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4.*relSize8P[p], "Trigger primitives", true, 0.85*relSize8P[p], 42);
+          }
           continue;
         } 
         TH1D* tempHist = ithSpectra->second.GetTriggPrim();
@@ -1626,6 +1696,5 @@
     if (skipped < 6)
       canvas8Panel->SaveAs(nameOutput.Data());
   }
-  
-  
+    
 #endif
