@@ -9,9 +9,15 @@
 #include "include/h2g_decode/run_decoder.h"
 
 
-int run_hgcroc_conversion(Analyses *analysis) {
+int run_hgcroc_conversion(Analyses *analysis, waveform_fit_base *waveform_builder) {
     #ifdef DECODE_HGCROC // Built for HGCROC decoding
     std::cout << "Setting up event parameters for HGCROC data" << std::endl;
+    // Make sure we actually have a waveform builder
+    if (waveform_builder == nullptr) {
+        std::cout << "No waveform builder specified" << std::endl;
+        return 1;
+    }
+
     // Check mapping file
     if (analysis->MapInputName.IsNull()) {
         std::cout << "No mapping file specified" << std::endl;
@@ -63,12 +69,15 @@ int run_hgcroc_conversion(Analyses *analysis) {
     // Run the event builder
     std::list<aligned_event*> *events = run_event_builder((char*)analysis->ASCIIinputName.Data());
 
-    std::cout << "completed HGCROC event builder!" << std::endl;
+    std::cout << "completed HGCROC event builder!\n" << std::endl;
 
 
     // convert from the aligned_events datatype to the Event datatype
     int event_number = 0;
     for (auto it = events->begin(); it != events->end(); it++) {
+        if (true || event_number % 100 == 0) {
+            std::cout << "\rFitting event " << event_number << std::flush;
+        }
         aligned_event *ae = *it;
         analysis->event.SetEventID(event_number);
         event_number++;
@@ -94,6 +103,12 @@ int run_hgcroc_conversion(Analyses *analysis) {
                         tile->AppendWaveformTOA(single_kcu->get_sample_toa(j, sample));
                         tile->AppendWaveformTOT(single_kcu->get_sample_tot(j, sample));
                     }
+
+                    // process tile waveform
+                    waveform_builder->set_waveform(tile->GetADCWaveform());
+                    waveform_builder->fit();
+                    tile->SetE(waveform_builder->get_E());
+
                     analysis->event.AddTile(tile);
                 }
             }
@@ -102,6 +117,7 @@ int run_hgcroc_conversion(Analyses *analysis) {
         analysis->event.ClearTiles();
         }
     }
+    std::cout << "\nFinished converting events\n" << std::endl;
     analysis->RootOutput->cd();
     // setup 
     RootSetupWrapper rswtmp=RootSetupWrapper(analysis->setup);

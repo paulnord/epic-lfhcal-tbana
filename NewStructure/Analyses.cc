@@ -18,6 +18,9 @@
 
 #include "HGCROC_Convert.h"
 
+#include "waveform_fitting/waveform_fit_base.h"
+#include "waveform_fitting/crystal_ball_fit.h"
+
 // ****************************************************************************
 // Checking and opening input and output files
 // ****************************************************************************
@@ -199,8 +202,43 @@ bool Analyses::Process(void){
   
   if(Convert){
     if (HGCROC) {
+      // Set waveform builder
+      waveform_fit_base *waveform_builder = nullptr;
+      waveform_builder = new crystal_ball_fit();
+
+      // Set the parameters based off what I found in the stand alone analysis
+      // Alpha
+      waveform_builder->set_parameter(0, 1.1);
+      waveform_builder->set_parameter(10, 1);
+      waveform_builder->set_parameter(20, 1.2);
+
+      // n
+      waveform_builder->set_parameter(1, 0.3);
+      waveform_builder->set_parameter(11, 0.2);
+      waveform_builder->set_parameter(21, 0.6);
+
+      // x_bar
+      waveform_builder->set_parameter(2, 0.7);
+      waveform_builder->set_parameter(12, 0.5);
+      waveform_builder->set_parameter(22, 4.5);
+
+      // sigma
+      waveform_builder->set_parameter(3, 0.3);
+      waveform_builder->set_parameter(13, 0.25);
+      waveform_builder->set_parameter(23, 0.65);
+
+      // N
+      waveform_builder->set_parameter(4, 0);
+      waveform_builder->set_parameter(14, 0);
+      waveform_builder->set_parameter(24, 2000);
+
+      // Offset
+      waveform_builder->set_parameter(5, 100);  // This needs to become pedestals eventually... 
+      waveform_builder->set_parameter(15, 70);
+      waveform_builder->set_parameter(25, 150);
+
       std::cout << "Running HGCROC conversion" << std::endl;
-      status=run_hgcroc_conversion(this);
+      status=run_hgcroc_conversion(this, waveform_builder);
     } else {
       if (!(GetASCIIinputName().EndsWith(".root"))){
         status=ConvertASCII2Root();

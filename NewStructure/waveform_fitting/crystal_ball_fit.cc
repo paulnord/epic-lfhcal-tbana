@@ -20,6 +20,7 @@ crystal_ball_fit::crystal_ball_fit() : waveform_fit_base{} {
     parameters[5] = 0;  // offset
 
     crystal_ball_function = new TF1("crystal_ball_function", this, &crystal_ball_fit::crystal_ball, 0, 10, 6);
+    linear_function = new TF1("constant", "[0]", 0, 10);
     crystal_ball_graph = new TGraph();
 }
 
@@ -54,16 +55,28 @@ void crystal_ball_fit::fit() {
     for (int i = 0; i < waveform.size(); i++) {
         crystal_ball_graph->SetPoint(i, i, waveform[i]);
     }
+
+    // Try a linear fit
+    linear_function->SetParameter(0, 100);
+    linear_function->SetParLimits(0, 70, 150);
+    crystal_ball_graph->Fit(linear_function, "Q");
+    if (linear_function->GetChisquare() < 500) {
+        E = 0;
+        fit_ndf = linear_function->GetNDF();
+        fit_chi2 = linear_function->GetChisquare();
+        stale = false;
+        return;
+    }
     
     // Set initial parameters
     for (int i = 0; i < 6; i++) {
         crystal_ball_function->SetParameter(i, parameters[i]);
-        if (parameters.count(i + 10) && parameters[i + 20]) {   // If the parameter has a lower and upper limit
+        if (parameters.count(i + 10) && parameters.count(i + 20)) {   // If the parameter has a lower and upper limit
             crystal_ball_function->SetParLimits(i, parameters[i + 10], parameters[i + 20]);
         }
     }
     // Fit the graph
-    crystal_ball_graph->Fit(crystal_ball_function);
+    crystal_ball_graph->Fit(crystal_ball_function, "Q");
 
     // Get the results
     E = crystal_ball_function->GetParameter(4);

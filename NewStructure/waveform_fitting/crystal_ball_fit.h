@@ -20,6 +20,7 @@ private:
     double crystal_ball(double *inputs, double *parameters);
 
     TF1 *crystal_ball_function;
+    TF1 *linear_function;
     TGraph *crystal_ball_graph;
 
 };
