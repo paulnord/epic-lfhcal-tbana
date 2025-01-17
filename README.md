@@ -172,9 +172,11 @@ The DB of runs is saved in a txt file and is also hard coded.
 
 
 # HGCROC Conversion
-The first pass of converting the HGCROC data to a format usable in this analaysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the NewStructure folder, and compile with HGCROC_Analyse.
+The first pass of converting the HGCROC data to a format usable in this analaysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the `NewStructure/lib/` folder, and compile with HGCROC_Analyse.
 Currently, the mapping is hardcoded into the library, this will be worked on next.  Additionally, there is no waveform analysis yet, so E, TOT, and TOA are all set to 0.  However, the waveform for each channel is stored.  I have been testing with 
+    
     ```
     ./Analyse -c Run302.h2g -w -o test.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
     ```
+
 which clearly isn't complete, as it references the mapping and database fore the CAEN data.  That will also be changed soon.

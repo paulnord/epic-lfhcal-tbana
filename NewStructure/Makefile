@@ -72,9 +72,9 @@ crystal_ball_fit.o: waveform_fitting/crystal_ball_fit.cc waveform_fitting/crysta
 #	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o RootCalibWrapper.o Tile.o HGCROC.o Caen.o Analyses.o Analyse.o $(FLAGS) -I. libLFHCAL.so -o Analyse
 
 Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o TileSpectra.o libLFHCAL.so Analyse.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Analyse.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o $(FLAGS) -I. libLFHCAL.so -Llib -o Analyse
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Analyse.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o $(FLAGS) -I. libLFHCAL.so -o Analyse
 
-HGCROC_Analyse: FLAGS += -DDECODE_HGCROC libh2g_decode.so
+HGCROC_Analyse: FLAGS += -DDECODE_HGCROC -Llib -lh2g_decode
 HGCROC_Analyse: Analyse
 
 Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Compare.o ComparisonCalib.o
