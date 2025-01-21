@@ -1,4 +1,4 @@
-FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common  -pedantic -Wall -std=c++17 `root-config --libs --ldflags --cflags`
+FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common -pedantic -Wall -std=c++17 -Wl,-rpath='${ORIGIN}' `root-config --libs --ldflags --cflags`
 LINKER = g++ -g -shared $(OPTIMISATION)
 
 Setup.o: Setup.cc Setup.h RootSetupWrapper.h

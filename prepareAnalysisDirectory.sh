@@ -1,5 +1,7 @@
 if [ $1 = "fbock" ]; then
     LFHCALTBDIR=/home/fbock/EIC/Software/epic-LFHCalTB
+elif [ $1 = "eglimos" ]; then
+    LFHCALTBDIR=/home/ewa/EIC/epic-lfhcal-tbana
 else 
     echo "Please add your user name to the script and define the location of the TBAnalysisSoftware"
     exit
