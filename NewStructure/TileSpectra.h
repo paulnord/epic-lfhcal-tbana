@@ -39,10 +39,35 @@ class TileSpectra: public TObject{
     hspectraHGLG  = TProfile(Form("hCoorspectra%sHGLGCellID%d",name.Data(),id),Form("ADC High  Gain/Low Gain correlation CellID %d; HG ADC (arb. units); LG ADC (arb. units)",id),4100,-100,4000);
     hspectraHGLG.SetDirectory(0);
   }
+  TileSpectra(TString name, int ext, int id, TileCalib* cal, int deb=0):TObject()
+  {
+    TileName      = name;
+    extend        = ext;
+    cellID        = id;
+    calib         = cal;
+    debug         = deb;
+    bpedHG        = false;
+    bpedLG        = false;
+    bmipHG        = false;
+    bmipLG        = false;
+    bcorrHGLG     = false;
+    bcorrLGHG     = false;
+    if (extend == 1){
+      hspectraHG    = TH1D(Form("hspectra%sHGCellID%d",name.Data(),id),Form("ADC spectrum High Gain CellID %d; Corr HG ADC (arb. units); counts ",id),4200,-200,4000);
+      hspectraHG.SetDirectory(0);
+      hspectraLG    = TH1D(Form("hspectra%sLGCellID%d",name.Data(),id),Form("ADC spectrum Low  Gain CellID %d; Corr LG ADC (arb. units); counts",id),4200,-200,4000);
+      hspectraLG.SetDirectory(0);
+      hcombined     = TH1D(Form("hspectra%sCombCellID%d",name.Data(),id),Form("Energy CellID %d; E (mip eq./tile); counts",id),8000,-5,1000);
+      hcombined.SetDirectory(0);
+      hspectraLGHG  = TProfile(Form("hCoorspectra%sLGHGCellID%d",name.Data(),id),Form("ADC Low  Gain/High Gain correlation CellID %d; Corr LG ADC (arb. units); HG E (mip eq./tile)",id),800,0,800);
+      hspectraLGHG.SetDirectory(0);
+    }
+  }
   ~TileSpectra(){}
 
   bool Fill(double, double);
   bool FillSpectra(double, double);
+  bool FillExt(double, double, double);
   bool FillCorr(double, double);
   bool FillTrigger(double);
   
@@ -51,6 +76,7 @@ class TileSpectra: public TObject{
   bool FitMipHG(double*, double*, int, int, bool, double, double );
   bool FitMipLG(double*, double*, int, int, bool, double );
   bool FitCorr(int);
+  bool FitLGHGCorr(int , bool);
   bool FitNoiseWithBG(double*);
   short DetermineBadChannel();
 
@@ -62,8 +88,8 @@ class TileSpectra: public TObject{
 
   TH1D* GetHG();
   TH1D* GetLG();
+  TH1D* GetComb();
   TH1D* GetTriggPrim();
-  TH1D* GetHGLGcomb();
   TProfile* GetLGHGcorr();
   TProfile* GetHGLGcorr();
 
@@ -73,11 +99,14 @@ class TileSpectra: public TObject{
   TileCalib* GetCalib();
   
   void Write(bool);
+  void WriteExt(bool);
+  
  protected:
   TString TileName;
   int cellID;
   TileCalib* calib;
   int debug;
+  int extend = 0;
   bool bpedHG;
   bool bpedLG;
   bool bmipHG;

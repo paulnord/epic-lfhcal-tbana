@@ -1,6 +1,10 @@
 #include "Calib.h"
 #include <iostream>
 #include <fstream>
+#include "TString.h"
+#include "TObjArray.h"
+#include "TObjString.h"
+#include <utility>
 
 ClassImp(Calib);
 
@@ -585,4 +589,182 @@ void Calib::PrintCalibToFile(TString filename){
     fFileCalibOut << outSt.Data() << std::endl;
   }
   fFileCalibOut.close();
+}
+
+void Calib::ReadCalibFromTextFile(TString filename, int debug){
+  
+  std::fstream fFileCalibIn;
+  std::cout << "********************************************************************************************************" << std::endl;
+  std::cout << "Reading calib info from: " << filename.Data() << std::endl;
+  std::cout << "********************************************************************************************************" << std::endl;
+  fFileCalibIn.open(filename.Data(), std::ios::in);
+  if (!fFileCalibIn) {
+      std::cout << "ERROR: file " << filename.Data() << " not found!" << std::endl;
+      return;
+  }
+  int nMod = 0;
+  for( TString tempLine; tempLine.ReadLine(fFileCalibIn, kTRUE); ) {
+    // check if line should be considered
+    if (tempLine.BeginsWith("%") || tempLine.BeginsWith("#")){
+        continue;
+    }
+    if (debug > 0) std::cout << tempLine.Data() << std::endl;
+
+    // Separate the string according to tabulators
+    TObjArray *tempArr  = tempLine.Tokenize("\t");
+    if(tempArr->GetEntries()<1){
+        if (debug > 1) std::cout << "nothing to be done" << std::endl;
+        delete tempArr;
+        continue;
+    } else if (tempArr->GetEntries() == 1 ){
+        // Separate the string according to space
+        tempArr       = tempLine.Tokenize(" ");
+        if(tempArr->GetEntries()<1){
+            if (debug > 1) std::cout << "nothing to be done" << std::endl;
+            delete tempArr;
+            continue;
+        } else if (tempArr->GetEntries() == 1  ) {
+            if (debug > 1) std::cout << ((TString)((TObjString*)tempArr->At(0))->GetString()).Data() << " no correct format detected" << std::endl;
+            delete tempArr;
+            continue;
+        }
+    }
+    if (tempArr->GetEntries() == 5){
+     std::cout << tempLine.Data() << std::endl;
+     TString part = ((TObjString*)tempArr->At(0))->GetString();
+     TObjArray *tempArr2  = part.Tokenize(" ");
+     int runNr = ((TString)((TObjString*)tempArr2->At(1))->GetString()).Atoi();
+     if (GetRunNumber() != runNr){
+       if (debug > 0) std::cout << "Resetting run number: " << runNr << std::endl;
+       SetRunNumber(runNr);
+       nMod++;
+     }
+     delete tempArr2;
+     
+     part = ((TObjString*)tempArr->At(2))->GetString();
+     TObjArray *tempArr3  = part.Tokenize(" ");
+     double vop = ((TString)((TObjString*)tempArr3->At(1))->GetString()).Atof();
+     if (TMath::Abs(GetVop() - vop) > 1e-2){
+       if (debug > 0) std::cout << "Resetting Vop: " << vop << std::endl;
+       SetVop(vop);     
+       nMod++;
+     }
+     delete tempArr3;
+
+     part = ((TObjString*)tempArr->At(3))->GetString();
+     TObjArray *tempArr4  = part.Tokenize(" ");
+     double vov = ((TString)((TObjString*)tempArr4->At(1))->GetString()).Atof();
+     if (TMath::Abs(GetVov() - vov) > 1e-2){
+       if (debug > 0) std::cout << "Resetting Vov: " << vov << std::endl;
+       SetVop(vov);     
+       nMod++;
+     }
+     delete tempArr4;
+     
+     continue;
+    } else if (tempArr->GetEntries() != 16){
+      std::cout << "Temp array has " << tempArr->GetEntries() << " entries"<< std::endl;
+      std::cout << tempLine.Data() << std::endl;
+      std::cout << "line has wrong format, should be" << std::endl;
+      TString head = Form("#cellID\tlayer\trow\tcolumn\tmodule\tped mean H\tped sig H\tped mean L\tped sig L\tmip Scale H\tmip Width H\tmip Scale L\tmip Width L\tLG-HG\tHG-LG\tBC");  
+      std::cout << head.Data() << std::endl;
+      delete tempArr;
+      continue;
+    }
+    int cellID      = ((TString)((TObjString*)tempArr->At(0))->GetString()).Atoi();
+    int layer       = ((TString)((TObjString*)tempArr->At(1))->GetString()).Atoi();
+    int row         = ((TString)((TObjString*)tempArr->At(2))->GetString()).Atoi();
+    int column      = ((TString)((TObjString*)tempArr->At(3))->GetString()).Atoi();
+    int moduleNr    = ((TString)((TObjString*)tempArr->At(4))->GetString()).Atoi();
+    double pedMH    = ((TString)((TObjString*)tempArr->At(5))->GetString()).Atof();
+    double pedSH    = ((TString)((TObjString*)tempArr->At(6))->GetString()).Atof();                       
+    double pedML    = ((TString)((TObjString*)tempArr->At(7))->GetString()).Atof();
+    double pedSL    = ((TString)((TObjString*)tempArr->At(8))->GetString()).Atof();                       
+    double ScaleH   = ((TString)((TObjString*)tempArr->At(9))->GetString()).Atof();                       
+    double ScaleHW  = ((TString)((TObjString*)tempArr->At(10))->GetString()).Atof();                       
+    double ScaleL   = ((TString)((TObjString*)tempArr->At(11))->GetString()).Atof();                       
+    double ScaleLW  = ((TString)((TObjString*)tempArr->At(12))->GetString()).Atof();                       
+    double LGHG     = ((TString)((TObjString*)tempArr->At(13))->GetString()).Atof();                       
+    double HGLG     = ((TString)((TObjString*)tempArr->At(14))->GetString()).Atof();                       
+    short bc        = ((TString)((TObjString*)tempArr->At(15))->GetString()).Atoi();
+      
+    if (debug > 0) std::cout << "checking need for reset for CellID:  " << cellID << "\t" << layer << "\t" << row << "\t" << column << "\t" << moduleNr << std::endl;
+    TileCalib* tileCal = GetTileCalib(cellID);
+    if ( TMath::Abs(pedMH - tileCal->PedestalMeanH) > 1e-4){
+      if (debug > 1) std::cout << "resetting ped mean HG" << tileCal->PedestalMeanH << "\t" << pedMH << std::endl;
+      tileCal->PedestalMeanH = pedMH;
+      nMod++;
+    }
+    if (TMath::Abs(pedML - tileCal->PedestalMeanL)  > 1e-4){
+      if (debug > 1) std::cout << "resetting ped mean LG" << tileCal->PedestalMeanL << "\t" << pedML << std::endl;
+      tileCal->PedestalMeanL = pedML;
+      nMod++;
+    }
+    if (TMath::Abs(pedSH - tileCal->PedestalSigH)  > 1e-4){
+      if (debug > 1) std::cout << "resetting ped sig HG" << tileCal->PedestalSigH << "\t" << pedSH << std::endl;
+      tileCal->PedestalSigH = pedSH;
+      nMod++;
+    }
+    if (TMath::Abs(pedSL - tileCal->PedestalSigL)  > 1e-4){
+      if (debug > 1) std::cout << "resetting ped sig LG" << tileCal->PedestalMeanH << "\t" << pedSL << std::endl;
+      tileCal->PedestalSigL = pedSL;
+      nMod++;
+    }
+    if (TMath::Abs(ScaleH - tileCal->ScaleH )  > 1e-4){
+      if (debug > 1) std::cout << "resetting scale HG" << tileCal->ScaleH << "\t" << ScaleH << std::endl;
+      tileCal->ScaleH = ScaleH;
+      nMod++;
+    }
+    if (TMath::Abs(ScaleHW - tileCal->ScaleWidthH)  > 1e-4){
+      if (debug > 1) std::cout << "resetting scale width HG" << tileCal->ScaleWidthH << "\t" << ScaleHW << std::endl;
+      tileCal->ScaleWidthH = ScaleHW;
+      nMod++;
+    }
+    if (TMath::Abs(ScaleL - tileCal->ScaleL)  > 1e-4){
+      if (debug > 1) std::cout << "resetting scale L" << tileCal->ScaleL << "\t" << ScaleL << std::endl;
+      tileCal->ScaleL = ScaleL;
+      nMod++;
+    }
+    if (TMath::Abs(ScaleLW - tileCal->ScaleWidthL)  > 1e-4){
+      if (debug > 1) std::cout << "resetting scale width LG" << tileCal->ScaleWidthL << "\t" << ScaleLW << std::endl;
+      tileCal->ScaleWidthL = ScaleLW;
+      nMod++;
+    }
+    if (TMath::Abs(LGHG - tileCal->LGHGCorr)  > 1e-4){
+      if (debug > 1) std::cout << "resetting LG-HG corr" << tileCal->LGHGCorr << "\t" << LGHG << std::endl;
+      tileCal->LGHGCorr = LGHG;
+      nMod++;
+    }
+    if (TMath::Abs(HGLG - tileCal->HGLGCorr)  > 1e-5){
+      if (debug > 1) std::cout << "resetting HG-LG corr" << tileCal->HGLGCorr << "\t" << HGLG << std::endl;
+      tileCal->HGLGCorr = HGLG;
+      nMod++;
+    }
+    if (bc != tileCal->BadChannel){
+      if (debug > 1) std::cout << "resetting bad channel" << tileCal->BadChannel << "\t" << bc << std::endl;
+      tileCal->BadChannel = bc;
+      nMod++;
+    }
+    delete tempArr;
+  }
+  
+  std::map<int, TileCalib>::const_iterator it;
+  bool allBC =true;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    if (it->second.BadChannel == -64) allBC = false;
+  }
+  if (GetBCCalib() == false && allBC == true){
+    nMod++;
+    SetBCCalib(true);
+  }
+  if (GetBCCalib() == true && allBC == false){
+    std::cout << "At least one channel is missing the correct bad chanel value" << std::endl; 
+  }
+  std::cout << "********************************************************************************************************" << std::endl;
+  std::cout << "had to perform " << nMod << " modifications to calib loaded from root file." << std::endl;
+  std::cout << "********************************************************************************************************" << std::endl;
+  std::cout << "done reading input calib" << std::endl;
+  std::cout << "********************************************************************************************************" << std::endl;
+  
+
 }

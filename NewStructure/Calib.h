@@ -99,6 +99,7 @@ class Calib{
 
   void PrintGlobalInfo();
   void PrintCalibToFile( TString );
+  void ReadCalibFromTextFile( TString, int);
   
  private:
    

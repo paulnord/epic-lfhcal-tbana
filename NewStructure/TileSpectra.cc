@@ -22,6 +22,16 @@ bool TileSpectra::FillSpectra(double l, double h){
   return true;
 }
 
+bool TileSpectra::FillExt(double l, double h, double e){
+  hspectraLG.Fill(l);
+  hspectraHG.Fill(h);
+  hcombined.Fill(e);
+  if (h < 3500)
+    hspectraLGHG.Fill(l,e);
+  return true;
+}
+
+
 bool TileSpectra::FillTrigger(double t){
   if (!bTriggPrim) bTriggPrim =true;
   hTriggPrim.Fill(t);
@@ -456,6 +466,44 @@ bool TileSpectra::FitCorr(int verbosity){
   return true;
 }
 
+bool TileSpectra::FitLGHGCorr(int verbosity, bool resetCalib){
+  if (verbosity > 2) std::cout << "FitCorr cell ID: " << cellID << std::endl;
+  TString funcName = Form("fcorr%sLGHGCellID%d",TileName.Data(),cellID);
+  
+  Double_t fitRangeLG[2]  = {calib->PedestalSigL*5, 250.};
+  int fitStatus   = 0; 
+  int limitStatus = 0;
+  
+  
+  LGHGcorr =  TF1(funcName.Data(),"pol1", fitRangeLG[0], fitRangeLG[1]);
+  LGHGcorr.SetParameter(0,0.);
+  LGHGcorr.SetParameter(1,10.);
+  LGHGcorr.SetParLimits(1,0,1000.);
+  
+  fitStatus = hspectraLGHG.Fit(&LGHGcorr,"QRMNE0"); 
+  
+  if (!(LGHGcorr.IsValid())){
+    if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+    bcorrLGHG = false;
+  } else {
+    if ( LGHGcorr.GetParameter(1) == 0. || LGHGcorr.GetParameter(1) == 1000. ) 
+      limitStatus++;
+    if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+      bcorrLGHG = false;
+    } else if (limitStatus > 0){                        // don't accept fits which reached the set limits
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " too many limits reached" << std::endl;
+      bcorrLGHG = false;
+    } else {
+      bcorrLGHG= true;
+    }  
+  }
+  if (bcorrLGHG && resetCalib)
+    calib->LGHGCorr = LGHGcorr.GetParameter(1);
+  
+  return true;
+}
+
 bool TileSpectra::FitNoiseWithBG(double* out){
   return true;
 }
@@ -472,7 +520,7 @@ TH1D* TileSpectra::GetTriggPrim(){
   return &hTriggPrim;
 }
 
-TH1D* TileSpectra::GetHGLGcomb(){
+TH1D* TileSpectra::GetComb(){
   return &hcombined;
 }
 
@@ -530,6 +578,20 @@ void TileSpectra::Write( bool wFits = true){
     if(bmipLG)SignalLG.Write(SignalLG.GetName(), kOverwrite);
     if(bcorrLGHG)LGHGcorr.Write(LGHGcorr.GetName(), kOverwrite);
     if(bcorrHGLG)HGLGcorr.Write(HGLGcorr.GetName(), kOverwrite);
+  }
+}
+
+void TileSpectra::WriteExt( bool wFits = true){
+  hspectraHG.Write(hspectraHG.GetName(), kOverwrite);
+  hspectraLG.Write(hspectraLG.GetName(), kOverwrite);
+  hcombined.Write(hcombined.GetName(), kOverwrite);
+  hspectraLGHG.Write(hspectraLGHG.GetName(), kOverwrite);  
+  if ( wFits ){
+    if(bpedHG)BackgroundHG.Write(BackgroundHG.GetName(), kOverwrite);
+    if(bmipHG)SignalHG.Write(SignalHG.GetName(), kOverwrite);
+    if(bpedLG)BackgroundLG.Write(BackgroundLG.GetName(), kOverwrite);
+    if(bmipLG)SignalLG.Write(SignalLG.GetName(), kOverwrite);
+    if(bcorrLGHG)LGHGcorr.Write(LGHGcorr.GetName(), kOverwrite);
   }
 }
 

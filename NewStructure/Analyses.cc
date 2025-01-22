@@ -31,8 +31,11 @@ bool Analyses::CheckAndOpenIO(void){
   }
 
   //Need to check first input to get the setup...I do not think it is necessary
-    std::cout<<"Input name set to: '"<<RootInputName.Data() <<std::endl;
-  
+  std::cout <<"=============================================================" << std::endl;
+  std::cout<<"Input name set to: "<<RootInputName.Data() <<std::endl;
+  std::cout<<"Output name set to: "<<RootOutputName.Data() <<std::endl;
+  std::cout<<"Calib name set to: "<<RootCalibInputName.Data() <<std::endl;
+  std::cout <<"=============================================================" << std::endl;
   if(!RootInputName.IsNull()){
     //File exist?
     RootInput=new TFile(RootInputName.Data(),"READ");
@@ -117,7 +120,7 @@ bool Analyses::CheckAndOpenIO(void){
       TString temp = RootOutputName;
       temp         = temp.ReplaceAll(".root","_Hists.root");
       SetRootOutputHists(temp);
-      std::cout << "creating additional histo file: " << RootOutputNameHist.Data() << " tree in : "<< RootOutputName.Data() << std::endl;
+      // std::cout << "creating additional histo file: " << RootOutputNameHist.Data() << " tree in : "<< RootOutputName.Data() << std::endl;
     }
     
     bool sCOF = CreateOutputRootFile();
@@ -129,15 +132,10 @@ bool Analyses::CheckAndOpenIO(void){
     TsetupOut->Branch("setup",&rsw);
     TdataOut = new TTree("Data","Data");
     TdataOut->Branch("event",&event);
-    //if(!calib) calib=new Calib();
-    //if(!calib)
-    //calib=Calib::GetInstance();
-    //Calib* calib=Calib::GetInstance();
-    //std::cout<<"Calib pointer is "<<calibptr<<std::endl;
     TcalibOut = new TTree("Calib","Calib");
     TcalibOut->Branch("calib",&calib);
   }
-  else {
+  else if (!SaveCalibOnly){
     std::cout<<"Output option mandatory except when converting"<<std::endl;
     return false;
   }
@@ -164,6 +162,24 @@ bool Analyses::CheckAndOpenIO(void){
       std::cout<<"Correctly set branch for external calib input."<<std::endl;
     }
     
+  }
+
+  if(!RootCalibOutputName.IsNull() && SaveCalibOnly){
+    std::cout << "entered here" << std::endl;
+    RootCalibOutput=new TFile(RootCalibOutputName.Data(),"RECREATE");
+    if(RootCalibOutput->IsZombie()){
+      std::cout<<"Error opening '"<<RootCalibOutputName<<"', does the file exist?"<<std::endl;
+      return false;
+    }
+    
+    if (RootOutputName.IsNull()){
+      TsetupOut = new TTree("Setup","Setup");
+      setup=Setup::GetInstance();
+      //TsetupOut->Branch("setup",&setup);
+      TsetupOut->Branch("setup",&rsw);
+      TcalibOut = new TTree("Calib","Calib");
+      TcalibOut->Branch("calib",&calib);
+    }
   }
 
   if(!RootPedestalInputName.IsNull()){
@@ -195,6 +211,9 @@ bool Analyses::CheckAndOpenIO(void){
       return false;
     }	
   }
+  std::cout <<"=============================================================" << std::endl;
+  std::cout <<" Basic setup complete" << std::endl;
+  std::cout <<"=============================================================" << std::endl;
   return true;    
 }
 
@@ -253,7 +272,15 @@ bool Analyses::Process(void){
   if(SaveMipsOnly){
     status=SaveMuonTriggersOnly();
   }
-
+  // reduce file to only mip triggers
+  if(EvalLocalTriggers){
+    status=RunEvalLocalTriggers();
+  }
+  
+  // save calib to output only
+  if (SaveCalibOnly){
+    status = SaveCalibToOutputOnly();
+  }
   return status;
 }
 
@@ -824,6 +851,11 @@ bool Analyses::GetPedestal(void){
   // Event loop to fill histograms & output tree
   std::cout << "N max layers: " << setup->GetNMaxLayer() << "\t columns: " <<  setup->GetNMaxColumn() << "\t row: " << setup->GetNMaxRow() << "\t module: " <<  setup->GetNMaxModule() << std::endl;
   if(TcalibIn) TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int evts=TdataIn->GetEntries();
   int runNr = -1;
   for(int i=0; i<evts; i++){
@@ -994,6 +1026,11 @@ bool Analyses::CorrectPedestal(void){
   std::map<int,TileSpectra> hSpectra;
   std::map<int, TileSpectra>::iterator ithSpectra;
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int runNr = -1;
 
   std::map<int,short> bcmap;
@@ -1197,6 +1234,11 @@ bool Analyses::GetScaling(void){
   RootOutputHist->cd("IndividualCells");
 
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int evts=TdataIn->GetEntries();
   int runNr = -1;
   for(int i=0; i<evts; i++){
@@ -1718,7 +1760,7 @@ bool Analyses::GetScaling(void){
                                           hSpectraTrigg, setup, averageScale, factorMinTrigg, factorMaxTrigg,
                                           0, maxHG*2, 1.2, l, 0, Form("%s/TriggPrimitive_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
         PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
-                                  hSpectra, setup, false, -20, 800, 1.2, l, 0,
+                                  hSpectra, false, -20, 800, 3900, l, 0,
                                   Form("%s/LGHG_Corr_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
       }
       if (ExtPlot > 1){
@@ -1726,7 +1768,7 @@ bool Analyses::GetScaling(void){
                                   hSpectra, hSpectraTrigg, setup, false, -30, maxLG, 1.2, l, 0,
                                   Form("%s/MIP_LG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
         PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
-                                  hSpectra, setup, true, -100, 4000, 1.2, l, 0,
+                                  hSpectra, true, -100, 4000, 340, l, 0,
                                   Form("%s/HGLG_Corr_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
       }
     }
@@ -1773,6 +1815,11 @@ bool Analyses::GetImprovedScaling(void){
   //************************* first pass over tree to extract spectra *****************************
   //***********************************************************************************************  
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int evts=TdataIn->GetEntries();
   int runNr = -1;
   int actChI  = 0;
@@ -2151,6 +2198,11 @@ bool Analyses::GetNoiseSampleAndRefitPedestal(void){
   //************************* first pass over tree to extract spectra *****************************
   //***********************************************************************************************  
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int evts=TdataIn->GetEntries();
   int runNr = -1;
   int actCh = 0;
@@ -2361,7 +2413,7 @@ bool Analyses::GetNoiseSampleAndRefitPedestal(void){
  
   for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
     PlotNoiseAdvWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                    hSpectra, hSpectraTrigg, setup, true, 0, 450, 1.2, l, 0,
+                                    hSpectra, hSpectraTrigg, true, 0, 450, 1.2, l, 0,
                                     Form("%s/NoiseTrigg_HG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
   }
 
@@ -2370,6 +2422,81 @@ bool Analyses::GetNoiseSampleAndRefitPedestal(void){
 }
 
 
+//***********************************************************************************************
+//*********************** Calibration routine ***************************************************
+//***********************************************************************************************
+bool Analyses::RunEvalLocalTriggers(void){
+  std::cout<<"EvalLocalTriggers"<<std::endl;
+
+  RootOutput->cd();
+  std::cout << "starting to run trigger eval: " << TcalibIn <<  "\t" << TcalibIn->GetEntry(0) << std::endl;
+  TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
+  int actCh1st = 0;
+  double averageScale = calib.GetAverageScaleHigh(actCh1st);
+  double avLGHGCorr   = calib.GetAverageLGHGCorr();
+  std::cout << "average HG mip: " << averageScale << "\t active ch: "<< actCh1st<< std::endl;
+  
+  // setup local trigger sel
+  TRandom3* rand    = new TRandom3();
+  Int_t localTriggerTiles = 4;
+  if (yearData == 2023){
+    localTriggerTiles = 6;
+  }
+  double factorMinTrigg   = 0.8;
+  double factorMinTriggNoise = 0.2;
+  double factorMaxTrigg   = 2.;
+  if (yearData == 2023){
+    factorMinTrigg    = 0.9;
+    factorMaxTrigg    = 2.;
+  }
+  
+  int outCount      = 1000;
+  int evts=TdataIn->GetEntries();
+  if (GetMaxEvents() > -1){
+    std::cout << "Analysing limited number of events: " << GetMaxEvents() << "/"<< evts << std::endl;
+    evts = GetMaxEvents();
+  }
+  if (evts < 10000)
+    outCount  = 500;
+  if (evts > 100000)
+    outCount  = 5000;
+  for(int i=0; i<evts; i++){
+    TdataIn->GetEntry(i);
+    if (i%outCount == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    for(int j=0; j<event.GetNTiles(); j++){
+      Caen* aTile=(Caen*)event.GetTile(j);      
+      // calculate trigger primitives
+      aTile->SetLocalTriggerPrimitive(event.CalculateLocalMuonTrigg(calib, rand, aTile->GetCellID(), localTriggerTiles, avLGHGCorr));
+      bool localMuonTrigg   = event.InspectIfLocalMuonTrigg(aTile->GetCellID(), averageScale, factorMinTrigg, factorMaxTrigg);
+      bool localNoiseTrigg  = event.InspectIfNoiseTrigg(aTile->GetCellID(), averageScale, factorMinTriggNoise);
+      aTile->SetLocalTriggerBit(0);
+      if (localMuonTrigg) aTile->SetLocalTriggerBit(1);
+      if (localNoiseTrigg) aTile->SetLocalTriggerBit(2);
+    }
+    TdataOut->Fill();
+  }
+  TdataOut->Write();
+  TsetupIn->CloneTree()->Write();
+  
+  if (IsCalibSaveToFile()){
+    TString fileCalibPrint = RootOutputName;
+    fileCalibPrint         = fileCalibPrint.ReplaceAll(".root","_calib.txt");
+    calib.PrintCalibToFile(fileCalibPrint);
+  }
+  
+  TcalibOut->Fill();
+  TcalibOut->Write();
+  
+  RootOutput->Close();
+  RootInput->Close();      
+  
+  return true;
+}
 
 //***********************************************************************************************
 //*********************** Calibration routine ***************************************************
@@ -2392,9 +2519,15 @@ bool Analyses::Calibrate(void){
   TH2D* hspectraHGCorrvsCellID      = new TH2D( "hspectraHGCorr_vsCellID","ADC spectrum High Gain corrected vs CellID; cell ID; ADC_{HG} (arb. units)  ; counts ",
                                             setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
   hspectraHGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraHGCorrvsCellIDNoise      = new TH2D( "hspectraHGCorr_vsCellID_Noise","ADC spectrum High Gain corrected vs CellID Noise; cell ID; ADC_{HG} (arb. units)  ; counts ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraHGCorrvsCellIDNoise->SetDirectory(0);
   TH2D* hspectraLGCorrvsCellID      = new TH2D( "hspectraLGCorr_vsCellID","ADC spectrum Low Gain corrected vs CellID; cell ID; ADC_{LG} (arb. units)  ; counts  ",
                                             setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
   hspectraLGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraLGCorrvsCellIDNoise      = new TH2D( "hspectraLGCorr_vsCellID_Noise","ADC spectrum Low Gain corrected vs CellID Noise; cell ID; ADC_{LG} (arb. units)  ; counts  ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraLGCorrvsCellIDNoise->SetDirectory(0);
   TH2D* hspectraHGvsCellID      = new TH2D( "hspectraHG_vsCellID","ADC spectrum High Gain vs CellID; cell ID; ADC_{HG} (arb. units)   ; counts ",
                                             setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,0,4000);
   hspectraHGvsCellID->SetDirectory(0);
@@ -2408,10 +2541,26 @@ bool Analyses::Calibrate(void){
                                             setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 6000,0,1000);
   hspectraEnergyTotvsNCells->SetDirectory(0);
 
+  std::map<int,TileSpectra> hSpectra;
+  std::map<int, TileSpectra>::iterator ithSpectra;
+  std::map<int,TileSpectra> hSpectraNoise;
+  std::map<int, TileSpectra>::iterator ithSpectraNoise;
+  
+  // entering histoOutput file
+  RootOutputHist->mkdir("IndividualCells");
+  RootOutputHist->cd("IndividualCells");
+  RootOutputHist->mkdir("IndividualCellsNoise");
+  RootOutputHist->cd("IndividualCellsNoise");
+
   Int_t runNr = -1;
   RootOutput->cd();
   std::cout << "starting to run calibration: " << TcalibIn <<  "\t" << TcalibIn->GetEntry(0) << std::endl;
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+
   int actCh1st = 0;
   double averageScale = calib.GetAverageScaleHigh(actCh1st);
   double avLGHGCorr   = calib.GetAverageLGHGCorr();
@@ -2424,6 +2573,7 @@ bool Analyses::Calibrate(void){
     localTriggerTiles = 6;
   }
   double factorMinTrigg   = 0.8;
+  double factorMinTriggNoise = 0.2;
   double factorMaxTrigg   = 2.;
   if (yearData == 2023){
     factorMinTrigg    = 0.9;
@@ -2433,10 +2583,17 @@ bool Analyses::Calibrate(void){
   
   double minMipFrac = 0.3;
   int corrHGADCSwap = 3500;
+  int outCount      = 5000;
   int evts=TdataIn->GetEntries();
+  if (GetMaxEvents() > -1){
+    std::cout << "Analysing limited number of events: " << GetMaxEvents() << "/"<< evts << std::endl;
+    evts = GetMaxEvents();
+  }
+  if (evts < 10000)
+    outCount  = 500;
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
-    if (i%5000 == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    if (i%outCount == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
     if (i == 0)runNr = event.GetRunNumber();
     double Etot = 0;
     int nCells  = 0;
@@ -2459,19 +2616,58 @@ bool Analyses::Calibrate(void){
       } else {
         energy=corrLG/calib.GetCalcScaleLow(aTile->GetCellID());
       }
+      if (debug > 1 && corrHG >= corrHGADCSwap-100 && corrHG < 4000-calib.GetPedestalMeanH(aTile->GetCellID())){
+          std::cout << "-> Cell ID: " <<  aTile->GetCellID() << "\t HG\t" << corrHG << "\t" << corrHG/calib.GetScaleHigh(aTile->GetCellID()) << "\t LG \t" << corrLG << "\t" <<  corrLG/calib.GetCalcScaleLow(aTile->GetCellID()) << "\t"<< corrLG/calib.GetScaleLow(aTile->GetCellID()) << "\t delta: \t"<< corrHG/calib.GetScaleHigh(aTile->GetCellID())-(corrLG/calib.GetCalcScaleLow(aTile->GetCellID())) << "\tLGHG\t" << calib.GetScaleLGHGCorr(aTile->GetCellID())<< std::endl;
+      }
+      // calculate trigger primitives
+      bool localMuonTrigg   = false;
+      bool localNoiseTrigg  = false;
+
+      if (!UseLocTriggFromFile()){
+        aTile->SetLocalTriggerPrimitive(event.CalculateLocalMuonTrigg(calib, rand, aTile->GetCellID(), localTriggerTiles, avLGHGCorr));
+        aTile->SetLocalTriggerBit(0);
+        localMuonTrigg   = event.InspectIfLocalMuonTrigg(aTile->GetCellID(), averageScale, factorMinTrigg, factorMaxTrigg);
+        localNoiseTrigg  = event.InspectIfNoiseTrigg(aTile->GetCellID(), averageScale, factorMinTriggNoise);
+        if (localMuonTrigg) aTile->SetLocalTriggerBit(1);
+        if (localNoiseTrigg) aTile->SetLocalTriggerBit(2);
+      } else {
+        if (aTile->GetLocalTriggerBit() == 2)  localNoiseTrigg = true;
+      }
+      
       hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCHigh());
       hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCLow());
       hspectraHGCorrvsCellID->Fill(aTile->GetCellID(), corrHG);
       hspectraLGCorrvsCellID->Fill(aTile->GetCellID(), corrLG);
+      
+      if (localNoiseTrigg){
+        hspectraHGCorrvsCellIDNoise->Fill(aTile->GetCellID(), corrHG);
+        hspectraLGCorrvsCellIDNoise->Fill(aTile->GetCellID(), corrLG);
+      
+      }
+      ithSpectra=hSpectra.find(aTile->GetCellID());
+      if(ithSpectra!=hSpectra.end()){
+        ithSpectra->second.FillExt(corrLG,corrHG,energy);
+      } else {
+        RootOutputHist->cd("IndividualCells");
+        hSpectra[aTile->GetCellID()]=TileSpectra("Calibrate",1,aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+        hSpectra[aTile->GetCellID()].FillExt(corrLG,corrHG,energy);
+        RootOutput->cd();
+      }
+
+      if (localNoiseTrigg){
+        ithSpectraNoise=hSpectraNoise.find(aTile->GetCellID());
+        if(ithSpectraNoise!=hSpectraNoise.end()){
+          ithSpectraNoise->second.FillExt(corrLG,corrHG,energy);
+        } else {
+          RootOutputHist->cd("IndividualCellsNoise");
+          hSpectraNoise[aTile->GetCellID()]=TileSpectra("CalibrateNoise",1,aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectraNoise[aTile->GetCellID()].FillExt(corrLG,corrHG,energy);
+          RootOutput->cd();
+        }
+      }
+      
       if(energy!=0){ 
-        // calculate trigger primitives
-        aTile->SetLocalTriggerPrimitive(event.CalculateLocalMuonTrigg(calib, rand, aTile->GetCellID(), localTriggerTiles, avLGHGCorr));
-        bool localMuonTrigg = event.InspectIfLocalMuonTrigg(aTile->GetCellID(), averageScale, factorMinTrigg, factorMaxTrigg);
-        
         aTile->SetE(energy);
-        aTile->SetLocalTriggerBit(0);
-        
-        if (localMuonTrigg) aTile->SetLocalTriggerBit(1);
         hspectraEnergyvsCellID->Fill(aTile->GetCellID(), energy);
         Etot=Etot+energy;
         nCells++;
@@ -2506,6 +2702,8 @@ bool Analyses::Calibrate(void){
   hspectraLGvsCellID->Write();
   hspectraHGCorrvsCellID->Write();
   hspectraLGCorrvsCellID->Write();
+  hspectraHGCorrvsCellIDNoise->Write();
+  hspectraLGCorrvsCellIDNoise->Write();
   hspectraEnergyvsCellID->Write();
   hspectraEnergyTotvsNCells->Write();
   
@@ -2516,6 +2714,16 @@ bool Analyses::Calibrate(void){
   hspectraEnergyTot->Write("hTotEnergy");
   hspectraNCells->Write("hNCells");
 
+  RootOutputHist->cd("IndividualCells");
+  for(ithSpectra=hSpectra.begin(); ithSpectra!=hSpectra.end(); ++ithSpectra){
+    ithSpectra->second.FitLGHGCorr(debug,false);
+    ithSpectra->second.WriteExt(true);
+  }
+  RootOutputHist->cd("IndividualCellsNoise");
+  for(ithSpectraNoise=hSpectraNoise.begin(); ithSpectraNoise!=hSpectraNoise.end(); ++ithSpectraNoise){
+    ithSpectraNoise->second.WriteExt(true);
+  }
+  
   RootOutputHist->Close();
   //**********************************************************************
   //********************* Plotting ***************************************
@@ -2539,7 +2747,11 @@ bool Analyses::Calibrate(void){
   PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, -10000, -10000, textSizeRel, Form("%s/HG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, -10000, -10000, textSizeRel, Form("%s/LG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, 300, -10000, textSizeRel, Form("%s/HGCorr_zoomed.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellIDNoise, -50, 200, -10000, textSizeRel, Form("%s/HGCorr_Noise.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Local Noise triggered");
   PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/LGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, 200, -10000, textSizeRel, Form("%s/LGCorr_zoomed.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellIDNoise, -50, 200, -10000, textSizeRel, Form("%s/LGCorr_Noise.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Local Noise triggered");
   PlotSimple2D( canvas2DCorr, hspectraEnergyvsCellID, -10000, -10000, textSizeRel, Form("%s/EnergyVsCellID.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
   
@@ -2552,6 +2764,62 @@ bool Analyses::Calibrate(void){
   hspectraNCells->GetYaxis()->SetTitle("counts/event");
   PlotSimple1D(canvas1DSimple, hspectraNCells, -10000, -10000, textSizeRel, Form("%s/NCells.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT N_{Cells} #GT = %.1f",hspectraNCells->GetMean() ));
   
+  if (ExtPlot > 0){
+    //***********************************************************************************************************
+    //********************************* 8 Panel overview plot  **************************************************
+    //***********************************************************************************************************
+    //*****************************************************************
+      // Test beam geometry (beam coming from viewer)
+      //===========================================================
+      //||    8 (4)    ||    7 (5)   ||    6 (6)   ||    5 (7)   ||  row 0
+      //===========================================================
+      //||    1 (0)    ||    2 (1)   ||    3 (2)   ||    4 (3)   ||  row 1
+      //===========================================================
+      //    col 0     col 1       col 2     col  3
+      // rebuild pad geom in similar way (numbering -1)
+    //*****************************************************************
+    TCanvas* canvas8Panel;
+    TPad* pad8Panel[8];
+    Double_t topRCornerX[8];
+    Double_t topRCornerY[8];
+    Int_t textSizePixel = 30;
+    Double_t relSize8P[8];
+    CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel);
+
+    TCanvas* canvas8PanelProf;
+    TPad* pad8PanelProf[8];
+    Double_t topRCornerXProf[8];
+    Double_t topRCornerYProf[8];
+    Double_t relSize8PProf[8];
+    CreateCanvasAndPadsFor8PannelTBPlot(canvas8PanelProf, pad8PanelProf,  topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 0.045, "Prof", false);
+
+    calib.PrintGlobalInfo();  
+    std::cout << "plotting single layers" << std::endl;
+
+    for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
+      if (l%10 == 0 && l > 0 && debug > 0)
+        std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
+      if (ExtPlot > 0){
+        PlotNoiseAdvWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                    hSpectra, hSpectraNoise, true, -50, 100, 1.2, l, 0,
+                                    Form("%s/NoiseTrigg_HG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+        PlotNoiseAdvWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                    hSpectra, hSpectraNoise, false, -50, 100, 1.2, l, 0,
+                                    Form("%s/NoiseTrigg_LG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+        PlotSpectraFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                  hSpectra, 0, -100, 4000, 1.2, l, 0,
+                                  Form("%s/Spectra_HG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+        PlotSpectraFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                  hSpectra, 2, -2, 100, 1.2, l, 0,
+                                  Form("%s/Spectra_Comb_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+        PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
+                                  hSpectra, false, -20, 800, 50., l, 0,
+                                  Form("%s/LGHG_Corr_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+      }
+    }
+    std::cout << "done plotting single layers" << std::endl;  
+  }
+  
   return true;
 }
 
@@ -2562,6 +2830,11 @@ bool Analyses::Calibrate(void){
 bool Analyses::SaveNoiseTriggersOnly(void){
   std::cout<<"Save noise triggers into separate file"<<std::endl;
   TcalibIn->GetEntry(0);
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
   int evts=TdataIn->GetEntries();
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
@@ -2595,11 +2868,44 @@ bool Analyses::SaveNoiseTriggersOnly(void){
 }
 
 //***********************************************************************************************
+//*********************** Save Noise triggers only ***************************************************
+//***********************************************************************************************
+bool Analyses::SaveCalibToOutputOnly(void){
+  std::cout<<"Save calib into separate file: "<< GetRootCalibOutputName().Data() <<std::endl;
+  RootCalibOutput->cd();
+  TcalibIn->GetEntry(0);  
+  TsetupIn->CloneTree()->Write();
+  
+  // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+  
+  if (IsCalibSaveToFile()){
+    TString fileCalibPrint = GetRootCalibOutputName();
+    fileCalibPrint         = fileCalibPrint.ReplaceAll(".root","_calib.txt");
+    calib.PrintCalibToFile(fileCalibPrint);
+  }
+
+  TcalibOut->Fill();
+  TcalibOut->Write();
+  RootCalibOutput->Close();
+  
+  return true;
+}
+
+
+//***********************************************************************************************
 //*********************** Save local muon triggers only ***************************************************
 //***********************************************************************************************
 bool Analyses::SaveMuonTriggersOnly(void){
   std::cout<<"Save local muon triggers into separate file"<<std::endl;
   TcalibIn->GetEntry(0);
+    // check whether calib should be overwritten based on external text file
+  if (OverWriteCalib){
+    calib.ReadCalibFromTextFile(ExternalCalibFile,debug);
+  }
+
   int evts=TdataIn->GetEntries();
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
@@ -2639,8 +2945,10 @@ bool Analyses::SaveMuonTriggersOnly(void){
 //***********************************************************************************************
 bool Analyses::CreateOutputRootFile(void){
   if(Overwrite){
+    std::cout << "overwriting exisiting output file" << std::endl;
     RootOutput=new TFile(RootOutputName.Data(),"RECREATE");
   } else{
+    std::cout << "creating output file" << std::endl;
     RootOutput = new TFile(RootOutputName.Data(),"CREATE");
   }
   if(RootOutput->IsZombie()){
