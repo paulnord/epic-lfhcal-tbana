@@ -59,7 +59,7 @@ class TileSpectra: public TObject{
       hspectraLG.SetDirectory(0);
       hcombined     = TH1D(Form("hspectra%sCombCellID%d",name.Data(),id),Form("Energy CellID %d; E (mip eq./tile); counts",id),8000,-5,1000);
       hcombined.SetDirectory(0);
-      hspectraLGHG  = TProfile(Form("hCoorspectra%sLGHGCellID%d",name.Data(),id),Form("ADC Low  Gain/High Gain correlation CellID %d; Corr LG ADC (arb. units); HG E (mip eq./tile)",id),800,0,800);
+      hspectraLGHG  = TProfile(Form("hCoorspectra%sLGHGCellID%d",name.Data(),id),Form("ADC Low  Gain/High Gain correlation CellID %d; Corr LG  (arb. units); HG E (mip eq./tile)",id),800,0,800);
       hspectraLGHG.SetDirectory(0);
     }
   }

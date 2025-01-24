@@ -100,35 +100,35 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
 1. Compile the code with 
   ```console
-  make Analyse
+  make DataPrep Convert DataAna
   ```
   if you changed something in the base classes majorly first 
   ```console
     make clean
-    make Analyse
+    make DataPrep Convert DataAna
   ```
 
 2. As always please run the helper function first to make yourself familar with the options
   ```console
-  ./Analyse -h
+  ./DataPrep -h
   ```
 
 3. Convert ASCII to root (step to be done for every single ASCII file):
   ```console
-  ./Analyse -c PATH_INPUT_FILE/RunXXX_list.txt -o PATH_OUTPUT_FILE/WhateverName.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c PATH_INPUT_FILE/RunXXX_list.txt -o PATH_OUTPUT_FILE/WhateverName.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   ```
 
   ```console
-  ./Analyse -c Run375_list.txt -o RawMuonBeamPlus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run376_list.txt -o RawMuonBeamMinus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run377_list.txt -o RawPedestal.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run379_list.txt -o RawElectron1GeV.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run375_list.txt -o RawMuonBeamPlus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run376_list.txt -o RawMuonBeamMinus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run377_list.txt -o RawPedestal.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run379_list.txt -o RawElectron1GeV.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   ```
 
 4. Extract pedestal value (currently simple gaussian fit):
 
   ```console
-  ./Analyse (-f) -p -i RawPedestal.root -o PedestalCalib.root
+  ./DataPrep (-f) -p -i RawPedestal.root -o PedestalCalib.root
   ```
 
 
@@ -142,14 +142,14 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
     2. Transfer Calibration object from Pedestal file to MIP file
       ```console
-      ./Analyse (-f) -P PedestalCalib.root -i RawMuonBeamFullAcceptance.root -o RawMuonBeamFullAcceptancePedCalib.root
+      ./DataPrep (-f) -P PedestalCalib.root -i RawMuonBeamFullAcceptance.root -o RawMuonBeamFullAcceptancePedCalib.root
       ```
 
 
     3. Extract MIP signal based on Landau fit (request the Pedestal file to shift the ADC distribution to get rid of most of the noise, the tail is still taken into account from the values stored in the calibration object and due to potential deviation in the tail, a decreasing exponential is also added)
 
       ```console
-      ./Analyse (-f) -s -i RawMuonBeamFullAcceptancePedCalib.root -o RawMuonBeamFullAcceptancePedAndScaleCalib.root
+      ./DataPrep (-f) -s -i RawMuonBeamFullAcceptancePedCalib.root -o RawMuonBeamFullAcceptancePedAndScaleCalib.root
       ```
 
   => Plenty of room for improvement in this step. Could also be more interesting to save only the histograms and deal with the fit outside<br>
@@ -160,7 +160,7 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
 6. Apply Calibration to physics data
   ```console
-  ./Analyse (-f) -C RawMuonBeamFullAcceptancePedAndScaleCalib.root -i RawElectron1GeV.root -o CalibratedElectron1GeV.root
+  ./DataPrep (-f) -C RawMuonBeamFullAcceptancePedAndScaleCalib.root -i RawElectron1GeV.root -o CalibratedElectron1GeV.root
   ```
 
 

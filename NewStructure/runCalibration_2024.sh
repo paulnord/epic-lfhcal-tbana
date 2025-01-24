@@ -15,45 +15,45 @@ function MuonCalib()
 	fi
 	echo "=================================================================================="
 	if [ $1 == "transfer" ]; then 
-		./Analyse -d 1 -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPed_$3.root -r ../configs/DataTakingDB_202409_CAEN.csv -O ../PlotsCalibTransfer_2024/$6 -r $runNrFile
+		./DataPrep -d 1 -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPed_$3.root -r ../configs/DataTakingDB_202409_CAEN.csv -O ../PlotsCalibTransfer_2024/$6 -r $runNrFile
 	elif [ $1 == "default" ]; then 
-		time ./Analyse -f -d 1  -s -i $4/rawPed_$3.root -o $5/rawPedAndMuon_$3.root -O ../PlotsCalibMuon_2024/$6 -r $runNrFile
+		time ./DataPrep -f -d 1  -s -i $4/rawPed_$3.root -o $5/rawPedAndMuon_$3.root -O ../PlotsCalibMuon_2024/$6 -r $runNrFile
 	elif [ $1 == "improved" ]; then 
-		time ./Analyse -f -d 1  -S -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonImp_$3.root -O ../PlotsCalibMuonImproved_2024/$6 -r $runNrFile
+		time ./DataPrep -f -d 1  -S -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonImp_$3.root -O ../PlotsCalibMuonImproved_2024/$6 -r $runNrFile
 	elif [ $1 == "improved2nd" ]; then 
-		./Analyse -f -d 1  -S -i $5/rawPedAndMuonImp_$3.root -o $5/rawPedAndMuonImp2nd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_2ndIte -r $runNrFile
+		./DataPrep -f -d 1  -S -i $5/rawPedAndMuonImp_$3.root -o $5/rawPedAndMuonImp2nd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_2ndIte -r $runNrFile
 	elif [ $1 == "improved3rd" ]; then 
-		./Analyse -f -d 1  -S -i $5/rawPedAndMuonImp2nd_$3.root -o $5/rawPedAndMuonImp3rd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_3rdIte -r $runNrFile
+		./DataPrep -f -d 1  -S -i $5/rawPedAndMuonImp2nd_$3.root -o $5/rawPedAndMuonImp3rd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_3rdIte -r $runNrFile
 	elif [ $1 == "transferWithBC" ]; then 
-		time ./Analyse -d 1 -a -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPedWBC_$3.root -B $7 -O ../PlotsCalibTransferBC_2024/$6 -r $runNrFile
+		time ./DataPrep -d 1 -a -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPedWBC_$3.root -B $7 -O ../PlotsCalibTransferBC_2024/$6 -r $runNrFile
 	elif [ $1 == "defaultWithBC" ]; then 
-		time ./Analyse -e -a -f -d 1  -s -i $4/rawPedWBC_$3.root -o $5/rawPedAndMuonWBC_$3.root -O ../PlotsCalibMuonBC_2024/$6 -r $runNrFile
+		time ./DataPrep -e -a -f -d 1  -s -i $4/rawPedWBC_$3.root -o $5/rawPedAndMuonWBC_$3.root -O ../PlotsCalibMuonBC_2024/$6 -r $runNrFile
 	elif [ $1 == "improvedWBC" ]; then 
-		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBC_$3.root -o $5/rawPedAndMuonWBCImp_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6 -r $runNrFile
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBC_$3.root -o $5/rawPedAndMuonWBCImp_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6 -r $runNrFile
 	elif [ $1 == "improvedWBC2nd" ]; then 
-		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp_$3.root -o $5/rawPedAndMuonWBCImp2nd_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_2ndIte -r $runNrFile
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp_$3.root -o $5/rawPedAndMuonWBCImp2nd_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_2ndIte -r $runNrFile
 	elif [ $1 == "improvedWBC3rd" ]; then 
-		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp2nd_$3.root -o $5/rawPedAndMuonWBCImp3rd_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_3rdIte -r $runNrFile
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp2nd_$3.root -o $5/rawPedAndMuonWBCImp3rd_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_3rdIte -r $runNrFile
 	elif [ $1 == "improvedWBC4th" ]; then 
-		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp3rd_$3.root -o $5/rawPedAndMuonWBCImp4th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_4thIte -r $runNrFile
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp3rd_$3.root -o $5/rawPedAndMuonWBCImp4th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_4thIte -r $runNrFile
 	elif [ $1 == "improvedWBC5th" ]; then 
-		time ./Analyse -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp4th_$3.root -o $5/rawPedAndMuonWBCImp5th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_5thIte -r $runNrFile
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp4th_$3.root -o $5/rawPedAndMuonWBCImp5th_$3.root -O ../PlotsCalibMuonImprovedBC_2024/$6_5thIte -r $runNrFile
 	elif [ $1 == "noise" ]; then 
-		./Analyse -f -d 1  -n -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonNoise_$2.root -O ../PlotsCalibNoiseRe_2024/$6 -r $runNrFile
+		./DataPrep -f -d 1  -n -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonNoise_$2.root -O ../PlotsCalibNoiseRe_2024/$6 -r $runNrFile
 	elif [ $1 == "transferAlt" ]; then 
-		./Analyse -d 1  -f -P $5/rawPedAndMuonNoise_$3.root -i $4/raw_$3.root -o $4/rawPedImp_$3.root -r $runNrFile
+		./DataPrep -d 1  -f -P $5/rawPedAndMuonNoise_$3.root -i $4/raw_$3.root -o $4/rawPedImp_$3.root -r $runNrFile
 	elif [ $1 == "defaultImpPed" ]; then 
-		./Analyse -f -d 1  -s -i $4/rawPedImp_$3.root -o $5/rawPedImpAndMuon_$3.root -O ../PlotsCalibMuonPedImp_2024/$6 -r $runNrFile
+		./DataPrep -f -d 1  -s -i $4/rawPedImp_$3.root -o $5/rawPedImpAndMuon_$3.root -O ../PlotsCalibMuonPedImp_2024/$6 -r $runNrFile
 	elif [ $1 == "saveNewPed" ]; then 
-		./Analyse -f -d 1 -N -i $5/rawPedAndMuonNoise_$3.root -o $4/raw_pedonly_$3.root 
+		./DataPrep -f -d 1 -N -i $5/rawPedAndMuonNoise_$3.root -o $4/raw_pedonly_$3.root 
 	elif [ $1 == "saveNewMuon" ]; then 
-		time ./Analyse -f -d 1 -M -i $5/rawPedAndMuon_$3.root -o $4/raw_muononly_$3.root 
+		time ./DataPrep -f -d 1 -M -i $5/rawPedAndMuon_$3.root -o $4/raw_muononly_$3.root 
 	elif [ $1 == "improvedMinimal" ]; then 
-		time ./Analyse -f -d 1  -S -i $4/raw_muononly_$3.root -o $5/rawPedAndMuonImpMinimal_$2.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet -r $runNrFile
+		time ./DataPrep -f -d 1  -S -i $4/raw_muononly_$3.root -o $5/rawPedAndMuonImpMinimal_$2.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet -r $runNrFile
 	elif [ $1 == "improvedMinimal2nd" ]; then 
-		time ./Analyse -f -d 1  -S -i $5/rawPedAndMuonImpMinimal_$3.root -o $5/rawPedAndMuonImpMinimal2nd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet2nd -r $runNrFile
+		time ./DataPrep -f -d 1  -S -i $5/rawPedAndMuonImpMinimal_$3.root -o $5/rawPedAndMuonImpMinimal2nd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet2nd -r $runNrFile
 	elif [ $1 == "improvedMinimal3rd" ]; then 
-		time ./Analyse -f -d 1  -S -i $5/rawPedAndMuonImpMinimal2nd_$3.root -o $5/rawPedAndMuonImpMinimal3rd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet3rd -r $runNrFile
+		time ./DataPrep -f -d 1  -S -i $5/rawPedAndMuonImpMinimal2nd_$3.root -o $5/rawPedAndMuonImpMinimal3rd_$3.root -O ../PlotsCalibMuonImproved_2024/$6_MinimalSet3rd -r $runNrFile
 	fi
 }
 
@@ -87,7 +87,7 @@ fi
 pedestalRuns='377 404'
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
-		./Analyse -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O ../PlotsCalib_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
+		./DataPrep -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O ../PlotsCalib_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
 	done;
 fi
 
@@ -273,12 +273,12 @@ fi
 if [ $2 == "reducemuons" ]; then
 	runs='261 264 265 269 270 272 274 275 ' 
 	for runNr in $runs; do 
-		time ./Analyse -f -d 1 -M -i $dataDirOutH/calibrated_Run_$runNr.root -o $dataDirOutH/calibrated_localmuononly_Run_$runNr.root 
+		time ./DataPrep -f -d 1 -M -i $dataDirOutH/calibrated_Run_$runNr.root -o $dataDirOutH/calibrated_localmuononly_Run_$runNr.root 
 	done
 	runs='251 252 254 257 258 ' 
 	for runNr in $runs; do 
-		time ./Analyse -f -d 1 -M -i $dataDirOutE/calibrated_Run_$runNr.root -o $dataDirOutE/calibrated_localmuononly_Run_$runNr.root 
+		time ./DataPrep -f -d 1 -M -i $dataDirOutE/calibrated_Run_$runNr.root -o $dataDirOutE/calibrated_localmuononly_Run_$runNr.root 
 	done	
-	time ./Analyse -f -d 1 -M -i $dataDirOut/calibratedMuon_muonScanA1_45V.root -o $dataDirOut/calibratedMuon_localmuononly_muonScanA1_45V.root 
-	time ./Analyse -f -d 1 -M -i $dataDirOut/calibratedMuon_muonScanA2_45V.root -o $dataDirOut/calibratedMuon_localmuononly_muonScanA2_45V.root 
+	time ./DataPrep -f -d 1 -M -i $dataDirOut/calibratedMuon_muonScanA1_45V.root -o $dataDirOut/calibratedMuon_localmuononly_muonScanA1_45V.root 
+	time ./DataPrep -f -d 1 -M -i $dataDirOut/calibratedMuon_muonScanA2_45V.root -o $dataDirOut/calibratedMuon_localmuononly_muonScanA2_45V.root 
 fi
