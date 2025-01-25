@@ -817,11 +817,13 @@
         else 
           DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
       }
-      
-      if (maxx > -10000)
-        DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
-      else
-        DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      if (((TString)hist->GetXaxis()->GetTitle()).Contains("cell ID")){
+        std::cout << "entered cell ID" << std::endl;
+        if (maxx > -10000)
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
+        else
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      }
     canvas2D->SaveAs(nameOutput.Data());
   }
 
@@ -868,10 +870,13 @@
           DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
       }
       
-      if (maxx > -10000)
-        DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
-      else
-        DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      if (((TString)hist->GetXaxis()->GetTitle()).Contains("cell ID")){
+        std::cout << "entered cell ID" << std::endl;
+        if (maxx > -10000)
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
+        else
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      }
     canvas2D->SaveAs(nameOutput.Data());
   }
 

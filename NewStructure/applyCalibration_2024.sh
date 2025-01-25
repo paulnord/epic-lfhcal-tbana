@@ -12,11 +12,11 @@ function Calib()
 	echo "Plots Directory-Base: $6"
 	echo "===================================================================="
 	if [ $1 == "trigg" ]; then
-		time ./Analyse -f -d 1 -T $2 -i $3/raw_$5.root -o $3/rawWithLocTrigg_$5.root 
+		time ./DataPrep -f -d 1 -T $2 -i $3/raw_$5.root -o $3/rawWithLocTrigg_$5.root 
 	elif [ $1 == "calibNoTrigg" ]; then
-		time ./Analyse -t -e -f -d 1 -a -C $2 -i $3/rawWithLocTrigg_$5.root -o $4/calibrated_Run_$5.root -O $6$5 -r $runNrFile
+		time ./DataPrep -t -e -f -d 1 -a -C $2 -i $3/rawWithLocTrigg_$5.root -o $4/calibrated_Run_$5.root -O $6$5 -r $runNrFile
 	elif [ $1 == "full" ]; then
-		time ./Analyse -e -f -d 1 -a -C $2 -i $3/raw_$5.root -o $4/calibrated_Run_$5.root -O $6$5 -r $runNrFile
+		time ./DataPrep -e -f -d 1 -a -C $2 -i $3/raw_$5.root -o $4/calibrated_Run_$5.root -O $6$5 -r $runNrFile
 	fi
 }
 
@@ -76,14 +76,15 @@ if [ $2 == "ScanB" ]; then
 	
 # 	#electron runs
 # 	runs='333 334 336 337 338 ' 
-# 	for runNr in $runs; do 
-# 		Calib $3 $calibFile1 $dataDirRawE $dataDirOutE $runNr ../PlotsElectronCalibrated_2024/Run_
-# 	done;
+	runs='338 ' 
+	for runNr in $runs; do 
+		Calib $3 $calibFile1 $dataDirRawE $dataDirOutE $runNr ../PlotsElectronCalibrated_2024/Run_
+	done;
 # 	
 # 	#hadron runs
-	runs='340 349 346 350 357 360 362 367 368' 
-	for runNr in $runs; do 
-		Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
-	done;
+# 	runs='340 349 346 350 357 360 362 367 368' 
+# 	for runNr in $runs; do 
+# 		Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
+# 	done;
 fi
 

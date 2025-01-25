@@ -15,7 +15,7 @@ function MuonCalib()
 	fi
 	echo "=================================================================================="
 	if [ $1 == "transfer" ]; then 
-		./DataPrep -d 1 -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPed_$3.root -r ../configs/DataTakingDB_202409_CAEN.csv -O ../PlotsCalibTransfer_2024/$6 -r $runNrFile
+		./DataPrep -d 1 -e -f -P $5/PedestalCalib_$2.root -i $4/raw_$3.root -o $4/rawPed_$3.root -O ../PlotsCalibTransfer_2024/$6 -r $runNrFile
 	elif [ $1 == "default" ]; then 
 		time ./DataPrep -f -d 1  -s -i $4/rawPed_$3.root -o $5/rawPedAndMuon_$3.root -O ../PlotsCalibMuon_2024/$6 -r $runNrFile
 	elif [ $1 == "improved" ]; then 
@@ -84,7 +84,8 @@ fi
 # pedestalRuns='420'
 # pedestalRuns='417 412'
 # pedestalRuns='492 505'
-pedestalRuns='377 404'
+# pedestalRuns='377 404'
+pedestalRuns='271'
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./DataPrep -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O ../PlotsCalib_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv

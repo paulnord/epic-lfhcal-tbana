@@ -37,6 +37,7 @@ void PrintHelp(char* exe){
   std::cout<<"-e       extended plotting = 1"<<std::endl;
   std::cout<<"-E       extended plotting = 2"<<std::endl;
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
+  std::cout<<"-F fff   set explicit plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-i uuu   Input file in root format"<<std::endl;
   std::cout<<"-k kkk   enabling overwriting of calib file using external calib txt file"<<std::endl;
   std::cout<<"-L LLL   enable testing with only limited number of events"<<std::endl;
@@ -71,7 +72,7 @@ int main(int argc, char* argv[]){
   }
   Analyses AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"c:pT:sk:P:SnbB:L:NtMC:fo:O:aA:eEm:d:i:y:r:h"))!=-1){
+  while((c=getopt(argc,argv,"c:F:pT:sk:P:SnbB:L:NtMC:fo:O:aA:eEm:d:i:y:r:h"))!=-1){
     switch(c){
     case 'a':
       std::cout<<"DataPrep: printing calib object to file"<<std::endl;
@@ -111,6 +112,10 @@ int main(int argc, char* argv[]){
     case 'f':
       std::cout<<"DataPrep: If output already exists it will be overwritten"<<std::endl;
       AnAnalysis.CanOverWrite(true);
+      break;
+    case 'F':
+      std::cout<<"DataPrep: Set Plot extension to: "<< optarg<<std::endl;
+      AnAnalysis.SetPlotExtension(optarg);
       break;
     case 'i':
       std::cout<<"DataPrep: Root input file is: "<<optarg<<std::endl;
