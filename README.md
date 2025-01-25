@@ -3,6 +3,8 @@
 This software repo is meant to serve as basis for the test beam root based analysis of the LFHCal test beams and test beam setups.
 The repo contains the initial code used in 2023 under OldStructure & the newer version of the code under NewStructure <br>
 
+A detaile introduction to this package in particular the NewStructure can be found [here](https://friederikebock.gitbook.io/epiclfhcaltb-ana)
+
 For convenience a linker script is provided, which can be used to recreate the software structure with soft links. Execute it in the directory where you would like to work after having added your user name and path to the software repo
 
 ```console
