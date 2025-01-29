@@ -2,12 +2,17 @@
 #include "RootSetupWrapper.h"
 #include <iostream>
 #include <fstream>
+#include "TObjArray.h"
+#include "TObjString.h"
+
 
 //Setup* Setup::instancePtr = nullptr; // Add for use on Mac OS
 
 ClassImp(Setup);
 
 bool Setup::Initialize(TString file, int debug){
+
+  std::cout << "entered setup initialize" << std::endl;
   if(isInit){
     std::cout<<"Already initialized, bailing out without action"<<std::endl;
     return true;
@@ -28,9 +33,44 @@ bool Setup::Initialize(TString file, int debug){
   int AROunit,AROchannel,Alayer,AROlayer,Arow,Acolumn,Amod;
   TString Anassembly;
   int Akey;
-  while(!input.eof()){
-    input>>AROunit>>AROchannel>>Alayer>>Anassembly>>AROlayer>>Arow>>Acolumn >> Amod;
-    if(!input.good())break;
+  for( TString tempLine; tempLine.ReadLine(input, kTRUE); ) {
+        // check if line should be considered
+    if (tempLine.BeginsWith("%") || tempLine.BeginsWith("#")){
+        continue;
+    }
+    TObjArray *tempArr  = tempLine.Tokenize("\t");
+    if(tempArr->GetEntries()<1){
+        if (debug > 1) std::cout << "nothing to be done" << std::endl;
+        delete tempArr;
+        continue;
+    } else if (tempArr->GetEntries() == 1 ){
+        // Separate the string according to space
+        tempArr       = tempLine.Tokenize(" ");
+        if(tempArr->GetEntries()<1){
+            if (debug > 1) std::cout << "nothing to be done" << std::endl;
+            delete tempArr;
+            continue;
+        } else if (tempArr->GetEntries() == 1  ) {
+            if (debug > 1) std::cout << ((TString)((TObjString*)tempArr->At(0))->GetString()).Data() << " no correct format detected" << std::endl;
+            delete tempArr;
+            continue;
+        }
+    }
+    if (tempArr->GetEntries()<8){
+      if (debug > 1) std::cout << "line not conform with mapping format, skipping" << std::endl;
+      delete tempArr;
+      continue;
+    }
+    
+    AROunit     = ((TString)((TObjString*)tempArr->At(0))->GetString()).Atoi();
+    AROchannel  = ((TString)((TObjString*)tempArr->At(1))->GetString()).Atoi();
+    Alayer      = ((TString)((TObjString*)tempArr->At(2))->GetString()).Atoi();
+    Anassembly  = ((TString)((TObjString*)tempArr->At(3))->GetString());
+    AROlayer    = ((TString)((TObjString*)tempArr->At(4))->GetString()).Atoi();
+    Arow        = ((TString)((TObjString*)tempArr->At(5))->GetString()).Atoi();
+    Acolumn     = ((TString)((TObjString*)tempArr->At(6))->GetString()).Atoi();
+    Amod        = ((TString)((TObjString*)tempArr->At(7))->GetString()).Atoi();
+    
     Akey=(Amod<<9)+(Arow<<8)+(Acolumn<<6)+(Alayer);
     assemblyID[Akey] = Anassembly;
     ROunit    [Akey] = AROunit;

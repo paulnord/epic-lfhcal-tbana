@@ -31,6 +31,7 @@ void PrintHelp(char* exe){
   std::cout<<"-a       printing calib object to file (using name of output root or calib root file ending in txt)"<<std::endl;
   std::cout<<"-d [0-n] switch on debug info with debug level 0 to n"<<std::endl;
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
+  std::cout<<"-F fff   set plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-i uuu   Input file in root format"<<std::endl;
   std::cout<<"-o vvv   Output file name "<<std::endl;
   std::cout<<"-O kkk   Output Histos saved in"<<std::endl;
@@ -50,7 +51,7 @@ int main(int argc, char* argv[]){
   }
   DataAnalysis AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"afP:o:O:e:r:d:i:y:hQ"))!=-1){
+  while((c=getopt(argc,argv,"afF:P:o:O:e:r:d:i:y:hQ"))!=-1){
     switch(c){
     case 'a':
       std::cout<<"printing calib object to file"<<std::endl;
@@ -64,6 +65,10 @@ int main(int argc, char* argv[]){
       std::cout<<"If output already exists it will be overwritten"<<std::endl;
       AnAnalysis.CanOverWrite(true);
       break;
+    case 'F':
+      std::cout<<"DataPrep: Set Plot extension to: "<< optarg<<std::endl;
+      AnAnalysis.SetPlotExtension(optarg);
+      break;      
     case 'i':
       std::cout<<"Root input file is: "<<optarg<<std::endl;
       AnAnalysis.SetRootInput(Form("%s",optarg));

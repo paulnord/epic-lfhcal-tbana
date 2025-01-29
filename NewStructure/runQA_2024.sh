@@ -19,7 +19,8 @@ pedScanA_45V='271 277'
 if [ $2 == "ScanA" ]; then
 	# 192K events
 	echo "running calibrate for 45V runs, campaing A1"
-  runs='251 252 254 257 258 ' 
+	runs='251 252 254 257 258 ' 
+#   runs='258 ' 
 	for runNr in $runs; do 
     time ./DataAna -d 1 -Q -i $dataDirOutE/calibrated_Run_$runNr.root -O $dataDirOutE/QAHists_Run_$runNr.root -a -f -r $runNrFile -P ../QAPlots/Run_$runNr
 	done;

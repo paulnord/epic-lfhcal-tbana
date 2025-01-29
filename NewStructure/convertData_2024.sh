@@ -77,6 +77,16 @@ elif [ $2 == "hadronsC" ]; then
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
+elif [ $2 == "hadronsD" ]; then 
+  runs='434 437 439 441 444 445 449 452' 
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;
+elif [ $2 == "hadronsH" ]; then 
+  runs='542 543 544 545 548 549 550 551' 
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;
 elif [ $2 == "pedandmuD1" ]; then 
   runs='412 417 420 '
   for runNr in $runs; do 

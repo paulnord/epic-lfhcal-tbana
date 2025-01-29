@@ -23,9 +23,10 @@
 bool Analyses::CheckAndOpenIO(void){
   int matchingbranch;
   if(!ASCIIinputName.IsNull()){
+    std::cout << "Input to be converted into correct format :" <<  ASCIIinputName.Data() << std::endl;
     ASCIIinput.open(ASCIIinputName.Data(),std::ios::in);
     if(!ASCIIinput.is_open()){
-      std::cout<<"Could not open input file: "<<optarg<<std::endl;
+      std::cout<<"Could not open input file: "<<std::endl;
       return false;
     }
   }
@@ -34,7 +35,7 @@ bool Analyses::CheckAndOpenIO(void){
   std::cout <<"=============================================================" << std::endl;
   std::cout<<"Input name set to: "<<RootInputName.Data() <<std::endl;
   std::cout<<"Output name set to: "<<RootOutputName.Data() <<std::endl;
-  std::cout<<"Calib name set to: "<<RootCalibInputName.Data() <<std::endl;
+  if (!Convert) std::cout<<"Calib name set to: "<<RootCalibInputName.Data() <<std::endl;
   std::cout <<"=============================================================" << std::endl;
   if(!RootInputName.IsNull()){
     //File exist?
@@ -225,6 +226,7 @@ bool Analyses::Process(void){
   ROOT::EnableImplicitMT();
   
   if(Convert){
+    std::cout << "Converting !" << std::endl;
     if (!(GetASCIIinputName().EndsWith(".root"))){
       status=ConvertASCII2Root();
     } else {
@@ -297,6 +299,7 @@ bool Analyses::ConvertASCII2Root(void){
       std::cerr << "ERROR: No mapping file has been provided, please make sure you do so! Aborting!" << std::endl;
       return false;
   }
+  std::cout << "creating mapping " << std::endl;
   setup->Initialize(MapInputName.Data(),debug);
   // initialize run number file
   if (RunListInputName.CompareTo("")== 0) {
