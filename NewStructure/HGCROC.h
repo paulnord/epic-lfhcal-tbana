@@ -15,6 +15,7 @@ class Hgcroc: public Tile {
   int GetNsample(void) const ;
   double GetTOT(void) const;
   double GetTOA(void) const;
+  int GetPedestal(void) const;
 
   void SetADCWaveform(std::vector<int>);
   void AppendWaveformADC(int);
@@ -31,6 +32,7 @@ class Hgcroc: public Tile {
   void SetNsample(int);
   void SetTOT(double);
   void SetTOA(double);
+  void SetPedestal(int);
   
  protected:
   int Nsample;
@@ -39,6 +41,7 @@ class Hgcroc: public Tile {
   std::vector<int> tot_waveform;
   int TOA;
   int TOT;
+  int pedestal;
   
  private:
 

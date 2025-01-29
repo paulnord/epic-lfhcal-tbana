@@ -25,6 +25,10 @@ double Hgcroc::GetTOA(void) const{
   return TOA;
 }
 
+int Hgcroc::GetPedestal(void) const{
+  return pedestal;
+}
+
 void Hgcroc::SetADCWaveform(std::vector<int> v){
   adc_waveform=v;
 }
@@ -74,4 +78,8 @@ void Hgcroc::SetTOT(double tot){
 
 void Hgcroc::SetTOA(double toa){
   TOA=toa;
+}
+
+void Hgcroc::SetPedestal(int ped){
+  pedestal=ped;
 }

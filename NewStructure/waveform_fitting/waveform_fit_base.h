@@ -13,6 +13,8 @@ public:
     // Configure the fitting
     virtual void set_waveform(const std::vector<int> &waveform);    // virtual so it can be overwriten, but not pure virtual
     virtual void set_parameter(int parameter, double value);
+    virtual double get_parameter(int parameter);
+    virtual int get_pedestal() = 0;
     virtual void fit() = 0;                                         // pure virtual so it must be overwritten
     
     bool is_stale() { return stale; }

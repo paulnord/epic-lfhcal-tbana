@@ -5,6 +5,7 @@
 #include "Tile.h"
 #include "HGCROC.h"
 #include "CommonHelperFunctions.h"
+#include "Setup.h"
 
 #include "include/h2g_decode/run_decoder.h"
 
@@ -89,7 +90,8 @@ int run_hgcroc_conversion(Analyses *analysis, waveform_fit_base *waveform_builde
                 int x, y, z;
                 if (decode_position(channel_number, x, y, z)) {
                     Hgcroc *tile = new Hgcroc();
-                    tile->SetCellID(channel_number);        // TODO: This is not the same cell ID as Fredi and Vincent set up
+                    auto cell_id = analysis->setup->GetCellID(y, x, z, 0);  // needs to be adapted once we have multiple modules
+                    tile->SetCellID(cell_id);        // TODO: This is not the same cell ID as Fredi and Vincent set up
                     tile->SetROtype(ReadOut::Type::Hgcroc);
                     tile->SetLocalTriggerBit(0);            // What are these supposed to be?
                     tile->SetLocalTriggerPrimitive(0);
@@ -108,6 +110,7 @@ int run_hgcroc_conversion(Analyses *analysis, waveform_fit_base *waveform_builde
                     waveform_builder->set_waveform(tile->GetADCWaveform());
                     waveform_builder->fit();
                     tile->SetE(waveform_builder->get_E());
+                    tile->SetPedestal(waveform_builder->get_pedestal());
 
                     analysis->event.AddTile(tile);
                 }

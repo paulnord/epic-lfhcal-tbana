@@ -86,6 +86,13 @@ void crystal_ball_fit::fit() {
     stale = false;
 }
 
+int crystal_ball_fit::get_pedestal() {
+    if (stale) {
+        return -1;
+    }
+    return crystal_ball_function->GetParameter(5);
+}
+
 double crystal_ball_fit::crystal_ball(double *inputs, double *parameters) {
 // Parameters
     // alpha: Where the gaussian transitions to the power law tail - fix?

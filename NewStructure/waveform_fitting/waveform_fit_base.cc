@@ -20,6 +20,10 @@ void waveform_fit_base::set_parameter(int parameter, double value) {
     parameters[parameter] = value;
 }
 
+double waveform_fit_base::get_parameter(int parameter) {
+    return parameters[parameter];
+}
+
 double waveform_fit_base::get_E() {
     if (stale) {
         return -1;

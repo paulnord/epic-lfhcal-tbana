@@ -15,6 +15,7 @@ public:
     ~crystal_ball_fit();
     
     void fit() override;
+    int get_pedestal() override;
 
 private:
     double crystal_ball(double *inputs, double *parameters);

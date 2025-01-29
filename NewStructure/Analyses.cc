@@ -840,21 +840,41 @@ bool Analyses::GetPedestal(void){
     if (i == 0)runNr = event.GetRunNumber();
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     for(int j=0; j<event.GetNTiles(); j++){
-      Caen* aTile=(Caen*)event.GetTile(j);
-      if (i == 0 && debug > 2){
-        std::cout << ((TString)setup->DecodeCellID(aTile->GetCellID())).Data() << std::endl;
+      if (event.GetROtype() == ReadOut::Type::Caen) {
+        Caen* aTile=(Caen*)event.GetTile(j);
+        if (i == 0 && debug > 2){
+          std::cout << ((TString)setup->DecodeCellID(aTile->GetCellID())).Data() << std::endl;
+        }
+        ithSpectra=hSpectra.find(aTile->GetCellID());
+        if(ithSpectra!=hSpectra.end()){
+          ithSpectra->second.Fill(aTile->GetADCLow(),aTile->GetADCHigh());
+        } else {
+          RootOutputHist->cd("IndividualCells");
+          hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectra[aTile->GetCellID()].Fill(aTile->GetADCLow(),aTile->GetADCHigh());
+          RootOutput->cd();
+        }
+        hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCHigh());
+        hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCLow());
       }
-      ithSpectra=hSpectra.find(aTile->GetCellID());
-      if(ithSpectra!=hSpectra.end()){
-        ithSpectra->second.Fill(aTile->GetADCLow(),aTile->GetADCHigh());
-      } else {
-        RootOutputHist->cd("IndividualCells");
-        hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
-        hSpectra[aTile->GetCellID()].Fill(aTile->GetADCLow(),aTile->GetADCHigh());
-        RootOutput->cd();
+      else if (event.GetROtype() == ReadOut::Type::Hgcroc){ // Process HGCROC Data
+        Hgcroc* aTile=(Hgcroc*)event.GetTile(j);
+        if (i == 0 && debug > 2){
+          std::cout << ((TString)setup->DecodeCellID(aTile->GetCellID())).Data() << std::endl;
+        }
+        ithSpectra=hSpectra.find(aTile->GetCellID());
+        if(ithSpectra!=hSpectra.end()){
+          ithSpectra->second.Fill(aTile->GetPedestal(),aTile->GetPedestal());
+        } else {
+          RootOutputHist->cd("IndividualCells");
+          hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectra[aTile->GetCellID()].Fill(aTile->GetPedestal(),aTile->GetPedestal());
+          RootOutput->cd();
+        }
+        std::cout << "Tile E: " << aTile->GetPedestal() << std::endl;
+        hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetPedestal());
+        hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetPedestal());
       }
-      hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCHigh());
-      hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetADCLow());
     }
     RootOutput->cd();
     TdataOut->Fill();
