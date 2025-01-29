@@ -21,7 +21,7 @@
 #include "Caen.h"
 #include "Analyses.h"
 
-Setup* Setup::instancePtr=nullptr; // Remove for use on Mac OS -> Add to Setup.cc instead
+// Setup* Setup::instancePtr=nullptr; // Remove for use on Mac OS -> Add to Setup.cc instead
 //Calib* Calib::instancePtr=nullptr;
 
 void PrintHelp(char* exe){
