@@ -6,7 +6,7 @@
 #include "TObjString.h"
 
 
-//Setup* Setup::instancePtr = nullptr; // Add for use on Mac OS
+Setup* Setup::instancePtr = nullptr; // Add for use on Mac OS
 
 ClassImp(Setup);
 

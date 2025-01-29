@@ -78,7 +78,8 @@ elif [ $2 == "hadronsC" ]; then
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
 elif [ $2 == "hadronsD" ]; then 
-  runs='434 437 439 441 444 445 449 452' 
+  runs='434' 
+#   runs='434 437 439 441 444 445 449 452' 
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
