@@ -12,7 +12,7 @@ int Event::GetTimeStamp(void) const{
   return TimeStamp;
 }
 
-int Event::GetROtype(void) const{
+ReadOut::Type Event::GetROtype(void) const{
   return ROtype;
 }
 
@@ -28,7 +28,7 @@ void Event::SetTimeStamp(int t){
   TimeStamp=t;
 }
 
-void Event::SetROtype(int ro){
+void Event::SetROtype(ReadOut::Type ro){
   ROtype=ro;
 }
 

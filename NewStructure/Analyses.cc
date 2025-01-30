@@ -208,9 +208,9 @@ bool Analyses::Process(void){
 
       // Set the parameters based off what I found in the stand alone analysis
       // Alpha
-      waveform_builder->set_parameter(0, 1.1);
-      waveform_builder->set_parameter(10, 1);
-      waveform_builder->set_parameter(20, 1.2);
+      waveform_builder->set_parameter(0, 1.1);  // Initial value
+      waveform_builder->set_parameter(10, 1);   // Lower bound
+      waveform_builder->set_parameter(20, 1.2); // Uppser bound
 
       // n
       waveform_builder->set_parameter(1, 0.3);
@@ -234,8 +234,8 @@ bool Analyses::Process(void){
 
       // Offset
       waveform_builder->set_parameter(5, 100);  // This needs to become pedestals eventually... 
-      waveform_builder->set_parameter(15, 70);
-      waveform_builder->set_parameter(25, 150);
+      waveform_builder->set_parameter(15, 0);
+      waveform_builder->set_parameter(25, 160);
 
       std::cout << "Running HGCROC conversion" << std::endl;
       status=run_hgcroc_conversion(this, waveform_builder);
@@ -302,7 +302,7 @@ bool Analyses::ConvertASCII2Root(void){
   std::map<int,RunInfo>::iterator it=ri.find(RunString.Atoi());
   //std::cout<<RunString.Atoi()<<"\t"<<it->second.species<<std::endl;
   event.SetRunNumber(RunString.Atoi());
-  event.SetROtype(2);
+  event.SetROtype(ReadOut::Type::Caen);
   event.SetBeamName(it->second.species);
   event.SetBeamID(it->second.pdg);
   event.SetBeamEnergy(it->second.energy);
@@ -667,7 +667,7 @@ bool Analyses::ConvertOldRootFile2Root(void){
   std::map<int,RunInfo>::iterator it=ri.find(RunString.Atoi());
   //std::cout<<RunString.Atoi()<<"\t"<<it->second.species<<std::endl;
   event.SetRunNumber(RunString.Atoi());
-  event.SetROtype(2);
+  event.SetROtype(ReadOut::Type::Caen);
   event.SetBeamName(it->second.species);
   event.SetBeamID(it->second.pdg);
   event.SetBeamEnergy(it->second.energy);
@@ -850,7 +850,7 @@ bool Analyses::GetPedestal(void){
           ithSpectra->second.Fill(aTile->GetADCLow(),aTile->GetADCHigh());
         } else {
           RootOutputHist->cd("IndividualCells");
-          hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()), event.GetROtype(), debug);
           hSpectra[aTile->GetCellID()].Fill(aTile->GetADCLow(),aTile->GetADCHigh());
           RootOutput->cd();
         }
@@ -864,14 +864,16 @@ bool Analyses::GetPedestal(void){
         }
         ithSpectra=hSpectra.find(aTile->GetCellID());
         if(ithSpectra!=hSpectra.end()){
+          // Get the tile spectra if it already exists
           ithSpectra->second.Fill(aTile->GetPedestal(),aTile->GetPedestal());
         } else {
+          // Make a new tile spectra if it isn't found
           RootOutputHist->cd("IndividualCells");
-          hSpectra[aTile->GetCellID()]=TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectra[aTile->GetCellID()]= TileSpectra("1stExtraction",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()), event.GetROtype(), debug);
           hSpectra[aTile->GetCellID()].Fill(aTile->GetPedestal(),aTile->GetPedestal());
           RootOutput->cd();
         }
-        std::cout << "Tile E: " << aTile->GetPedestal() << std::endl;
+        // std::cout << "Cell ID: " << aTile->GetCellID() << ", Tile E: " << aTile->GetPedestal() << std::endl;
         hspectraHGvsCellID->Fill(aTile->GetCellID(), aTile->GetPedestal());
         hspectraLGvsCellID->Fill(aTile->GetCellID(), aTile->GetPedestal());
       }
@@ -885,7 +887,13 @@ bool Analyses::GetPedestal(void){
   bool isGood;
   for(ithSpectra=hSpectra.begin(); ithSpectra!=hSpectra.end(); ++ithSpectra){
     if ( debug > 2) std::cout << ((TString)setup->DecodeCellID(ithSpectra->second.GetCellID())).Data() << std::endl;
+    // std::cerr << "Fitting noise for cell ID: " << ithSpectra->second.GetCellID() << std::endl;
     isGood=ithSpectra->second.FitNoise(parameters, yearData);
+    if (!isGood) {
+      std::cerr << "Noise fit failed for cell ID: " << ithSpectra->second.GetCellID() << std::endl;
+      ithSpectra->second.Print("all");
+      continue;
+    }
     hMeanPedHGvsCellID->SetBinContent(hMeanPedHGvsCellID->FindBin(ithSpectra->second.GetCellID()), parameters[4]);
     hMeanPedHGvsCellID->SetBinError  (hMeanPedHGvsCellID->FindBin(ithSpectra->second.GetCellID()), parameters[6]);
     hMeanPedLGvsCellID->SetBinContent(hMeanPedLGvsCellID->FindBin(ithSpectra->second.GetCellID()), parameters[0]);
@@ -1080,7 +1088,7 @@ bool Analyses::GetScaling(void){
           ithSpectra->second.FillCorr(lgCorr,hgCorr);
       } else {
         RootOutputHist->cd("IndividualCells");
-        hSpectra[aTile->GetCellID()]=TileSpectra("mip1st",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+        hSpectra[aTile->GetCellID()]=TileSpectra("mip1st",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(), debug);
         hSpectra[aTile->GetCellID()].FillSpectra(lgCorr,hgCorr);;
         if (hgCorr > 3*calib.GetPedestalSigH(aTile->GetCellID()) && lgCorr > 3*calib.GetPedestalSigL(aTile->GetCellID() && hgCorr < 3900) )
           hSpectra[aTile->GetCellID()].FillCorr(lgCorr,hgCorr);;
@@ -1255,7 +1263,7 @@ bool Analyses::GetScaling(void){
         ithSpectraTrigg->second.FillTrigger(aTile->GetLocalTriggerPrimitive());
       } else {
         RootOutputHist->cd("IndividualCellsTrigg");
-        hSpectraTrigg[currCellID]=TileSpectra("mipTrigg",currCellID,calib.GetTileCalib(currCellID),debug);
+        hSpectraTrigg[currCellID]=TileSpectra("mipTrigg",currCellID,calib.GetTileCalib(currCellID),event.GetROtype(),debug);
         hSpectraTrigg[currCellID].FillTrigger(aTile->GetLocalTriggerPrimitive());;
         RootOutput->cd();
       }
@@ -1617,7 +1625,7 @@ bool Analyses::GetImprovedScaling(void){
         ithSpectraTrigg->second.FillTrigger(aTile->GetLocalTriggerPrimitive());
       } else {
         RootOutputHist->cd("IndividualCellsTrigg");
-        hSpectraTrigg[currCellID]=TileSpectra("mipTrigg",currCellID,calib.GetTileCalib(currCellID),debug);
+        hSpectraTrigg[currCellID]=TileSpectra("mipTrigg",currCellID,calib.GetTileCalib(currCellID),event.GetROtype(),debug);
         hSpectraTrigg[currCellID].FillTrigger(aTile->GetLocalTriggerPrimitive());;
         RootOutput->cd();
       }
@@ -1629,7 +1637,7 @@ bool Analyses::GetImprovedScaling(void){
           ithSpectra->second.FillCorr(lgCorr,hgCorr);
       } else {
         RootOutputHist->cd("IndividualCells");
-        hSpectra[currCellID]=TileSpectra("mip1st",currCellID,calib.GetTileCalib(currCellID),debug);
+        hSpectra[currCellID]=TileSpectra("mip1st",currCellID,calib.GetTileCalib(currCellID),event.GetROtype(),debug);
         hSpectra[aTile->GetCellID()].FillSpectra(lgCorr,hgCorr);;
         if (hgCorr > 3*calib.GetPedestalSigH(aTile->GetCellID()) && lgCorr > 3*calib.GetPedestalSigL(aTile->GetCellID() && hgCorr < 3900) )
           hSpectra[aTile->GetCellID()].FillCorr(lgCorr,hgCorr);;

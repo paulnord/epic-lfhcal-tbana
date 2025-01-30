@@ -57,8 +57,10 @@ void crystal_ball_fit::fit() {
     }
 
     // Try a linear fit
-    linear_function->SetParameter(0, 100);
-    linear_function->SetParLimits(0, 70, 150);
+    linear_function->SetParameter(0, parameters[5]);
+    if (parameters.count(15) && parameters.count(25)) {   // If the parameter has a lower and upper limit
+        linear_function->SetParLimits(0, parameters[15], parameters[25]);
+    }
     crystal_ball_graph->Fit(linear_function, "Q");
     if (linear_function->GetChisquare() < 500) {
         E = 0;

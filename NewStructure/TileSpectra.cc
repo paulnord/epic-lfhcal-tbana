@@ -36,70 +36,140 @@ bool TileSpectra::FillCorr(double l, double h){
 }
 
 
-bool TileSpectra::FitNoise(double* out, int year = -1){        //[0] LG mean, [2] LG sigma, [4] HG mean, [6] HG sigma errors uneven numbers
+bool TileSpectra::FitNoise(double* out, int year = -1){        //[0] LG mean, [2] LG sigma, [4] HG mean, [6] HG sigma errors uneven numbers)
   TFitResultPtr result;
-  // estimate LG pedestal per channel
-  BackgroundLG=TF1(Form("fped%sLGCellID%d",TileName.Data(),cellID),"gaus",0,400);
-  BackgroundLG.SetNpx(400);
-  if (year == 2023){
-    BackgroundLG.SetParameter(1,50);
-    BackgroundLG.SetParLimits(1,40,60);     // might need to make these values settable
-    BackgroundLG.SetParameter(2,4);
-    BackgroundLG.SetParLimits(2,0,10);     // might need to make these values settable      
-    BackgroundLG.SetRange(0,70);
-  } else {
-    BackgroundLG.SetParameter(1,hspectraLG.GetMean());    
-    BackgroundLG.SetParLimits(1,0,hspectraLG.GetMean()+100);     // might need to make these values settable
-    BackgroundLG.SetParameter(2,10);
-    BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
+  if (ROType == ReadOut::Type::Caen) {
+    // estimate LG pedestal per channel
+    BackgroundLG=TF1(Form("fped%sLGCellID%d",TileName.Data(),cellID),"gaus",0,400);
+    BackgroundLG.SetNpx(400);
+    if (year == 2023){
+      BackgroundLG.SetParameter(1,50);
+      BackgroundLG.SetParLimits(1,40,60);     // might need to make these values settable
+      BackgroundLG.SetParameter(2,4);
+      BackgroundLG.SetParLimits(2,0,10);     // might need to make these values settable      
+      BackgroundLG.SetRange(0,70);
+    } else {
+      BackgroundLG.SetParameter(1,hspectraLG.GetMean());    
+      BackgroundLG.SetParLimits(1,0,hspectraLG.GetMean()+100);     // might need to make these values settable
+      BackgroundLG.SetParameter(2,10);
+      BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
+    }
+    BackgroundLG.SetParLimits(0,0,hspectraLG.GetEntries());
+    BackgroundLG.SetParameter(0,hspectraLG.GetEntries()/5);
+
+    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S"); // initial fit
+    // check if result is good
+    if ((int)result != 0 || result->IsValid() != true){
+      if (debug > 1) std::cout << "FIT FAILED FOR LG1 cell " << cellID << std::endl;
+      return false;
+    }
+    double minLGFit = result->Parameter(1)-2*result->Parameter(2);
+    double maxLGFit = result->Parameter(1)+1*result->Parameter(2);
+    if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
+    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", minLGFit, maxLGFit);  // limit to 2sigma
+    if ((int)result != 0 || result->IsValid() != true){
+    if (debug > 1) std::cout << "FIT FAILED FOR LG2 cell " << cellID << std::endl;
+      return false;
+    }
+    bpedLG=true;
+    calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+    calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+    out[0]=result->Parameter(1);
+    out[1]=result->Error(1);
+    out[2]=result->Parameter(2);
+    out[3]=result->Error(2);
+    
+    // estimate HG pedestal per channel
+    BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
+    BackgroundHG.SetNpx(400);
+    if (year == 2023){
+      BackgroundHG.SetParameter(1,60);
+      BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
+      BackgroundHG.SetRange(0,200);
+    } else {
+      BackgroundHG.SetParameter(1,hspectraHG.GetMean());
+      BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
+    }
+    BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
+    BackgroundHG.SetParLimits(0,0,hspectraHG.GetEntries());
+    BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/5);
+    BackgroundHG.SetParameter(2,10);
+    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S");      // initial fit
+    if ((int)result != 0 || result->IsValid() != true){
+      if (debug > 1) std::cout << "FIT FAILED FOR HG1 cell " << cellID << std::endl;
+      return false;
+    }
+    double minHGFit = result->Parameter(1)-2*result->Parameter(2);
+    double maxHGFit = result->Parameter(1)+1*result->Parameter(2);
+    if (debug > 1) std::cout <<"HG: " << minHGFit << "\t" << maxHGFit << "\t" << hspectraHG.GetEntries() << "\t" << hspectraHG.GetMean()<< std::endl;
+    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",minHGFit, maxHGFit);  // limit to 2sigma range of previous fit
+    if ((int)result != 0 || result->IsValid() != true){
+      if (debug > 1) std::cout << "FIT FAILED FOR HG2 cell " << cellID << std::endl;
+      return false;
+    }
+    bpedHG=true;
+    
+    calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+    calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+    out[4]=result->Parameter(1);
+    out[5]=result->Error(1);
+    out[6]=result->Parameter(2);
+    out[7]=result->Error(2);
+    
+    return true;
   }
-  BackgroundLG.SetParLimits(0,0,hspectraLG.GetEntries());
-  BackgroundLG.SetParameter(0,hspectraLG.GetEntries()/5);
-  
-  
-  result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S"); // initial fit
-  double minLGFit = result->Parameter(1)-2*result->Parameter(2);
-  double maxLGFit = result->Parameter(1)+1*result->Parameter(2);
-  if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
-  result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", minLGFit, maxLGFit);  // limit to 2sigma
-  bpedLG=true;
-  calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-  calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-  out[0]=result->Parameter(1);
-  out[1]=result->Error(1);
-  out[2]=result->Parameter(2);
-  out[3]=result->Error(2);
-  
-  // estimate HG pedestal per channel
-  BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
-  BackgroundHG.SetNpx(400);
-  if (year == 2023){
-    BackgroundHG.SetParameter(1,60);
-    BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
-    BackgroundHG.SetRange(0,200);
-  } else {
-    BackgroundHG.SetParameter(1,hspectraHG.GetMean());
-    BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
+  else if (ROType == ReadOut::Type::Hgcroc) {
+    /*
+    QRMEN0S
+    Q: Quiet mode
+    R: Use TF1::SetRange
+    M: IMPROVE algorithm
+    E: Minos error estimation
+    N: Don't store graphics and don't draw
+    0: Don't draw, but do store? 
+    S: Return full result in TFitResultPtr
+    QNSWW
+    */
+    BackgroundLG = TF1(Form("fped%sLGCellID%d", TileName.Data(), cellID), "gaus", 0, 400);
+    if (debug > 2) {
+      std::cout << "Histogram has " << hspectraLG.GetEntries() << " entries" << std::endl;
+      std::cout << "Mean is " << hspectraLG.GetMean() << std::endl;
+      std::cout << "Standard deviation is " << hspectraLG.GetStdDev() << std::endl;
+    }
+
+    // First iteration
+    // BackgroundLG.SetParLimits(0, 0, hspectraLG.GetEntries());
+    // BackgroundLG.SetParameter(0, hspectraLG.GetEntries() / 5);
+    // BackgroundLG.SetParameter(1, hspectraLG.GetMean());
+    // BackgroundLG.SetParLimits(1, 0, hspectraLG.GetMean() + 100);
+    // BackgroundLG.SetParameter(2, hspectraLG.GetStdDev());
+    // BackgroundLG.SetParLimits(2, 0, 100);
+
+    result = hspectraLG.Fit(&BackgroundLG, "QNSWW");
+    if ((int)result != 0 || result->IsValid() != true) {
+      if (debug > 1) std::cout << "FIT FAILED FOR CELL " << cellID << ", FIRST ITERATION" << std::endl;
+      return false;
+    }
+
+    // Second iteration
+    double minLGFit = result->Parameter(1) - 2 * result->Parameter(2);
+    double maxLGFit = result->Parameter(1) + 1 * result->Parameter(2);
+    if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
+    result = hspectraLG.Fit(&BackgroundLG, "QNSWW", "", minLGFit, maxLGFit);  // limit to 2sigma
+    if ((int)result != 0 || result->IsValid() != true){
+    if (debug > 1) std::cout << "FIT FAILED FOR CELL " << cellID << ", SECOND ITERATION" << std::endl;
+      return false;
+    }
+
+    bpedLG=true; // We're (I'm) being lazy and just calling the HGCROC ADC the low gain.  maybe we use HG for TOT info?
+    calib->PedestalMeanL=result->Parameter(1);
+    calib->PedestalSigL =result->Parameter(2);
+    out[0]=result->Parameter(1);
+    out[1]=result->Error(1);
+    out[2]=result->Parameter(2);
+    out[3]=result->Error(2);
+    return true;
   }
-  BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
-  BackgroundHG.SetParLimits(0,0,hspectraHG.GetEntries());
-  BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/5);
-  BackgroundHG.SetParameter(2,10);
-  result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S");      // initial fit
-  double minHGFit = result->Parameter(1)-2*result->Parameter(2);
-  double maxHGFit = result->Parameter(1)+1*result->Parameter(2);
-  if (debug > 1) std::cout <<"HG: " << minHGFit << "\t" << maxHGFit << "\t" << hspectraHG.GetEntries() << "\t" << hspectraHG.GetMean()<< std::endl;
-  result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",minHGFit, maxHGFit);  // limit to 2sigma range of previous fit
-  bpedHG=true;
-  
-  calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-  calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-  out[4]=result->Parameter(1);
-  out[5]=result->Error(1);
-  out[6]=result->Parameter(2);
-  out[7]=result->Error(2);
-  
-  return true;
 }
 
 bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year, bool impE = false, double avmip = 1){
