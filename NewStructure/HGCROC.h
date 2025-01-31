@@ -9,23 +9,39 @@ class Hgcroc: public Tile {
  public:
   Hgcroc():Tile(ReadOut::Type::Hgcroc){}
   ~Hgcroc(){}
-  std::vector<int> GetWaveform(void) const;
+  std::vector<int> GetADCWaveform(void) const;
+  std::vector<int> GetTOAWaveform(void) const;
+  std::vector<int> GetTOTWaveform(void) const;
   int GetNsample(void) const ;
   double GetTOT(void) const;
   double GetTOA(void) const;
+  int GetPedestal(void) const;
 
-  void SetWaveform(std::vector<int>);
+  void SetADCWaveform(std::vector<int>);
   void AppendWaveformADC(int);
-  void ResetWaveformPoint(int, int);
+  void ResetADCWaveformPoint(int, int);
+  
+  void SetTOAWaveform(std::vector<int>);
+  void AppendWaveformTOA(int);
+  void ResetTOAWaveformPoint(int, int);
+  
+  void SetTOTWaveform(std::vector<int>);
+  void AppendWaveformTOT(int);
+  void ResetTOTWaveformPoint(int, int);
+
   void SetNsample(int);
   void SetTOT(double);
   void SetTOA(double);
+  void SetPedestal(int);
   
  protected:
   int Nsample;
-  std::vector<int> adc;
-  double TOT;
-  double TOA;
+  std::vector<int> adc_waveform;
+  std::vector<int> toa_waveform;
+  std::vector<int> tot_waveform;
+  int TOA;
+  int TOT;
+  int pedestal;
   
  private:
 

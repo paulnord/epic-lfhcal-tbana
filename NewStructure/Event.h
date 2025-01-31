@@ -24,7 +24,7 @@ class Event{
   TString GetBeamName  (void) const;
   int     GetEventID   (void) const;
   int     GetNTiles    (void) const;
-  int     GetROtype    (void) const;
+  ReadOut::Type GetROtype    (void) const;
   int     GetRunNumber (void) const;
   Tile*   GetTile      (int);
   Tile*   GetTileFromID(int);
@@ -39,7 +39,7 @@ class Event{
   void    SetBeamID    (int);
   void    SetBeamName  (TString);
   void    SetEventID   (int);
-  void    SetROtype    (int);
+  void    SetROtype    (ReadOut::Type);
   void    SetRunNumber (int);
   void    SetBeginRunTime(TTimeStamp);
   void    SetVov(double);
@@ -58,7 +58,7 @@ class Event{
   int                   BeamID;
   TString               BeamName;
   int                   EventID;
-  int                   ROtype;
+  ReadOut::Type         ROtype;
   int                   RunNumber;
   TTimeStamp            BeginRun;
   double                Vov;

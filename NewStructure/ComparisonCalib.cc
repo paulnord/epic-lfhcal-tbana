@@ -1,7 +1,9 @@
 #include "ComparisonCalib.h"
 #include <vector>
 #include "TROOT.h"
-//#include <unistd.h> // Add for use on Mac OS -> Same goes for Analyse.cc
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
 #include "TF1.h"
 #include "TFitResult.h"
 #include "TFitResultPtr.h"

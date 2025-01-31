@@ -285,7 +285,7 @@ bool DataAnalysis::QAData(void){
           ithSpectraTrigg->second.FillSpectra(corrLG,corrHG);
         } else {
           RootOutputHist->cd("IndividualCellsTrigg");
-          hSpectraTrigg[aTile->GetCellID()]=TileSpectra("muonTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectraTrigg[aTile->GetCellID()]=TileSpectra("muonTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(),debug);
           hSpectraTrigg[aTile->GetCellID()].FillTrigger(aTile->GetLocalTriggerPrimitive());
           hSpectraTrigg[aTile->GetCellID()].FillSpectra(corrLG,corrHG);
         }
@@ -299,7 +299,7 @@ bool DataAnalysis::QAData(void){
         ithSpectra->second.FillCorr(corrLG,corrHG);
       } else {
         RootOutputHist->cd("IndividualCells");
-        hSpectra[aTile->GetCellID()]=TileSpectra("AllTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+        hSpectra[aTile->GetCellID()]=TileSpectra("AllTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(),debug);
         hSpectra[aTile->GetCellID()].FillSpectra(corrLG,corrHG);;
         hSpectra[aTile->GetCellID()].FillTrigger(aTile->GetLocalTriggerPrimitive());;
         hSpectra[aTile->GetCellID()].FillCorr(corrLG,corrHG);

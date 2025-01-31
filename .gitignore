@@ -1,0 +1,6 @@
+NewStructure/outfiles
+NewStructure/Analyse
+NewStructure/*.o
+NewStructure/*.so
+NewStructure/Cint*
+NewStructure/lib
