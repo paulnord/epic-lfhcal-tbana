@@ -1,47 +1,11 @@
 #include <TROOT.h>
 #include <TString.h>
-#include <TObject.h>
 #include <TObjString.h>
 #include <TSystem.h>
-#include <TChain.h>
-#include <TMath.h>
-#include <TVector3.h>
+#include <TFile.h>
+#include <TTree.h>
 #include <iostream>
 #include <fstream>
-#include <TParticlePDG.h>
-#include <TDatabasePDG.h>
-#include <TRandom3.h>
-
-#include <TCanvas.h>
-#include <TPad.h>
-#include <TH1.h>
-#include <TH1D.h>
-#include <TH1F.h>
-#include <TH2.h>
-#include <TH3.h>
-#include <TFile.h>
-#include <TH2D.h>
-#include <TH2F.h>
-#include <TString.h>
-#include <TDatime.h>
-#include <TF1.h>
-#include <TF2.h>
-#include <THStack.h>
-#include <TGraph.h>
-#include <TStyle.h>
-#include <TGraphAsymmErrors.h>
-#include <TLine.h>
-#include <TLatex.h>
-#include <TArrow.h>
-#include <TGraphErrors.h>
-#include <TGaxis.h>
-#include <TLegend.h>
-#include <TFrame.h>
-#include <TLorentzVector.h>
-
-#include "PlottingHeader.h"
-#include "FittingHeader.h"
-#include "CommonVariables.h"
 
 struct layerInfo{
     layerInfo(): layerNrAbs(0), layerLabel(""), rUnit(0), layerUnit(0){}

@@ -22,6 +22,16 @@ bool TileSpectra::FillSpectra(double l, double h){
   return true;
 }
 
+bool TileSpectra::FillExt(double l, double h, double e){
+  hspectraLG.Fill(l);
+  hspectraHG.Fill(h);
+  hcombined.Fill(e);
+  if (h < 3500)
+    hspectraLGHG.Fill(l,e);
+  return true;
+}
+
+
 bool TileSpectra::FillTrigger(double t){
   if (!bTriggPrim) bTriggPrim =true;
   hTriggPrim.Fill(t);
@@ -36,7 +46,7 @@ bool TileSpectra::FillCorr(double l, double h){
 }
 
 
-bool TileSpectra::FitNoise(double* out, int year = -1){        //[0] LG mean, [2] LG sigma, [4] HG mean, [6] HG sigma errors uneven numbers)
+bool TileSpectra::FitNoise(double* out, int year = -1, bool isNoiseTrigg = false){        //[0] LG mean, [2] LG sigma, [4] HG mean, [6] HG sigma errors uneven numbers
   TFitResultPtr result;
   if (ROType == ReadOut::Type::Caen) {
     // estimate LG pedestal per channel
@@ -54,71 +64,80 @@ bool TileSpectra::FitNoise(double* out, int year = -1){        //[0] LG mean, [2
       BackgroundLG.SetParameter(2,10);
       BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
     }
+    double maxLG = 0;
+  if (isNoiseTrigg){
+    maxLG = GetMaxXInRangeLG(0,300);
+    BackgroundLG.SetParameter(1,maxLG);
+    BackgroundLG.SetParLimits(1,maxLG-5,maxLG+5);
+    if (debug > 1) std::cout << "reset LG: " << maxLG << std::endl;
+  }
+  
+  if (!isNoiseTrigg){
     BackgroundLG.SetParLimits(0,0,hspectraLG.GetEntries());
     BackgroundLG.SetParameter(0,hspectraLG.GetEntries()/5);
-
     result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S"); // initial fit
-    // check if result is good
-    if ((int)result != 0 || result->IsValid() != true){
-      if (debug > 1) std::cout << "FIT FAILED FOR LG1 cell " << cellID << std::endl;
-      return false;
-    }
     double minLGFit = result->Parameter(1)-2*result->Parameter(2);
     double maxLGFit = result->Parameter(1)+1*result->Parameter(2);
     if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
     result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", minLGFit, maxLGFit);  // limit to 2sigma
-    if ((int)result != 0 || result->IsValid() != true){
-    if (debug > 1) std::cout << "FIT FAILED FOR LG2 cell " << cellID << std::endl;
-      return false;
-    }
-    bpedLG=true;
-    calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-    calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-    out[0]=result->Parameter(1);
-    out[1]=result->Error(1);
-    out[2]=result->Parameter(2);
-    out[3]=result->Error(2);
-    
-    // estimate HG pedestal per channel
-    BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
-    BackgroundHG.SetNpx(400);
-    if (year == 2023){
-      BackgroundHG.SetParameter(1,60);
-      BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
-      BackgroundHG.SetRange(0,200);
-    } else {
-      BackgroundHG.SetParameter(1,hspectraHG.GetMean());
-      BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
-    }
-    BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
+  } else {
+    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", maxLG-20, maxLG+30);  // limit to 2sigma
+    if (debug > 1) std::cout <<"LG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
+  }
+  bpedLG=true;
+  calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+  calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+  out[0]=result->Parameter(1);
+  out[1]=result->Error(1);
+  out[2]=result->Parameter(2);
+  out[3]=result->Error(2);
+  
+  // estimate HG pedestal per channel
+  BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
+  BackgroundHG.SetNpx(400);
+  if (year == 2023){
+    BackgroundHG.SetParameter(1,60);
+    BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
+    BackgroundHG.SetRange(0,200);
+  } else {
+    BackgroundHG.SetParameter(1,hspectraHG.GetMean());
+    BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
+  }
+  BackgroundHG.SetParameter(2,10);  
+  BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
+  
+  double maxHG = 0;
+  if (isNoiseTrigg){
+    maxHG = GetMaxXInRangeHG(0,300);
+    BackgroundHG.SetParameter(2,20);  
+    BackgroundHG.SetParameter(1,maxHG);
+    BackgroundHG.SetParLimits(1,maxHG-5,maxHG+5);
+    if (debug > 1) std::cout << "reset HG: " << maxHG << std::endl;
+  }
+  
+  if (!isNoiseTrigg){
     BackgroundHG.SetParLimits(0,0,hspectraHG.GetEntries());
-    BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/5);
-    BackgroundHG.SetParameter(2,10);
+    BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/10);
     result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S");      // initial fit
-    if ((int)result != 0 || result->IsValid() != true){
-      if (debug > 1) std::cout << "FIT FAILED FOR HG1 cell " << cellID << std::endl;
-      return false;
-    }
     double minHGFit = result->Parameter(1)-2*result->Parameter(2);
     double maxHGFit = result->Parameter(1)+1*result->Parameter(2);
     if (debug > 1) std::cout <<"HG: " << minHGFit << "\t" << maxHGFit << "\t" << hspectraHG.GetEntries() << "\t" << hspectraHG.GetMean()<< std::endl;
     result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",minHGFit, maxHGFit);  // limit to 2sigma range of previous fit
-    if ((int)result != 0 || result->IsValid() != true){
-      if (debug > 1) std::cout << "FIT FAILED FOR HG2 cell " << cellID << std::endl;
-      return false;
-    }
-    bpedHG=true;
-    
-    calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-    calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-    out[4]=result->Parameter(1);
-    out[5]=result->Error(1);
-    out[6]=result->Parameter(2);
-    out[7]=result->Error(2);
-    
-    return true;
+  } else {
+    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",maxHG-40, maxHG+60);
+    if (debug > 1) std::cout <<"HG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
   }
-  else if (ROType == ReadOut::Type::Hgcroc) {
+  bpedHG=true;
+  
+  calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+  calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+  out[4]=result->Parameter(1);
+  out[5]=result->Error(1);
+  out[6]=result->Parameter(2);
+  out[7]=result->Error(2);
+  
+  return true;
+  } else if (ROType == ReadOut::Type::Hgcroc) {
     /*
     QRMEN0S
     Q: Quiet mode
@@ -172,7 +191,32 @@ bool TileSpectra::FitNoise(double* out, int year = -1){        //[0] LG mean, [2
   }
 }
 
-bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year, bool impE = false, double avmip = 1){
+void TileSpectra::FitFixedNoise(){
+
+  // estimate LG pedestal per channel
+  BackgroundLG=TF1(Form("fpedLGCellID%d",cellID),"gaus",-10,10);
+  BackgroundLG.SetNpx(400);
+  BackgroundLG.SetParLimits(1,-2,2);     
+  BackgroundLG.SetParameter(2,calib->PedestalSigL);     
+  
+  hspectraLG.Fit(&BackgroundLG,"QIRN0"); // initial fit
+  bpedLG=BackgroundLG.IsValid();
+  
+  // estimate HG pedestal per channel
+  BackgroundHG=TF1(Form("fpedHGCellID%d",cellID),"gaus",-20,20);
+  BackgroundHG.SetNpx(400);
+  // BackgroundHG.FixParameter(1,0);     
+  BackgroundLG.SetParLimits(1,-2,2);     
+  BackgroundHG.SetParameter(2,calib->PedestalSigH);     
+  
+  hspectraHG.Fit(&BackgroundHG,"QIRN0"); // initial fit
+  bpedHG=BackgroundHG.IsValid();
+
+  return;
+}
+
+
+bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year, bool impE = false, double vov = -1000, double avmip = -1000){
   
   // Once again, here are the Landau * Gaussian parameters:
   //   par[0]=Width (scale) parameter of Landau density
@@ -181,37 +225,58 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   //   par[3]=Width (sigma) of convoluted Gaussian function
   //
 
-  TString funcName = Form("fmip%sHGCellID%d",TileName.Data(),cellID);
+  if (verbosity > 2) std::cout << "FitHG cell ID: " << cellID << std::endl;
   
+  TString funcName = Form("fmip%sHGCellID%d",TileName.Data(),cellID);
+  bmipHG           = false;
+  
+  if (calib->BadChannel != -64 && calib->BadChannel < 1 ){
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " channel dead" << std::endl;
+    return false;
+  }
   
   double fitrange[2]      = {50, 2000};
   if (impE){
-    fitrange[0] = 0.5*avmip;
-    fitrange[1] = 4*avmip;
+    fitrange[0] = 0.6*avmip;
+    fitrange[1] = 3*avmip;
   }
-  if (year == 2023 && fitrange[0] < 200)
-    fitrange[0] = 200;
+  if (year == 2023 && fitrange[0] < 100)
+    fitrange[0] = 100;
   
   
   double intArea    = hspectraHG.Integral(hspectraHG.FindBin(fitrange[0]),hspectraHG.FindBin(fitrange[1]));
   double intNoise   = hspectraHG.Integral(hspectraHG.FindBin(-2*calib->PedestalSigH),hspectraHG.FindBin(+2*calib->PedestalSigH));
+  double intAN3s    = hspectraHG.Integral(hspectraHG.FindBin(+3*calib->PedestalSigH),hspectraHG.FindBin(fitrange[1]));
   
-  if (intArea/intNoise < 1e-5){
-    if (verbosity > 0) std::cout << "Skipped HG cell " << cellID << " S/B too small!" << std::endl;
+  if (intArea/intNoise < 1e-5 && intAN3s > 200){
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " S/B too small!" << std::endl;
     return false;
   }
   double startvalues[4]   = {50, 300, intArea, calib->PedestalSigH};
-  double parlimitslo[4]   = {0.5, 50, 1.0, calib->PedestalSigH*0.1};
-  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*10};
+  double parlimitslo[4]   = {0.5, 50, 1.0, calib->PedestalSigH*0.01};
+  double parlimitshi[4]   = {500, 1000, intArea*5, calib->PedestalSigH*40};
   if (year == 2023){
     startvalues[0]  = 200;
-    startvalues[1]  = 500;
-    parlimitslo[1]  = 200;
+    startvalues[1]  = 500;    
+    parlimitslo[1]  = 100;
     parlimitshi[0]  = 1000;
     parlimitshi[1]  = 1500;
   }
   
-  
+  if (impE && (avmip =! -1000)){
+    startvalues[1]  = avmip;    
+    parlimitslo[1]  = 0.5*avmip;    
+    parlimitshi[1]  = 1.7*avmip;
+  }
+  if (vov != -1000){
+    if (verbosity > 1) std::cout << "adjusting according to V_ov: " << vov<< std::endl;
+    if (vov < 2.5){
+      parlimitslo[1]  = 20;    
+      fitrange[0]     = 15;
+    } else if (vov > 5){
+      fitrange[0]     = 150;      
+    }
+  }  
   SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);
   SignalHG.SetParameters(startvalues);
   SignalHG.SetParNames("Width","MP","Area","GSigma");
@@ -223,16 +288,43 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
   TString fitOption = "";
   if (impE){ 
     fitOption = "QRLMNE0";
-    if (verbosity > 1) 
+    if (verbosity > 2) 
       fitOption = "RLMNE0";
   } else {
     fitOption = "QRLN0";
-    if (verbosity > 1) 
+    if (verbosity > 2) 
       fitOption = "RLN0";
   }
   
   int fitStatus = hspectraHG.Fit(&SignalHG,fitOption);   // fit within specified range, use ParLimits, do not plot
-  // if (fitStatus == 0)
+  // Minuit status codes:
+  // 4000 - Successful
+  //    0 - Successful
+  // 4070 - Problems
+  //   70 - Problems
+  // 
+  if (!SignalHG.IsValid())
+    return false;
+  
+  int limitStatus = 0;
+  for (int i=0; i<4; i++) {
+    if ( TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) {
+      limitStatus++;
+      if (verbosity > 0) std::cout << i << "\t" << SignalHG.GetParameter(i) << "\t : \t"<< parlimitslo[i] << "\t" << parlimitshi[i] << std::endl;
+    }
+  }
+  if (verbosity > 1){
+    std::cout << "Fit status HG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
+  }
+  
+  if (!(fitStatus == 4000 || fitStatus == 0 || fitStatus == 4070 || fitStatus == 70 )){ // only accept fits which succeeded in general
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " fit failed" << std::endl;
+    return false;
+  }
+  if (limitStatus > 0){                        // don't accept fits which reached the set limits
+    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " too many limits reached" << std::endl;
+    return false;
+  }
   bmipHG = true;
   
   if (bmipHG){
@@ -272,11 +364,17 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
     fitrange[1] = 4*avmip;
   }
 
+  if (calib->BadChannel != -64 && calib->BadChannel < 1 ){
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " channel dead" << std::endl;
+    return false;
+  }
+
   double intArea    = hspectraLG.Integral(hspectraLG.FindBin(fitrange[0]),hspectraLG.FindBin(fitrange[1]));
   double intNoise   = hspectraLG.Integral(hspectraLG.FindBin(-2*calib->PedestalSigL),hspectraLG.FindBin(+2*calib->PedestalSigL));
+  double intAN3s    = hspectraLG.Integral(hspectraLG.FindBin(+3*calib->PedestalSigL),hspectraLG.FindBin(fitrange[1]));
   
-  if (intArea/intNoise < 1e-5){
-    if (verbosity > 0) std::cout << "Skipped LG cell " << cellID << " S/B too small!" << std::endl;
+  if (intArea/intNoise < 1e-5 && intAN3s > 200){
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " S/B too small!" << std::endl;
     return false;
   }
   double startvalues[4]   = {calib->PedestalSigL, 20, intArea, calib->PedestalSigL};
@@ -303,7 +401,34 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
   }
   
   int fitStatus = hspectraLG.Fit(&SignalLG,fitOption);   // fit within specified range, use ParLimits, do not plot
-  // if (fitStatus == 0)
+  // Minuit status codes:
+  // 4000 - Successful
+  //    0 - Successful
+  // 4070 - Problems
+  //   70 - Problems
+  // 
+  if (!SignalLG.IsValid())
+    return false;
+  
+  int limitStatus = 0;
+  for (int i=0; i<4; i++) {
+    if ( TMath::Abs(SignalLG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalLG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) {
+      limitStatus++;
+      if (verbosity > 0) std::cout << i << "\t" << SignalLG.GetParameter(i) << "\t : \t"<< parlimitslo[i] << "\t" << parlimitshi[i] << std::endl;
+    }
+  }
+  if (verbosity > 1){
+    std::cout << "Fit status LG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
+  }
+  
+  if (!(fitStatus == 4000 || fitStatus == 0 || fitStatus == 4070 || fitStatus == 70)){ // only accept fits which succeeded or problems in general
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " fit failed" << std::endl;
+    return false;
+  }
+  if (limitStatus > 0){                        // don't accept fits which reached the set limits
+    if (verbosity > 0) std::cout << "==========> Skipped LG cell " << cellID << " too many limits reached" << std::endl;
+    return false;
+  }
   bmipLG = true;
   
   if (bmipLG){
@@ -327,23 +452,107 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
 
 
 bool TileSpectra::FitCorr(int verbosity){
+  if (verbosity > 2) std::cout << "FitCorr cell ID: " << cellID << std::endl;
   TString funcName = Form("fcorr%sLGHGCellID%d",TileName.Data(),cellID);
-  LGHGcorr =  TF1(funcName.Data(),"pol1",20,250);
+  
+  Double_t fitRangeLG[2]  = {20., 250.};
+  Double_t fitRangeHG[2]  = {350., 3500.};
+  int fitStatus   = 0; 
+  int limitStatus = 0;
+  
+  
+  LGHGcorr =  TF1(funcName.Data(),"pol1", fitRangeLG[0], fitRangeLG[1]);
   LGHGcorr.SetParameter(0,0.);
   LGHGcorr.SetParameter(1,10.);
   LGHGcorr.SetParLimits(1,0,100.);
-  hspectraLGHG.Fit(&LGHGcorr,"QRMNE0"); 
-  bcorrLGHG=true;
-  calib->LGHGCorr = LGHGcorr.GetParameter(1);
+  
+  fitStatus = hspectraLGHG.Fit(&LGHGcorr,"QRMNE0"); 
+  
+  if (!(LGHGcorr.IsValid())){
+    if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+    bcorrLGHG = false;
+  } else {
+    if ( LGHGcorr.GetParameter(1) == 0. || LGHGcorr.GetParameter(1) == 100. ) 
+      limitStatus++;
+    if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+      bcorrLGHG = false;
+    } else if (limitStatus > 0){                        // don't accept fits which reached the set limits
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " too many limits reached" << std::endl;
+      bcorrLGHG = false;
+    } else {
+      bcorrLGHG= true;
+    }  
+  }
+  if (bcorrLGHG)
+    calib->LGHGCorr = LGHGcorr.GetParameter(1);
   
   funcName = Form("fcorr%sHGLGCellID%d",TileName.Data(),cellID);
-  HGLGcorr =  TF1(funcName.Data(),"pol1",350,3500);
+  HGLGcorr =  TF1(funcName.Data(),"pol1",fitRangeHG[0],fitRangeHG[1]);
   HGLGcorr.SetParameter(0,0.);
   HGLGcorr.SetParameter(1,0.1);
   HGLGcorr.SetParLimits(1,0.,1.);
-  hspectraHGLG.Fit(&HGLGcorr,"QRMNE0"); 
-  bcorrHGLG=true;
-  calib->HGLGCorr = HGLGcorr.GetParameter(1);
+
+  fitStatus = hspectraHGLG.Fit(&HGLGcorr,"QRMNE0"); 
+  limitStatus = 0;
+
+  if (!(HGLGcorr.IsValid())){
+    if (verbosity > 0) std::cout << "Skipped HGLG cell " << cellID << " fit failed" << std::endl;
+    bcorrHGLG = false;
+  } else {
+    if ( HGLGcorr.GetParameter(1) == 0. || HGLGcorr.GetParameter(1) == 1. ) 
+      limitStatus++;
+    
+    if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
+      if (verbosity > 0) std::cout << "Skipped HGLG cell " << cellID << " fit failed" << std::endl;
+      bcorrHGLG = false;
+    } else if (limitStatus > 0){                        // don't accept fits which reached the set limits
+      if (verbosity > 0) std::cout << "Skipped HGLG cell " << cellID << " too many limits reached" << std::endl;
+      bcorrHGLG = false;
+    } else {
+      bcorrHGLG= true;
+    }
+  }
+  if (bcorrHGLG)
+    calib->HGLGCorr = HGLGcorr.GetParameter(1);
+  return true;
+}
+
+bool TileSpectra::FitLGHGCorr(int verbosity, bool resetCalib){
+  if (verbosity > 2) std::cout << "FitCorr cell ID: " << cellID << std::endl;
+  TString funcName = Form("fcorr%sLGHGCellID%d",TileName.Data(),cellID);
+  
+  Double_t fitRangeLG[2]  = {calib->PedestalSigL*5, 250.};
+  int fitStatus   = 0; 
+  int limitStatus = 0;
+  
+  
+  LGHGcorr =  TF1(funcName.Data(),"pol1", fitRangeLG[0], fitRangeLG[1]);
+  LGHGcorr.SetParameter(0,0.);
+  LGHGcorr.SetParameter(1,10.);
+  LGHGcorr.SetParLimits(1,0,1000.);
+  
+  fitStatus = hspectraLGHG.Fit(&LGHGcorr,"QRMNE0"); 
+  
+  if (!(LGHGcorr.IsValid())){
+    if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+    bcorrLGHG = false;
+  } else {
+    if ( LGHGcorr.GetParameter(1) == 0. || LGHGcorr.GetParameter(1) == 1000. ) 
+      limitStatus++;
+    if (!(fitStatus == 4000 || fitStatus == 0)){ // only accept fits which succeeded in general
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " fit failed" << std::endl;
+      bcorrLGHG = false;
+    } else if (limitStatus > 0){                        // don't accept fits which reached the set limits
+      if (verbosity > 0) std::cout << "Skipped LGHG cell " << cellID << " too many limits reached" << std::endl;
+      bcorrLGHG = false;
+    } else {
+      bcorrLGHG= true;
+    }  
+  }
+  if (bcorrLGHG && resetCalib)
+    calib->LGHGCorr = LGHGcorr.GetParameter(1);
+  
   return true;
 }
 
@@ -363,7 +572,7 @@ TH1D* TileSpectra::GetTriggPrim(){
   return &hTriggPrim;
 }
 
-TH1D* TileSpectra::GetHGLGcomb(){
+TH1D* TileSpectra::GetComb(){
   return &hcombined;
 }
 
@@ -421,6 +630,20 @@ void TileSpectra::Write( bool wFits = true){
     if(bmipLG)SignalLG.Write(SignalLG.GetName(), kOverwrite);
     if(bcorrLGHG)LGHGcorr.Write(LGHGcorr.GetName(), kOverwrite);
     if(bcorrHGLG)HGLGcorr.Write(HGLGcorr.GetName(), kOverwrite);
+  }
+}
+
+void TileSpectra::WriteExt( bool wFits = true){
+  hspectraHG.Write(hspectraHG.GetName(), kOverwrite);
+  hspectraLG.Write(hspectraLG.GetName(), kOverwrite);
+  hcombined.Write(hcombined.GetName(), kOverwrite);
+  hspectraLGHG.Write(hspectraLGHG.GetName(), kOverwrite);  
+  if ( wFits ){
+    if(bpedHG)BackgroundHG.Write(BackgroundHG.GetName(), kOverwrite);
+    if(bmipHG)SignalHG.Write(SignalHG.GetName(), kOverwrite);
+    if(bpedLG)BackgroundLG.Write(BackgroundLG.GetName(), kOverwrite);
+    if(bmipLG)SignalLG.Write(SignalLG.GetName(), kOverwrite);
+    if(bcorrLGHG)LGHGcorr.Write(LGHGcorr.GetName(), kOverwrite);
   }
 }
 
@@ -557,4 +780,112 @@ int TileSpectra::langaupro(double *params, double &maxx, double &FWHM) {
   fxl = x;
   FWHM = fxr - fxl;
   return (0);
+}
+
+//__________________________________________________________________________________________________________
+// find bin with largest content in given range and return X
+//__________________________________________________________________________________________________________
+double TileSpectra::GetMaxXInRangeHG(double minX = -10000, double maxX = -10000) {
+  Double_t largestContent     = 0;
+  Int_t minBin = 1;
+  Int_t maxBin = hspectraHG.GetNbinsX()+1;
+  if (minX != -10000) minBin = hspectraHG.GetXaxis()->FindBin(minX);
+  if (maxX != -10000) maxBin = hspectraHG.GetXaxis()->FindBin(maxX)+0.0001;
+  Int_t largestBin = minBin;
+  for (Int_t i= minBin; i < maxBin; i++){
+    if (largestContent < hspectraHG.GetBinContent(i)){
+      largestContent = hspectraHG.GetBinContent(i);
+      largestBin = i;
+    }
+  }
+  return hspectraHG.GetBinCenter(largestBin);
+}
+
+
+
+//__________________________________________________________________________________________________________
+// find bin with largest content in given range and return X
+//__________________________________________________________________________________________________________
+double TileSpectra::GetMaxXInRangeLG(double minX = -10000, double maxX = -10000) {
+  Double_t largestContent     = 0;
+  Int_t minBin = 1;
+  Int_t maxBin = hspectraLG.GetNbinsX()+1;
+  if (minX != -10000) minBin = hspectraLG.GetXaxis()->FindBin(minX);
+  if (maxX != -10000) maxBin = hspectraLG.GetXaxis()->FindBin(maxX)+0.0001;
+  Int_t largestBin = minBin;
+  for (Int_t i= minBin; i < maxBin; i++){
+    if (largestContent < hspectraLG.GetBinContent(i)){
+      largestContent = hspectraLG.GetBinContent(i);
+      largestBin = i;
+    }
+  }
+  return hspectraLG.GetBinCenter(largestBin);
+}
+
+//__________________________________________________________________________________________________________
+// find bad channels
+//__________________________________________________________________________________________________________
+short TileSpectra::DetermineBadChannel(){
+  short bc = -64;
+ 
+  FitFixedNoise();
+  
+  double sigL   = calib->PedestalSigL;
+  double sigH   = calib->PedestalSigH;
+
+  double sigLN   = BackgroundLG.GetParameter(2);
+  double sigHN   = BackgroundHG.GetParameter(2);
+  // std::cout << "HG: " << sigH << "\t" << sigHN <<  "\t LG: " << sigL << "\t" << sigLN  << std::endl;
+  
+//   double bgH3    = hspectraHG.Integral(hspectraHG.FindBin(-sigH*3-0.01),hspectraHG.FindBin(sigH*3+0.01));
+//   double bgL3    = hspectraLG.Integral(hspectraLG.FindBin(-sigL*3-0.01),hspectraLG.FindBin(sigL*3+0.01));
+//   double intH3   = hspectraHG.Integral(hspectraHG.FindBin(sigH*3+0.01),hspectraHG.GetNbinsX()-1);
+//   double intL3   = hspectraLG.Integral(hspectraLG.FindBin(sigL*3+0.01),hspectraLG.GetNbinsX()-1);
+//   double intH5   = hspectraHG.Integral(hspectraHG.FindBin(sigH*5+0.01),hspectraHG.GetNbinsX()-1);
+//   double intL5   = hspectraLG.Integral(hspectraLG.FindBin(sigL*5+0.01),hspectraLG.GetNbinsX()-1);
+//   
+//   if (intH5 > 100 && intL5 > 100){
+//     bc = 3;
+//   } else if (intH5 > 100 && intL3 > 100){
+//     bc = 2;
+//     std::cout << bc << "  \t HG: " << intH5  << "\t" << intH5/bgH3 << "\t" << " LG: "<< intL3  << "\t" << intL3/bgL3 << std::endl;
+//   } else if (intH3 > 100 && intL3 > 100){
+//     bc = 1;
+//     std::cout << bc << "  \t HG: " << intH3  << "\t" << intH3/bgH3 << "\t" << " LG: "<< intL3  << "\t"  << intL3/bgL3 << std::endl;
+//   } else {
+//     bc = 0;
+//     std::cout << bc << "  \t HG: " << intH3  << "\t" << intH3/bgH3 << "\t" << " LG: "<< intL3  << "\t"  << intL3/bgL3 << std::endl;
+//   }
+  BackgroundHG.SetRange(-100,400);
+  // double nH3  = BackgroundHG.Integral(-3*sigHN,5*sigHN);
+  // double nH5  = BackgroundHG.Integral(-5*sigHN,7*sigHN);
+  double nH3  = hspectraHG.Integral(hspectraHG.FindBin(-3*sigHN),hspectraHG.FindBin(3*sigHN));
+  double nH5  = hspectraHG.Integral(hspectraHG.FindBin(-5*sigHN),hspectraHG.FindBin(5*sigHN));
+  double fH   = hspectraHG.Integral(1,hspectraHG.GetNbinsX()-1);
+  BackgroundLG.SetRange(-100,400);
+  double nL3  = BackgroundLG.Integral(-3*sigLN,3*sigLN);
+  double nL5  = BackgroundLG.Integral(-5*sigLN,5*sigLN);
+  double fL   = hspectraLG.Integral(1,hspectraLG.GetNbinsX()-1);
+
+  double rH3  = (fH > 0) ? (fH-nH3)/fH : 0;
+  double rH5  = (fH > 0) ? (fH-nH5)/fH : 0;
+  double rL3  = (fL > 0) ? (fL-nL3)/fL : 0;
+  double rL5  = (fL > 0) ? (fL-nL5)/fL : 0;
+
+  if (rH5 > 1e-6 && rL5 > 1e-6){
+    bc = 3;
+  } else if (rH5 > 1e-6 && rL3 > 0.005){
+    bc = 2;
+  } else if (rH3 > 0.005 && rL3 > 0.005){
+    bc = 1;
+  } else {
+    bc = 0;
+  }
+  calib->BadChannel = bc;
+  
+  return bc;
+}
+
+void TileSpectra::SetBadChannelInCalib(short s ){
+  calib->BadChannel = s;
 }

@@ -1,4 +1,12 @@
-FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common  -pedantic -Wall -std=c++17 `root-config --libs --ldflags --cflags`
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
+FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common -pedantic -Wall -std=c++17 -Wl,-rpath='${ORIGIN}' `root-config --libs --ldflags --cflags`
+endif
+ifeq ($(UNAME), Darwin)
+FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common -pedantic -Wall -std=c++17 `root-config --libs --ldflags --cflags`
+endif
+
+
 LINKER = g++ -g -shared $(OPTIMISATION)
 
 Setup.o: Setup.cc Setup.h RootSetupWrapper.h
@@ -49,12 +57,21 @@ TileSpectra.o: TileSpectra.cc TileSpectra.h Calib.h
 Event.o: Event.cc Event.h
 	$(CXX) $(FLAGS) -I. -c Event.cc -o Event.o
 
-Analyse.o: Analyse.cc
-	$(CXX) $(FLAGS) -I. -c Analyse.cc -o Analyse.o
+DataPrep.o: DataPrep.cc
+	$(CXX) $(FLAGS) -I. -c DataPrep.cc -o DataPrep.o
+
+Convert.o: Convert.cc
+	$(CXX) $(FLAGS) -I. -c Convert.cc -o Convert.o
 
 Analyses.o: Analyses.cc Analyses.h PlottHelper.h CommonHelperFunctions.h
 	$(CXX) $(FLAGS) -I. -c Analyses.cc -o Analyses.o
 
+DataAna.o: DataAna.cc
+	$(CXX) $(FLAGS) -I. -c DataAna.cc -o DataAna.o
+	
+DataAnalysis.o: DataAnalysis.cc DataAnalysis.h PlottHelper.h CommonHelperFunctions.h
+	$(CXX) $(FLAGS) -I. -c DataAnalysis.cc -o DataAnalysis.o
+	
 Compare.o: Compare.cc
 	$(CXX) $(FLAGS) -I. -c Compare.cc -o Compare.o
 
@@ -67,23 +84,25 @@ waveform_fit_base.o: waveform_fitting/waveform_fit_base.cc waveform_fitting/wave
 crystal_ball_fit.o: waveform_fitting/crystal_ball_fit.cc waveform_fitting/crystal_ball_fit.h
 	$(CXX) $(FLAGS) -I. -c waveform_fitting/crystal_ball_fit.cc -o crystal_ball_fit.o
 
+Convert: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Convert.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Convert.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o $(FLAGS) -I. libLFHCAL.so -o Convert
 
-#Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o RootCalibWrapper.o Tile.o HGCROC.o Caen.o libLFHCAL.so Analyse.o Analyses.o
-#	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o RootCalibWrapper.o Tile.o HGCROC.o Caen.o Analyses.o Analyse.o $(FLAGS) -I. libLFHCAL.so -o Analyse
+DataPrep: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataPrep.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o DataPrep.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o DataPrep
 
-Analyse: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o TileSpectra.o libLFHCAL.so Analyse.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Analyse.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o $(FLAGS) -I. libLFHCAL.so -o Analyse
+HGCROC_Conversion: FLAGS += -DDECODE_HGCROC -Llib -lh2g_decode
+HGCROC_Conversion: Convert
 
-HGCROC_Analyse: FLAGS += -DDECODE_HGCROC -Llib -lh2g_decode
-HGCROC_Analyse: Analyse
-
+DataAna: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o DataAna
+	
 Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Compare.o ComparisonCalib.o
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare
 
 clean:
-	rm -f *.o Cint.cxx Cint_* *.so ./Analyse ./Compare
+	rm -f *.o Cint.cxx Cint_* *.so ./DataPrep ./Compare ./Convert ./DataAna
 
 cleanLib:
 	rm -f *.so Cint*
 
-default: Analyse
+default: DataPrep

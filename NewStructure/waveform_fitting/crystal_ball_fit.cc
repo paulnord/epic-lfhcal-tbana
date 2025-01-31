@@ -1,5 +1,3 @@
-#pragma once
-
 #include "waveform_fit_base.h"
 #include "crystal_ball_fit.h"
 

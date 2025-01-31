@@ -49,7 +49,8 @@ class Event{
   void    SetTimeStamp (int);
 
   bool    InspectIfLocalMuonTrigg(int, double, double, double);
-  double  CalculateLocalMuonTrigg(Setup*, Calib, TRandom3*, int, int);
+  bool    InspectIfNoiseTrigg(int, double, double);
+  double  CalculateLocalMuonTrigg(Calib, TRandom3*, int, int, double);
 
  private:
 

@@ -3,6 +3,8 @@
 This software repo is meant to serve as basis for the test beam root based analysis of the LFHCal test beams and test beam setups.
 The repo contains the initial code used in 2023 under OldStructure & the newer version of the code under NewStructure <br>
 
+A detaile introduction to this package in particular the NewStructure can be found [here](https://friederikebock.gitbook.io/epiclfhcaltb-ana)
+
 For convenience a linker script is provided, which can be used to recreate the software structure with soft links. Execute it in the directory where you would like to work after having added your user name and path to the software repo
 
 ```console
@@ -100,35 +102,35 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
 1. Compile the code with 
   ```console
-  make Analyse
+  make DataPrep Convert DataAna
   ```
   if you changed something in the base classes majorly first 
   ```console
     make clean
-    make Analyse
+    make DataPrep Convert DataAna
   ```
 
 2. As always please run the helper function first to make yourself familar with the options
   ```console
-  ./Analyse -h
+  ./DataPrep -h
   ```
 
 3. Convert ASCII to root (step to be done for every single ASCII file):
   ```console
-  ./Analyse -c PATH_INPUT_FILE/RunXXX_list.txt -o PATH_OUTPUT_FILE/WhateverName.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c PATH_INPUT_FILE/RunXXX_list.txt -o PATH_OUTPUT_FILE/WhateverName.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   ```
 
   ```console
-  ./Analyse -c Run375_list.txt -o RawMuonBeamPlus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run376_list.txt -o RawMuonBeamMinus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run377_list.txt -o RawPedestal.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
-  ./Analyse -c Run379_list.txt -o RawElectron1GeV.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run375_list.txt -o RawMuonBeamPlus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run376_list.txt -o RawMuonBeamMinus5.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run377_list.txt -o RawPedestal.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  ./Convert -c Run379_list.txt -o RawElectron1GeV.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   ```
 
 4. Extract pedestal value (currently simple gaussian fit):
 
   ```console
-  ./Analyse (-f) -p -i RawPedestal.root -o PedestalCalib.root
+  ./DataPrep (-f) -p -i RawPedestal.root -o PedestalCalib.root
   ```
 
 
@@ -142,14 +144,14 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
     2. Transfer Calibration object from Pedestal file to MIP file
       ```console
-      ./Analyse (-f) -P PedestalCalib.root -i RawMuonBeamFullAcceptance.root -o RawMuonBeamFullAcceptancePedCalib.root
+      ./DataPrep (-f) -P PedestalCalib.root -i RawMuonBeamFullAcceptance.root -o RawMuonBeamFullAcceptancePedCalib.root
       ```
 
 
     3. Extract MIP signal based on Landau fit (request the Pedestal file to shift the ADC distribution to get rid of most of the noise, the tail is still taken into account from the values stored in the calibration object and due to potential deviation in the tail, a decreasing exponential is also added)
 
       ```console
-      ./Analyse (-f) -s -i RawMuonBeamFullAcceptancePedCalib.root -o RawMuonBeamFullAcceptancePedAndScaleCalib.root
+      ./DataPrep (-f) -s -i RawMuonBeamFullAcceptancePedCalib.root -o RawMuonBeamFullAcceptancePedAndScaleCalib.root
       ```
 
   => Plenty of room for improvement in this step. Could also be more interesting to save only the histograms and deal with the fit outside<br>
@@ -160,7 +162,7 @@ Here an example of running the code from ASCII input to calibrated ROOT output f
 
 6. Apply Calibration to physics data
   ```console
-  ./Analyse (-f) -C RawMuonBeamFullAcceptancePedAndScaleCalib.root -i RawElectron1GeV.root -o CalibratedElectron1GeV.root
+  ./DataPrep (-f) -C RawMuonBeamFullAcceptancePedAndScaleCalib.root -i RawElectron1GeV.root -o CalibratedElectron1GeV.root
   ```
 
 
@@ -172,11 +174,11 @@ The DB of runs is saved in a txt file and is also hard coded.
 
 
 # HGCROC Conversion
-The first pass of converting the HGCROC data to a format usable in this analaysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the `NewStructure/lib/` folder, and compile with HGCROC_Analyse.
+The first pass of converting the HGCROC data to a format usable in this analaysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the `NewStructure/lib/` folder, and compile with HGCROC_Conversion.
 Currently, the mapping is hardcoded into the library, this will be worked on next.  Additionally, there is no waveform analysis yet, so E, TOT, and TOA are all set to 0.  However, the waveform for each channel is stored.  I have been testing with 
     
     ```
-    ./Analyse -c Run302.h2g -w -o test.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+    ./Convert -c Run302.h2g -w -o test.root -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
     ```
 
 which clearly isn't complete, as it references the mapping and database fore the CAEN data.  That will also be changed soon.

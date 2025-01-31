@@ -52,25 +52,6 @@
     return largestContent;
   }
   //__________________________________________________________________________________________________________
-  // find bin with largest content
-  //__________________________________________________________________________________________________________
-  Double_t FindBinWithLargestBin1DHist(TH1* hist, Double_t minX = -10000, Double_t maxX = -10000 ){
-    Double_t largestContent     = 0;
-    Int_t minBin = 1;
-    Int_t maxBin = hist->GetNbinsX()+1;
-    if (minX != -10000) minBin = hist->GetXaxis()->FindBin(minX);
-    if (maxX != -10000) maxBin = hist->GetXaxis()->FindBin(maxX)+0.0001;
-    Int_t largestBin = minBin;
-    for (Int_t i= minBin; i < maxBin; i++){
-      if (largestContent < hist->GetBinContent(i)){
-        largestContent = hist->GetBinContent(i);
-        largestBin = i;
-      }
-    }
-    return largestContent;
-  }
-
-  //__________________________________________________________________________________________________________
   // find bin with smallest content
   //__________________________________________________________________________________________________________
   Double_t FindSmallestBin1DHist(TH1* hist, Double_t maxStart = 1e6 ){
@@ -81,6 +62,18 @@
       }
     }
     return smallesContent;
+  }
+
+  //__________________________________________________________________________________________________________
+  // find bin with smallest content
+  //__________________________________________________________________________________________________________
+  Double_t FindLastBinXAboveMin(TH1* hist, Double_t min = 1 ){
+    int i = hist->GetNbinsX();
+    while (i > 0 && hist->GetBinContent(i) < min) i--;
+    if (i != 1)
+      return hist->GetBinCenter(i+1);
+    else 
+      return hist->GetBinCenter(hist->GetNbinsX()-1);
   }
   
   // ---------------------------- Function definiton --------------------------------------------------------------------------------------------
@@ -104,7 +97,8 @@
       gStyle->SetPadTickX(1);
       gStyle->SetPadTickY(1);
       gStyle->SetLineWidth(1);
-
+      gStyle->SetPaintTextFormat(".3f");
+      
       gStyle->SetPadTopMargin(0.03);
       gStyle->SetPadBottomMargin(0.09);
       gStyle->SetPadRightMargin(0.03);
@@ -143,6 +137,19 @@
       gStyle->SetNumberContours(nCont);
   }
 
+  //__________________________________________________________________________________________________________  
+  Color_t GetColorLayer(int l){
+    Color_t colors[10] = {kBlack, kViolet+4, kBlue-3, kCyan+1, kGreen+1, kYellow-4, kOrange, kRed-4, kPink-5, kMagenta+2 };
+    return colors[l%10];
+  }
+
+  //__________________________________________________________________________________________________________  
+  Style_t GetLineStyleLayer(int l){
+    Style_t styles[7] = {1, 3, 4, 6, 7, 10, 9};
+    int bin = l/10;
+    return styles[bin];
+  }
+  
   //__________________________________________________________________________________________________________
   void DrawCanvasSettings( TCanvas* c1,
                           Double_t leftMargin,
@@ -714,8 +721,6 @@
       return box;
   }
   
-  
-  
   //********************************************************************************************************************************
   //********************** Returns default labeling strings  ***********************************************************************
   //********************************************************************************************************************************    
@@ -728,6 +733,9 @@
           } else {
               TString beam = currRunInfo.species.Data();
               if (beam.CompareTo("Muon +") == 0) beam = "#mu^{+}";
+              if (beam.CompareTo("Electron") == 0) beam = "e^{-}";              
+              if (beam.CompareTo("Pion -") == 0) beam = "#pi^{-}";              
+              if (beam.CompareTo("Hadron +") == 0) beam = "h^{+}";              
               return  Form("%s-beam, #it{E}_{#it{b}}= %.0f GeV, Run %d, #it{V}_{#it{op}} = %1.1f V", beam.Data(), currRunInfo.energy, currRunInfo.runNr, currRunInfo.vop  );
           }
       } else if (option == 2){
@@ -737,7 +745,10 @@
               return  "LED";
           } else {
               TString beam = currRunInfo.species.Data();
-              if (beam.CompareTo("Muon +") == 0) beam = "#mu^{+}";              
+              if (beam.CompareTo("Muon +") == 0) beam = "#mu^{+}";
+              if (beam.CompareTo("Electron") == 0) beam = "e^{-}";              
+              if (beam.CompareTo("Pion -") == 0) beam = "#pi^{-}";              
+              if (beam.CompareTo("Hadron +") == 0) beam = "h^{+}";              
               return  Form("%s-beam, #it{E}_{#it{b}}= %.0f GeV", beam.Data(), currRunInfo.energy);
           }
       } else if (option == 3){
@@ -750,7 +761,9 @@
           } else{
               TString beam = currRunInfo.species.Data();
               if (beam.CompareTo("Muon +") == 0) beam = "#mu^{+}";
-              
+              if (beam.CompareTo("Electron") == 0) beam = "e^{-}";              
+              if (beam.CompareTo("Pion -") == 0) beam = "#pi^{-}";              
+              if (beam.CompareTo("Hadron +") == 0) beam = "h^{+}";                            
               return Form("%s-beam, #it{E}_{#it{b}}= %.0f GeV, Run %d, #it{V}_{#it{op}} = %1.1f V, HG = %1d, LG = %1d", beam.Data(), currRunInfo.energy, currRunInfo.runNr, currRunInfo.vop, currRunInfo.hgSet, currRunInfo.lgSet);
           }
       } else if (option == 5){
@@ -765,27 +778,296 @@
   //__________________________________________________________________________________________________________
   // Plot 2D fit variables overview
   //__________________________________________________________________________________________________________  
-  void PlotSimple2D( TCanvas* canvas2D, TH2* hist, Int_t maxy, Int_t maxx, Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, int labelOpt = 1, Bool_t hasNeg = kFALSE, TString drwOpt ="colz"  ){
+  void PlotSimple2D( TCanvas* canvas2D, 
+                     TH2* hist, double maxy, double maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1, Bool_t hasNeg = kFALSE, TString drwOpt ="colz", 
+                     bool blegAbove = false, TString additionalLabel = ""
+                    ){
       canvas2D->cd();
       SetStyleHistoTH2ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
       hist->GetZaxis()->SetLabelSize(0.85*textSizeRel);
-      hist->GetZaxis()->SetTitleOffset(1.05);
+      hist->GetZaxis()->SetTitleOffset(1.06);
+      hist->GetZaxis()->SetTitleSize(textSizeRel);
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (maxy > -10000)hist->GetYaxis()->SetRangeUser(hist->GetYaxis()->GetBinCenter(1)-0.1,maxy+0.1);
+      if (maxx > -10000)hist->GetXaxis()->SetRangeUser(hist->GetXaxis()->GetBinCenter(1)-0.1,maxx+0.1);
+      if (!hasNeg)
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(0),hist->GetMaximum());
+      else 
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(),hist->GetMaximum());
+    
+      if (((TString)hist->GetZaxis()->GetTitle()).Contains("counts")){
+        gStyle->SetPaintTextFormat(".0f");
+        std::cout << "entered counts case" << std::endl;
+      } else {
+        gStyle->SetPaintTextFormat(".3f");
+      }
+      hist->Draw(drwOpt.Data());
+      
+      if (!blegAbove)
+        DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      else 
+        DrawLatex(0.92, 0.97, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+
+      if (additionalLabel.CompareTo("") != 0){
+        if (!blegAbove)
+          DrawLatex(0.11, 0.92, additionalLabel, false, 0.85*textSizeRel, 42);
+        else 
+          DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
+      }
+      if (((TString)hist->GetXaxis()->GetTitle()).Contains("cell ID")){
+        std::cout << "entered cell ID" << std::endl;
+        if (maxx > -10000)
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
+        else
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+
+  //__________________________________________________________________________________________________________
+  // Plot 2D fit variables overview
+  //__________________________________________________________________________________________________________  
+  void PlotSimple2D( TCanvas* canvas2D, 
+                     TH2* hist, double miny, double maxy, double maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1, Bool_t hasNeg = kFALSE, TString drwOpt ="colz", 
+                     bool blegAbove = false, TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH2ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      hist->GetZaxis()->SetLabelSize(0.85*textSizeRel);
+      hist->GetZaxis()->SetTitleOffset(1.06);
+      hist->GetZaxis()->SetTitleSize(textSizeRel);
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (miny > -10000 && maxy > -10000)hist->GetYaxis()->SetRangeUser(miny-0.1,maxy+0.1);
+      if (maxx > -10000)hist->GetXaxis()->SetRangeUser(hist->GetXaxis()->GetBinCenter(1)-0.1,maxx+0.1);
+      if (!hasNeg)
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(0),hist->GetMaximum());
+      else 
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(),hist->GetMaximum());
+    
+      if (((TString)hist->GetZaxis()->GetTitle()).Contains("counts")){
+        gStyle->SetPaintTextFormat(".0f");
+        std::cout << "entered counts case" << std::endl;
+      } else {
+        gStyle->SetPaintTextFormat(".3f");
+      }
+      hist->Draw(drwOpt.Data());
+      
+      if (!blegAbove)
+        DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      else 
+        DrawLatex(0.92, 0.97, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+
+      if (additionalLabel.CompareTo("") != 0){
+        if (!blegAbove)
+          DrawLatex(0.11, 0.92, additionalLabel, false, 0.85*textSizeRel, 42);
+        else 
+          DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
+      }
+      
+      if (((TString)hist->GetXaxis()->GetTitle()).Contains("cell ID")){
+        std::cout << "entered cell ID" << std::endl;
+        if (maxx > -10000)
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
+        else
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+
+  //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotSimple1D( TCanvas* canvas2D, 
+                     TH1* hist, Int_t maxy, Int_t maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1,
+                     TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH1ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      
+      SetMarkerDefaults(hist, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (maxy > -10000)hist->GetYaxis()->SetRangeUser(-0.5,maxy+0.1);
+      if (maxx > -10000)hist->GetXaxis()->SetRangeUser(0.5,maxx+0.1);
+    
+      hist->Draw("p,e");
+      
+      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+
+  //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotContamination1D( TCanvas* canvas2D, 
+                     TH1* histAll, TH1* histMuon, TH1* histPrim, Int_t maxy, Int_t maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1,
+                     TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH1ForGraphs( histAll, histAll->GetXaxis()->GetTitle(), histAll->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      
+      SetMarkerDefaults(histAll, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+        
+      if (maxy > -10000)histAll->GetYaxis()->SetRangeUser(-0.5,maxy+0.1);
+      if (maxx > -10000)histAll->GetXaxis()->SetRangeUser(0.5,maxx+0.1);
+    
+      histAll->Draw("p,e");
+      SetMarkerDefaults(histMuon, 25, 1, kGray+1, kGray+1, kFALSE);   
+      histMuon->Draw("p,e,same");
+      SetMarkerDefaults(histPrim, 24, 1, kRed+1, kRed+1, kFALSE);   
+      histPrim->Draw("p,e,same");
+    
+
+      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+      
+      TLegend* legend = GetAndSetLegend2( 0.11, 0.93-3*textSizeRel, 0.4, 0.93,0.85*textSizeRel, 1, "", 42,0.1);
+      legend->AddEntry(histAll, "no evt. selection", "p");
+      legend->AddEntry(histMuon, "muon events", "p");
+      legend->AddEntry(histPrim, "remaining events", "p");
+      legend->Draw();
+      
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+  
+
+  //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotLayerOverlay( TCanvas* canvas2D, 
+                     TH1D** histLayer, Float_t maxy, Float_t maxx, Float_t meanLayer, int maxLayer,
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1,
+                     TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      canvas2D->SetLogy(1);
+      
+      SetStyleHistoTH1ForGraphs( histLayer[0], histLayer[0]->GetXaxis()->GetTitle(), histLayer[0]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+      TString title = histLayer[0]->GetXaxis()->GetTitle();
+      bool Exaxis       = false;
+      bool Posxaxis     = false;
+      bool NCellsxaxis  = false;
+      if (title.Contains("E_{layer}")) 
+        Exaxis = true;
+      if (title.Contains("(cm)"))   
+        Posxaxis = true;
+      if (title.Contains("N_{cells,layer}"))   
+        NCellsxaxis = true;
+        
+      if (maxy > -10000 )
+        histLayer[0]->GetYaxis()->SetRangeUser(1,maxy);
+      if (maxx > -10000 && !Posxaxis){
+        std::cout << "resetting x range: 0 - " << maxx  << std::endl;
+        histLayer[0]->GetXaxis()->SetRange(1,histLayer[0]->GetXaxis()->FindBin(maxx)+1);
+      } else if (maxx > -10000 && Posxaxis){
+        histLayer[0]->GetXaxis()->SetRange(histLayer[0]->GetXaxis()->FindBin(-maxx)-1,histLayer[0]->GetXaxis()->FindBin(maxx)+1);
+      }
+      histLayer[0]->DrawCopy("axis");
+      
+      Setup* setup = Setup::GetInstance();
+      
+      TLegend* legend   = nullptr;
+      Int_t lineBottom  = (2+8);
+      if (!(setup->GetNMaxLayer()+1 == 64))
+        lineBottom      = (2+4);
+      else if ( setup->GetNMaxLayer()+1 == 64 && (NCellsxaxis || Posxaxis))
+        lineBottom  = (2+5);
+        
+      if (setup->GetNMaxLayer()+1 == 64 && (NCellsxaxis || Posxaxis )){
+        legend = GetAndSetLegend2( 0.11, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.95-2*0.85*textSizeRel,0.75*textSizeRel, 15, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
+      } else if (setup->GetNMaxLayer()+1 == 64 ){
+        legend = GetAndSetLegend2( 0.4, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.95-2*0.85*textSizeRel,0.75*textSizeRel, 8, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
+      } else {
+        legend = GetAndSetLegend2( 0.4, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.93-2*0.85*textSizeRel,0.75*textSizeRel, 5, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.2);
+      }
+      for (int l = 0; l< setup->GetNMaxLayer()+1; l++){
+          if (Exaxis )histLayer[l]->Rebin(4);
+          SetLineDefaults(histLayer[l], GetColorLayer(l), 4, GetLineStyleLayer(l));   
+          histLayer[l]->SetMarkerColor(GetColorLayer(l));
+          histLayer[l]->Draw("same,hist");
+          if (maxLayer == l)
+            legend->AddEntry(histLayer[l],Form("#bf{%d}",l),"l");
+          else 
+            legend->AddEntry(histLayer[l],Form("%d",l),"l");
+      }  
+      histLayer[0]->DrawCopy("axis,same");
+      legend->Draw();
+      
+      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+      if ( setup->GetNMaxLayer()+1 == 64 && (NCellsxaxis || Posxaxis))
+        lineBottom--;
+      DrawLatex(0.95, 0.95-(lineBottom+1)*0.85*textSizeRel, "#bf{bold #} indicates max layer", true, 0.75*textSizeRel, 42);
+        
+    canvas2D->SaveAs(nameOutput.Data());
+  }
+  
+  
+  //__________________________________________________________________________________________________________
+  // Plot 2D fit variables overview
+  //__________________________________________________________________________________________________________  
+  void PlotSimple2DZRange( TCanvas* canvas2D, 
+                     TH2* hist, Int_t maxy, Int_t maxx, double minZ, double maxZ,
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1, TString drwOpt ="colz", 
+                     bool blegAbove = false, TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      SetStyleHistoTH2ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      hist->GetZaxis()->SetLabelSize(0.85*textSizeRel);
+      hist->GetZaxis()->SetTitleOffset(1.06);
       hist->GetZaxis()->SetTitleSize(textSizeRel);
       // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
         
       if (maxy > -10000)hist->GetYaxis()->SetRangeUser(-0.5,maxy+0.1);
       if (maxx > -10000)hist->GetXaxis()->SetRangeUser(0.5,maxx+0.1);
-      if (!hasNeg)
-        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(0),hist->GetMaximum());
-      else 
-        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(),hist->GetMaximum());
+      hist->GetZaxis()->SetRangeUser(minZ,maxZ);
+    
+      if (((TString)hist->GetZaxis()->GetTitle()).Contains("counts")){
+        gStyle->SetPaintTextFormat(".0f");
+        std::cout << "entered counts case" << std::endl;
+      } else {
+        gStyle->SetPaintTextFormat(".3f");
+      }
       hist->Draw(drwOpt.Data());
       
-      DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, textSizeRel, 42);
+      if (!blegAbove)
+        DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      else 
+        DrawLatex(0.92, 0.97, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
 
+      if (additionalLabel.CompareTo("") != 0){
+        if (!blegAbove)
+          DrawLatex(0.11, 0.92, additionalLabel, false, 0.85*textSizeRel, 42);
+        else 
+          DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
+      }
     canvas2D->SaveAs(nameOutput.Data());
   }
+  
 
+  
   //__________________________________________________________________________________________________________
   void ReturnCorrectValuesForCanvasScaling(   Int_t sizeX,
                                               Int_t sizeY,
@@ -1007,6 +1289,12 @@
         ithSpectra=spectra.find(tempCellID);
         if(ithSpectra==spectra.end()){
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.04, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.04, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }
           continue;
         } 
         TH1D* tempHist = nullptr;
@@ -1021,6 +1309,18 @@
         tempHist->GetYaxis()->SetRangeUser(0.7,scaleYMax*maxY);
         
         tempHist->Draw("pe");
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->Draw();
+          tempHist->Draw("same,axis");
+          tempHist->Draw("same,pe");
+        }
         
         TString label           = Form("row %d col %d", r, c);
         if (p == 7){
@@ -1037,7 +1337,7 @@
           fit = ithSpectra->second.GetBackModel(0);  
         }
         if (fit){
-          SetStyleFit(fit , 0, 400, 7, 7, kBlack);
+          SetStyleFit(fit , xPMin, xPMax, 7, 7, kBlack);
           fit->Draw("same");
           TLegend* legend = GetAndSetLegend2( topRCornerX[p]-8*relSize8P[p], topRCornerY[p]-4*0.85*relSize8P[p]-0.4*relSize8P[p], topRCornerX[p]-0.04, topRCornerY[p]-0.6*relSize8P[p],0.85*textSizePixel, 1, label, 43,0.2);
           legend->AddEntry(fit, "Gauss noise fit", "l");
@@ -1058,6 +1358,151 @@
     if (skipped < 6)
       canvas8Panel->SaveAs(nameOutput.Data());
   }
+  
+  
+  //__________________________________________________________________________________________________________
+  // Plot Noise extracted from collision data
+  //__________________________________________________________________________________________________________
+  void PlotNoiseAdvWithFitsFullLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
+                                      std::map<int,TileSpectra> spectra, std::map<int,TileSpectra> spectraTrigg, bool isHG, 
+                                      Double_t xPMin, Double_t xPMax, Double_t scaleYMax, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
+                                  
+    Double_t maxY = 0;
+    std::map<int, TileSpectra>::iterator ithSpectra;
+    std::map<int, TileSpectra>::iterator ithSpectraTrigg;
+    
+    Setup* setupT = Setup::GetInstance();
+    int nRow = setupT->GetNMaxRow()+1;
+    int nCol = setupT->GetNMaxColumn()+1;
+    int skipped = 0;
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        ithSpectra=spectra.find(tempCellID);
+        if(ithSpectra==spectra.end()){
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          continue;
+        } 
+        TH1D* tempHist = nullptr;
+        if (isHG){
+          tempHist = ithSpectra->second.GetHG();
+        } else {
+          tempHist = ithSpectra->second.GetLG();
+        }
+        if (maxY < FindLargestBin1DHist(tempHist, xPMin , xPMax)) maxY = FindLargestBin1DHist(tempHist, xPMin , xPMax);
+      }  
+    }
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        canvas8Panel->cd();
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        int p = setupT->GetChannelInLayer(tempCellID);
+        pads[p]->Draw();
+        pads[p]->cd();
+        pads[p]->SetLogy();
+        ithSpectra=spectra.find(tempCellID);
+        if(ithSpectra==spectra.end()){
+          skipped++;
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }
+          continue;
+        } 
+        ithSpectraTrigg=spectraTrigg.find(tempCellID);
+        TH1D* tempHist = nullptr;
+        if (isHG){
+            tempHist = ithSpectra->second.GetHG();
+        } else {
+            tempHist = ithSpectra->second.GetLG();
+        }
+        SetStyleHistoTH1ForGraphs( tempHist, tempHist->GetXaxis()->GetTitle(), tempHist->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.1, 510, 510, 43, 63);  
+        SetMarkerDefaults(tempHist, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+        tempHist->GetXaxis()->SetRangeUser(xPMin,xPMax);
+        tempHist->GetYaxis()->SetRangeUser(0.7,scaleYMax*maxY);
+        
+        tempHist->Draw("pe");
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->Draw();
+          tempHist->Draw("same,axis");
+          tempHist->Draw("same,pe");
+        }
+        
+        TH1D* tempHistT = nullptr;
+        if (isHG){
+            tempHistT = ithSpectraTrigg->second.GetHG();
+        } else {
+            tempHistT = ithSpectraTrigg->second.GetLG();
+        }
+        SetMarkerDefaults(tempHistT, 24, 1, kRed+1, kRed+1, kFALSE);   
+        tempHistT->Draw("same,pe");
+        
+        TString label           = Form("row %d col %d", r, c);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+        TLatex *labelChannel    = new TLatex(topRCornerX[p]-0.045,topRCornerY[p]-1.2*relSize8P[p],label);
+        SetStyleTLatex( labelChannel, 0.85*textSizePixel,4,1,43,kTRUE,31);
+
+        
+        TF1* fit            = nullptr;
+        bool isTrigFit      = false;
+        if (isHG){
+          fit = ithSpectraTrigg->second.GetBackModel(1);
+          if (!fit){
+              fit = ithSpectra->second.GetBackModel(1);
+              
+          } else {
+              isTrigFit = true;
+          }
+        } else {
+          fit = ithSpectraTrigg->second.GetBackModel(0);
+          if (!fit){
+              fit = ithSpectra->second.GetBackModel(0);
+          } else {
+              isTrigFit = true;
+          }  
+        }
+        if (fit){
+          if (isTrigFit)
+            SetStyleFit(fit , 0, 2000, 7, 3, kRed+3);
+          else 
+            SetStyleFit(fit , 0, 2000, 7, 7, kBlue+3);  
+          fit->Draw("same");
+          TLegend* legend = GetAndSetLegend2( topRCornerX[p]-10*relSize8P[p], topRCornerY[p]-4*0.85*relSize8P[p]-0.4*relSize8P[p], topRCornerX[p]-0.04, topRCornerY[p]-0.6*relSize8P[p],0.85*textSizePixel, 1, label, 43,0.1);
+          if (isTrigFit)
+            legend->AddEntry(fit, "Gauss noise fit, trigg.", "l");
+          else 
+            legend->AddEntry(fit, "Gauss noise fit", "l");  
+          legend->AddEntry((TObject*)0, Form("#mu = %2.2f #pm %2.2f",fit->GetParameter(1), fit->GetParError(1) ) , " ");
+          legend->AddEntry((TObject*)0, Form("#sigma = %2.2f #pm %2.2f",fit->GetParameter(2), fit->GetParError(2) ) , " ");
+          legend->Draw();
+        } else {
+          labelChannel->Draw();  
+        }
+      
+        DrawLines(0, 0,0.7, scaleYMax*maxY, 2, kGray+1, 10);  
+        if (p ==7 ){
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+        }
+      
+      }
+    }
+    if (skipped < 6)
+      canvas8Panel->SaveAs(nameOutput.Data());
+  }  
+  
 
   //__________________________________________________________________________________________________________
   // Plot Mip with Fits for Full layer
@@ -1103,14 +1548,23 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }          
           continue;
         } 
         ithSpectraTrigg=spectraTrigg.find(tempCellID);
         TH1D* tempHist = nullptr;
+        double noiseWidth = 0;
         if (isHG){
             tempHist = ithSpectra->second.GetHG();
+            noiseWidth = ithSpectra->second.GetCalib()->PedestalSigH;
         } else {
             tempHist = ithSpectra->second.GetLG();
+            noiseWidth = ithSpectra->second.GetCalib()->PedestalSigL;
         }
         SetStyleHistoTH1ForGraphs( tempHist, tempHist->GetXaxis()->GetTitle(), tempHist->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.1, 510, 510, 43, 63);  
         SetMarkerDefaults(tempHist, 20, 1, kBlue+1, kBlue+1, kFALSE);   
@@ -1118,8 +1572,21 @@
         tempHist->GetYaxis()->SetRangeUser(0.7,scaleYMax*maxY);
         
         tempHist->Draw("pe");
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->Draw();
+          tempHist->Draw("same,axis");
+          tempHist->Draw("same,pe");
+        }
         
         TH1D* tempHistT = nullptr;
+        
         if (isHG){
             tempHistT = ithSpectraTrigg->second.GetHG();
         } else {
@@ -1176,9 +1643,13 @@
           legend->AddEntry((TObject*)0, Form("#scale[0.8]{L MPV = %2.2f #pm %2.2f}",fit->GetParameter(1), fit->GetParError(1) ) , " ");
           legend->AddEntry((TObject*)0, Form("#scale[0.8]{Max = %2.2f}", maxFit ) , " ");
           legend->Draw();
+          DrawLines(maxFit, maxFit,0.7, scaleYMax*maxY/10, 5, kRed+3, 7);  
         } else {
           labelChannel->Draw();  
         }
+      
+        DrawLines(noiseWidth*3, noiseWidth*3,0.7, scaleYMax*maxY, 2, kGray+1, 10);  
+        DrawLines(noiseWidth*5, noiseWidth*5,0.7, scaleYMax*maxY, 2, kGray+1, 6);  
       
         if (p ==7 ){
           DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
@@ -1191,14 +1662,123 @@
   }
 
   //__________________________________________________________________________________________________________
+  // Plot Spectra with Fits for Full layer
+  //__________________________________________________________________________________________________________
+  void PlotSpectraFullLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
+                                  std::map<int,TileSpectra> spectra, int isHG, 
+                                  Double_t xPMin, Double_t xPMax, Double_t scaleYMax, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
+                                  
+    Double_t maxY = 0;
+    std::map<int, TileSpectra>::iterator ithSpectra;
+    Setup* setupT = Setup::GetInstance();
+    
+    int nRow = setupT->GetNMaxRow()+1;
+    int nCol = setupT->GetNMaxColumn()+1;
+    int skipped = 0;
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        ithSpectra=spectra.find(tempCellID);
+        if(ithSpectra==spectra.end()){
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          continue;
+        } 
+        TH1D* tempHist = nullptr;
+        if (isHG == 0){
+          tempHist = ithSpectra->second.GetHG();
+        } else if (isHG == 1){
+          tempHist = ithSpectra->second.GetLG();
+        } else {
+          tempHist = ithSpectra->second.GetComb();
+        }
+        if (maxY < FindLargestBin1DHist(tempHist, xPMin , xPMax)) maxY = FindLargestBin1DHist(tempHist, xPMin , xPMax);
+      }  
+    }
+    
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        canvas8Panel->cd();
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        int p = setupT->GetChannelInLayer(tempCellID);
+        pads[p]->Draw();
+        pads[p]->cd();
+        pads[p]->SetLogy();
+        ithSpectra=spectra.find(tempCellID);
+        if(ithSpectra==spectra.end()){
+          skipped++;
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+          }          
+          continue;
+        } 
+        TH1D* tempHist = nullptr;
+        double noiseWidth = 0;
+        if (isHG == 0){
+            tempHist = ithSpectra->second.GetHG();
+            noiseWidth = ithSpectra->second.GetCalib()->PedestalSigH;
+        } else if (isHG == 1){
+            tempHist = ithSpectra->second.GetLG();
+            noiseWidth = ithSpectra->second.GetCalib()->PedestalSigL;
+        } else {
+            tempHist = ithSpectra->second.GetComb();
+        }
+        SetStyleHistoTH1ForGraphs( tempHist, tempHist->GetXaxis()->GetTitle(), tempHist->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.1, 510, 510, 43, 63);  
+        SetMarkerDefaults(tempHist, 20, 1, kBlue+1, kBlue+1, kFALSE);   
+        tempHist->GetXaxis()->SetRangeUser(xPMin,xPMax);
+        tempHist->GetYaxis()->SetRangeUser(0.7,scaleYMax*maxY);
+        
+        tempHist->Draw("pe");
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->Draw();
+          tempHist->Draw("same,axis");
+          tempHist->Draw("same,pe");
+        }
+                
+        TString label           = Form("row %d col %d", r, c);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+        TLatex *labelChannel    = new TLatex(topRCornerX[p]-0.045,topRCornerY[p]-1.2*relSize8P[p],label);
+        SetStyleTLatex( labelChannel, 0.85*textSizePixel,4,1,43,kTRUE,31);
+        labelChannel->Draw();  
+      
+        if (isHG < 2){
+          DrawLines(noiseWidth*3, noiseWidth*3,0.7, scaleYMax*maxY, 2, kGray+1, 10);  
+          DrawLines(noiseWidth*5, noiseWidth*5,0.7, scaleYMax*maxY, 2, kGray+1, 6);  
+        } else {
+          DrawLines(0.3, 0.3, 0.7, scaleYMax*maxY, 2, kGray+1, 10);  
+        }
+        if (p ==7 ){
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+        }
+      }
+    }
+    if (skipped < 6)
+      canvas8Panel->SaveAs(nameOutput.Data());
+  }
+  
+  
+  //__________________________________________________________________________________________________________
   // Plot Corr with Fits for Full layer
   //__________________________________________________________________________________________________________
   void PlotCorrWithFitsFullLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
-                                  std::map<int,TileSpectra> spectra, Setup* setupT, bool isHG, 
-                                  Double_t xPMin, Double_t xPMax, Double_t scaleYMax, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
+                                  std::map<int,TileSpectra> spectra, bool isHG, 
+                                  Double_t xPMin, Double_t xPMax, Double_t maxY, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
                                   
-    Double_t maxY = 3900;
-    if (isHG) maxY = 340;
+    Setup* setupT = Setup::GetInstance();
+    
     std::map<int, TileSpectra>::iterator ithSpectra;    
     int nRow = setupT->GetNMaxRow()+1;
     int nCol = setupT->GetNMaxColumn()+1;
@@ -1217,7 +1797,13 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
-          continue;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+          }
+        continue;
         } 
         TProfile* tempProfile = nullptr;
         if (isHG){
@@ -1232,12 +1818,25 @@
 
         // SetStyleTProfile( tempProfile, tempProfile->GetXaxis()->GetTitle(), tempProfile->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.1, 510, 510, 43, 63);  
         SetMarkerDefaultsProfile(tempProfile, 20, 1, kBlue+1, kBlue+1);   
-        if (isHG)
-          dummyhist->GetXaxis()->SetRangeUser(0,3900);
-        else 
-          dummyhist->GetXaxis()->SetRangeUser(0,340);
+        Int_t maxX = 3900;        
+        if (!isHG)
+          maxX = 340;
+        dummyhist->GetXaxis()->SetRangeUser(0,maxX);
         dummyhist->GetYaxis()->SetRangeUser(0,maxY);
         dummyhist->Draw("axis");
+
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, 0, 0, maxX,maxY, 1001 );
+          badChannelArea->Draw();
+          dummyhist->Draw("axis,same");
+        }
+
         tempProfile->Draw("pe, same");
                 
         TString label           = Form("row %d col %d", r, c);
@@ -1261,8 +1860,8 @@
           fit->Draw("same");
           TLegend* legend = GetAndSetLegend2( topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-0.4*relSize8P[p], topRCornerX[p]+6*relSize8P[p], topRCornerY[p]-0.6*relSize8P[p],0.85*textSizePixel, 1, label, 43,0.1);
           legend->AddEntry(fit, "linear fit, trigg.", "l");
-          legend->AddEntry((TObject*)0, Form("#scale[0.8]{b = %2.2f #pm %2.2f}",fit->GetParameter(0), fit->GetParError(0) ) , " ");
-          legend->AddEntry((TObject*)0, Form("#scale[0.8]{a = %2.2f #pm %2.2f}",fit->GetParameter(1), fit->GetParError(1) ) , " ");
+          legend->AddEntry((TObject*)0, Form("#scale[0.8]{b = %2.3f #pm %2.4f}",fit->GetParameter(0), fit->GetParError(0) ) , " ");
+          legend->AddEntry((TObject*)0, Form("#scale[0.8]{a = %2.3f #pm %2.4f}",fit->GetParameter(1), fit->GetParError(1) ) , " ");
           legend->Draw();
         } else {
           labelChannel->Draw();  
@@ -1308,7 +1907,7 @@
         if (maxY < FindLargestBin1DHist(tempHist, xPMin , xPMax)) maxY = FindLargestBin1DHist(tempHist, xPMin , xPMax);
       }  
     }
-    
+
     for (int r = 0; r < nRow; r++){
       for (int c = 0; c < nCol; c++){
         canvas8Panel->cd();
@@ -1321,6 +1920,13 @@
         if(ithSpectra==spectra.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-2.*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-3.*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), true, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-4.*relSize8P[p], "Trigger primitives", true, 0.85*relSize8P[p], 42);
+          }
           continue;
         } 
         TH1D* tempHist = ithSpectra->second.GetTriggPrim();
@@ -1330,6 +1936,19 @@
         tempHist->GetYaxis()->SetRangeUser(0.7,scaleYMax*maxY);
         
         tempHist->Draw("pe");
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->Draw();
+          tempHist->Draw("same,axis");
+          tempHist->Draw("same,pe");
+        }
+
         TString label           = Form("row %d col %d", r, c);
         if (p == 7){
           label = Form("row %d col %d layer %d", r, c, layer);
@@ -1356,6 +1975,5 @@
     if (skipped < 6)
       canvas8Panel->SaveAs(nameOutput.Data());
   }
-  
-  
+    
 #endif

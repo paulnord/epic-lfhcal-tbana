@@ -62,7 +62,7 @@ void Event::AddTile(Tile* t){
   if(it!=Tiles.end()){
     delete it->second;
     it->second=t;
-    std::cerr<<"What the hell am I doing here?, Or did I ClearTiles before ?"<<std::endl;
+    // std::cerr<<"What the hell am I doing here?, Or did I ClearTiles before ?"<<std::endl;
   }
   else{
     Tiles[id]=t;
@@ -160,14 +160,28 @@ bool Event::InspectIfLocalMuonTrigg( int currTileID,
     
 }
 
-double Event::CalculateLocalMuonTrigg(  Setup* setup, 
-                                        Calib calib, 
+bool Event::InspectIfNoiseTrigg( int currTileID, 
+                                double averageScale,
+                                double minThrSc = 0.9
+                              ){
+  double trPrim = ((Caen*)GetTileFromID(currTileID))->GetLocalTriggerPrimitive();
+  // evaluate stored trigger primitive
+  if (trPrim < averageScale*minThrSc )
+    return true;
+  else 
+    return false;
+    
+}
+
+double Event::CalculateLocalMuonTrigg(  Calib calib, 
                                         TRandom3* rand,
                                         int currTileID, 
-                                        int nTiles = 4 
+                                        int nTiles = 4,
+                                        double avLGHG = 10.
                                       ){
   
   // figure out surrounding tiles for local mip selection
+  Setup* setup = Setup::GetInstance();
   long ids[6]  = {-1, -1, -1, -1, -1, -1};
   int layer     = setup->GetLayer(currTileID);
   int row       = setup->GetRow(currTileID);
@@ -272,8 +286,14 @@ double Event::CalculateLocalMuonTrigg(  Setup* setup,
       activeTiles--;
       continue;
     }
+    if (calib.GetBCCalib()){
+      if (calib.GetBadChannel(ids[t]) != -64  && calib.GetBadChannel(ids[t]) < 3){
+        activeTiles--;
+        continue;
+      }
+    }
     double tmpGain  = 0;
-    double scale    = calib.GetScaleLGHGCorr(ids[t]);
+    double scale    = (calib.GetScaleLGHGCorr(ids[t]) == -64.) ? avLGHG : calib.GetScaleLGHGCorr(ids[t]);     // only use LG-HG corr factor if fit succeeded, otherwise use average
     // calculating combined gain
     if (((Caen*)GetTileFromID(ids[t]))->GetADCHigh() < 3800)
       tmpGain = ((Caen*)GetTileFromID(ids[t]))->GetADCHigh()-calib.GetPedestalMeanH(ids[t]); 

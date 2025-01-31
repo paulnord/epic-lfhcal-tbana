@@ -7,16 +7,17 @@
 #include "Setup.h"
 
 struct TileCalib{
-  double PedestalMeanH;
-  double PedestalMeanL;
-  double PedestalSigH;
-  double PedestalSigL;
-  double ScaleH;
-  double ScaleWidthH;
-  double ScaleL;
-  double ScaleWidthL;
-  double LGHGCorr;
-  double HGLGCorr;
+  double PedestalMeanH  = -1000.;
+  double PedestalMeanL  = -1000.;
+  double PedestalSigH   = -1000.;
+  double PedestalSigL   = -1000.;
+  double ScaleH         = -1000.;
+  double ScaleWidthH    = -1000.;
+  double ScaleL         = -1000.;
+  double ScaleWidthL    = -1000.;
+  double LGHGCorr   = -64;
+  double HGLGCorr   = -64;
+  short BadChannel  = -64;
 } ;
 
 class Calib{
@@ -37,6 +38,8 @@ class Calib{
   double GetScaleHigh(int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleWidthHigh(int /**/) const;
   double GetScaleWidthHigh(int /**/, int /**/, int /**/, int /**/) const;
+  double GetCalcScaleLow (int /**/) const;
+  double GetCalcScaleLow (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleLow (int /**/) const;
   double GetScaleLow (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleWidthLow (int /**/) const;
@@ -45,10 +48,18 @@ class Calib{
   double GetScaleLGHGCorr (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleHGLGCorr (int /**/) const;
   double GetScaleHGLGCorr (int /**/, int /**/, int /**/, int /**/) const;
+  double GetAveragePedestalMeanHigh() const;
   double GetAverageScaleHigh() const;
+  double GetAverageScaleHigh(int &) const;
+  double GetAverageScaleWidthHigh() const;
   double GetAverageScaleLow() const;
+  double GetAverageScaleWidthLow() const;
   double GetAverageHGLGCorr() const;
   double GetAverageLGHGCorr() const;
+  int GetNumberOfChannelsWithBCflag (short ) const;
+  short GetBadChannel(int /**/) const;
+  short GetBadChannel(int /**/, int /**/, int /**/, int /**/) const;
+  
   TileCalib* GetTileCalib(int /**/);
   TileCalib* GetTileCalib(int /**/, int /**/, int /**/, int /**/);
   void   SetPedestalMeanH (double, int);
@@ -71,16 +82,24 @@ class Calib{
   void   SetScaleLGHGCorr (double, int, int, int, int);
   void   SetScaleHGLGCorr (double, int);
   void   SetScaleHGLGCorr (double, int, int, int, int);
-
+  void   SetBadChannel (short, int);
+  void   SetBadChannel (short, int, int, int, int);
+  
   int GetRunNumber(void);
   const TTimeStamp* GetBeginRunTime(void) const;
   double GetVov(void);
   double GetVop(void);
+  bool GetBCCalib(void);            // is bad channel map calculated
 
-  void SetRunNumber(int);//How to handle pedestal and mip which may come from different runs?
-  void SetBeginRunTime(TTimeStamp);//How to handle pedestal and mip which may come from different runs?
-  void SetVop(double);//This should anyway be the same for ped/mip/data
-  void SetVov(double);//This should anyway be the same for ped/mip/data
+  void SetRunNumber(int);           // How to handle pedestal and mip which may come from different runs?
+  void SetBeginRunTime(TTimeStamp); // How to handle pedestal and mip which may come from different runs?
+  void SetVop(double);              // This should anyway be the same for ped/mip/data
+  void SetVov(double);              // This should anyway be the same for ped/mip/data
+  void SetBCCalib(bool);            // Bad channel map calculated
+
+  void PrintGlobalInfo();
+  void PrintCalibToFile( TString );
+  void ReadCalibFromTextFile( TString, int);
   
  private:
    
@@ -89,7 +108,8 @@ class Calib{
   TTimeStamp BeginRunTime;
   double Vop;
   double Vov;
-  ClassDef(Calib,3)
+  bool BCcalc;
+  ClassDef(Calib,4)
 };
 
 

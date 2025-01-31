@@ -2,6 +2,8 @@
 // Driver for converting the output of the HGCROC
 // into a root file for further analysis
 
+#pragma once
+
 #include "Analyses.h"
 #include "Event.h"
 #include "Tile.h"
