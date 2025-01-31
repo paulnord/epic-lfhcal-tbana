@@ -194,6 +194,34 @@ double Calib::GetAveragePedestalMeanHigh()const{
   return avSc/CaloCalib.size();
 }
 
+double Calib::GetAveragePedestalSigHigh()const{
+  double avSc = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    avSc += it->second.PedestalSigH;
+  }
+  return avSc/CaloCalib.size();
+}
+
+double Calib::GetAveragePedestalMeanLow()const{
+  double avSc = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    avSc += it->second.PedestalMeanL;
+  }
+  return avSc/CaloCalib.size();
+}
+
+double Calib::GetAveragePedestalSigLow()const{
+  double avSc = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    avSc += it->second.PedestalSigL;
+  }
+  return avSc/CaloCalib.size();
+}
+
+
 double Calib::GetAverageScaleHigh( )const{
   double avSc   = 0;
   int notCalib  = 0;

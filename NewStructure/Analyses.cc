@@ -1035,6 +1035,11 @@ bool Analyses::GetPedestal(void){
   TString outputDirPlots = GetPlotOutputDir();
   gSystem->Exec("mkdir -p "+outputDirPlots);
   
+  double averagePedMeanHG = calib.GetAveragePedestalMeanHigh();
+  double averagePedSigHG  = calib.GetAveragePedestalSigHigh();
+  double averagePedMeanLG = calib.GetAveragePedestalMeanLow();
+  double averagePedSigLG  = calib.GetAveragePedestalSigLow();
+
   //**********************************************************************
   // Create canvases for channel overview plotting
   //**********************************************************************
@@ -1043,19 +1048,19 @@ bool Analyses::GetPedestal(void){
   SetPlotStyle();
   
   TCanvas* canvas2DCorr = new TCanvas("canvasCorrPlots","",0,0,1450,1200);  // gives the page size
-  DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.02, 0.07);
+  DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.045, 0.07);
   canvas2DCorr->SetLogz();
   
-  PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, 300, setup->GetMaxCellID()+1, textSizeRel, Form("%s/HG_Noise.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5 );
-  PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, 300, setup->GetMaxCellID()+1, textSizeRel, Form("%s/LG_Noise.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5);
+  PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, 300, setup->GetMaxCellID()+1, textSizeRel, Form("%s/HG_Noise.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, 300, setup->GetMaxCellID()+1, textSizeRel, Form("%s/LG_Noise.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true);
 
   canvas2DCorr->SetLogz(0);
-  PlotSimple2D( canvas2DCorr, hspectraHGMeanVsLayer, -10000, -10000, textSizeRel, Form("%s/HG_NoiseMean.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz");
-  PlotSimple2D( canvas2DCorr, hspectraHGSigmaVsLayer,-10000, -10000, textSizeRel, Form("%s/HG_NoiseSigma.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5,  kFALSE, "colz");
+  PlotSimple2D( canvas2DCorr, hspectraHGMeanVsLayer, -10000, -10000, textSizeRel, Form("%s/HG_NoiseMean.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, Form("#LT#mu_{HG}#GT = %2.2f", averagePedMeanHG));
+  PlotSimple2D( canvas2DCorr, hspectraHGSigmaVsLayer,-10000, -10000, textSizeRel, Form("%s/HG_NoiseSigma.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5,  kFALSE, "colz", true, Form("#LT#sigma_{HG}#GT = %2.2f", averagePedSigHG));
 
   canvas2DCorr->SetLogz(0);
-  PlotSimple2D( canvas2DCorr, hspectraLGMeanVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseMean.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz");
-  PlotSimple2D( canvas2DCorr, hspectraLGSigmaVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseSigma.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz");
+  PlotSimple2D( canvas2DCorr, hspectraLGMeanVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseMean.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, Form("#LT#mu_{LG}#GT = %2.2f", averagePedMeanLG));
+  PlotSimple2D( canvas2DCorr, hspectraLGSigmaVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseSigma.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, Form("#LT#sigma_{LG}#GT = %2.2f", averagePedSigLG));
   
   
   //***********************************************************************************************************
