@@ -16,13 +16,13 @@ Calib.o: Calib.cc Calib.h
 #Cint.cxx: Setup.h RootSetupWrapper.h Calib.h RootCalibWrapper.h Event.h Tile.h HGCROC.h Caen.h LinkDef.h
 #	rootcint -v -f Cint.cxx -c RootSetupWrapper.h RootCalibWrapper.h Calib.h  Setup.h Event.h Tile.h HGCROC.h Caen.h LinkDef.h
 
-Cint.cxx: Setup.h RootSetupWrapper.h Calib.h Event.h Tile.h HGCROC.h Caen.h TileSpectra.h LinkDef.h
-	rootcint -v -f Cint.cxx -c RootSetupWrapper.h Calib.h  Setup.h Event.h Tile.h HGCROC.h Caen.h TileSpectra.h LinkDef.h
+Cint.cxx: Setup.h RootSetupWrapper.h Calib.h Event.h Tile.h HGCROC.h Caen.h TileSpectra.h TileTrend.h LinkDef.h
+	rootcint -v -f Cint.cxx -c RootSetupWrapper.h Calib.h  Setup.h Event.h Tile.h HGCROC.h Caen.h TileSpectra.h TileTrend.h LinkDef.h
 
 Cint.o:Cint.cxx
 	$(CXX) $(FLAGS) -c Cint.cxx -o Cint.o
 
-libLFHCAL.so: Cint.o Setup.o RootSetupWrapper.o Calib.o  Event.o Tile.o HGCROC.o Caen.o TileSpectra.o
+libLFHCAL.so: Cint.o Setup.o RootSetupWrapper.o Calib.o  Event.o Tile.o HGCROC.o Caen.o TileSpectra.o TileTrend.o
 	$(LINKER) -o libLFHCAL.so Calib.o Setup.o RootSetupWrapper.o Event.o Tile.o HGCROC.o Caen.o Cint.o `root-config --libs --cflags --ldflags` -I.
 
 #libLFHCAL.so: Cint.o Setup.o RootSetupWrapper.o Calib.o RootCalibWrapper.o Event.o Tile.o HGCROC.o Caen.o 
@@ -43,6 +43,9 @@ Tile.o: Tile.cc Tile.h Setup.h
 TileSpectra.o: TileSpectra.cc TileSpectra.h Calib.h
 	$(CXX) $(FLAGS) -I. -c TileSpectra.cc -o TileSpectra.o
 
+TileTrend.o: TileTrend.cc TileTrend.h Calib.h
+	$(CXX) $(FLAGS) -I. -c TileTrend.cc -o TileTrend.o
+
 Event.o: Event.cc Event.h
 	$(CXX) $(FLAGS) -I. -c Event.cc -o Event.o
 
@@ -57,10 +60,10 @@ Analyses.o: Analyses.cc Analyses.h PlottHelper.h CommonHelperFunctions.h
 
 DataAna.o: DataAna.cc
 	$(CXX) $(FLAGS) -I. -c DataAna.cc -o DataAna.o
-	
+
 DataAnalysis.o: DataAnalysis.cc DataAnalysis.h PlottHelper.h CommonHelperFunctions.h
 	$(CXX) $(FLAGS) -I. -c DataAnalysis.cc -o DataAnalysis.o
-	
+
 Compare.o: Compare.cc
 	$(CXX) $(FLAGS) -I. -c Compare.cc -o Compare.o
 
@@ -75,9 +78,9 @@ DataPrep: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  Til
 
 DataAna: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataAna.o DataAnalysis.o
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o DataAna.o DataAnalysis.o $(FLAGS) -I. libLFHCAL.so -o DataAna
-	
-Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Compare.o ComparisonCalib.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare
+
+Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o TileTrend.o libLFHCAL.so Compare.o ComparisonCalib.o
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o TileTrend.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare
 
 clean:
 	rm -f *.o Cint.cxx Cint_* *.so ./DataPrep ./Compare ./Convert ./DataAna

@@ -10,6 +10,8 @@ elif [ $1 = "fbockExt" ]; then
 elif [ $1 = "eglimos" ]; then 
 	dataDir=/home/ewa/EIC/test_beam2024/fullScanC
 	dataRaw=/home/ewa/EIC/test_beam2024/fullScanC
+elif [ $1 = "vandrieu" ]; then
+    dataDir=/home/vandrieu/cernbox/ePIC_2024_PStestbeam/CAEN_RO
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit

@@ -62,6 +62,7 @@ class Calib{
   
   TileCalib* GetTileCalib(int /**/);
   TileCalib* GetTileCalib(int /**/, int /**/, int /**/, int /**/);
+
   void   SetPedestalMeanH (double, int);
   void   SetPedestalMeanL (double, int);
   void   SetPedestalMeanH (double, int, int, int, int);
@@ -100,6 +101,9 @@ class Calib{
   void PrintGlobalInfo();
   void PrintCalibToFile( TString );
   void ReadCalibFromTextFile( TString, int);
+
+  inline std::map<int, TileCalib>::const_iterator begin() {return CaloCalib.cbegin();};
+  inline std::map<int, TileCalib>::const_iterator end()   {return CaloCalib.cend();};
   
  private:
    
