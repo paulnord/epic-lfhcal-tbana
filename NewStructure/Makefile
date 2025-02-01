@@ -1,4 +1,12 @@
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
 FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common -pedantic -Wall -std=c++17 -Wl,-rpath='${ORIGIN}' `root-config --libs --ldflags --cflags`
+endif
+ifeq ($(UNAME), Darwin)
+FLAGS =  $(ARCH) -g -fPIC -ansi  -Wno-overloaded-virtual -Wno-long-long -fno-common -pedantic -Wall -std=c++17 `root-config --libs --ldflags --cflags`
+endif
+
+
 LINKER = g++ -g -shared $(OPTIMISATION)
 
 Setup.o: Setup.cc Setup.h RootSetupWrapper.h
@@ -37,6 +45,9 @@ Caen.o: Caen.cc Caen.h
 HGCROC.o: HGCROC.cc HGCROC.h
 	$(CXX) $(FLAGS) -I. -c HGCROC.cc -o HGCROC.o
 
+HGCROC_Convert.o: HGCROC_Convert.cc HGCROC_Convert.h
+	$(CXX) $(FLAGS) -I. -c HGCROC_Convert.cc -o HGCROC_Convert.o
+
 Tile.o: Tile.cc Tile.h Setup.h
 	$(CXX) $(FLAGS) -I. -c Tile.cc -o Tile.o
 
@@ -70,14 +81,23 @@ Compare.o: Compare.cc
 ComparisonCalib.o: ComparisonCalib.cc ComparisonCalib.h PlottHelper.h CommonHelperFunctions.h
 	$(CXX) $(FLAGS) -I. -c ComparisonCalib.cc -o ComparisonCalib.o
 
-Convert: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Convert.o Analyses.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Convert.o $(FLAGS) -I. libLFHCAL.so -o Convert
+waveform_fit_base.o: waveform_fitting/waveform_fit_base.cc waveform_fitting/waveform_fit_base.h
+	$(CXX) $(FLAGS) -I. -c waveform_fitting/waveform_fit_base.cc -o waveform_fit_base.o
 
-DataPrep: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataPrep.o Analyses.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o DataPrep.o $(FLAGS) -I. libLFHCAL.so -o DataPrep
+crystal_ball_fit.o: waveform_fitting/crystal_ball_fit.cc waveform_fitting/crystal_ball_fit.h
+	$(CXX) $(FLAGS) -I. -c waveform_fitting/crystal_ball_fit.cc -o crystal_ball_fit.o
 
-DataAna: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataAna.o DataAnalysis.o
-	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o DataAna.o DataAnalysis.o $(FLAGS) -I. libLFHCAL.so -o DataAna
+Convert: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Convert.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o Convert.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o $(FLAGS) -I. libLFHCAL.so -o Convert
+
+DataPrep: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataPrep.o Analyses.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Analyses.o DataPrep.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o DataPrep
+
+HGCROC_Conversion: FLAGS += -DDECODE_HGCROC -Llib -lh2g_decode
+HGCROC_Conversion: Convert
+
+DataAna: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o DataAna
 
 Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o TileTrend.o libLFHCAL.so Compare.o ComparisonCalib.o
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o TileTrend.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare

@@ -53,6 +53,7 @@ class DataAnalysis{
   inline void SetRootOutput(TString name)        {RootOutputName =name;};
   inline void SetRootOutputHists(TString name)   {RootOutputNameHist =name;};
   inline void SetPlotOutputDir(TString name)     {OutputNameDirPlots =name;};
+  inline void SetPlotExtension(TString name)     {plotSuffix = name;};
   
   //General methods
   bool CreateOutputRootFile(void);
@@ -66,6 +67,7 @@ class DataAnalysis{
   TString OutputNameDirPlots;             // directory name of output for plots
   TString RootInputName;                  // file name of input root file 
   TString RunListInputName;               // file name run list 
+  TString plotSuffix        = "pdf";      // plot extension
   TFile* RootOutput         =nullptr;     // root file output tree
   TFile* RootOutputHist     =nullptr;     // root file output histos
   TFile* RootInput          =nullptr;     // root file input 

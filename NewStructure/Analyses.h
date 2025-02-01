@@ -53,6 +53,8 @@ class Analyses{
   inline bool IsToExtractPedestal(void)         const {return ExtractPedestal;};
   inline bool IsToExtractScaling(void)          const {return ExtractScaling;};
   inline bool IsToExtractScalingImproved(void)  const {return ExtractScalingImproved;};
+  inline bool IsHGCROC(void)                    const {return HGCROC;};
+  
   inline bool IsToReextractNoise(void)          const {return ReextractNoise;};
   inline bool IsToSaveNoiseOnly(void)           const {return SaveNoiseOnly;};
   inline bool IsToSaveMipsOnly(void)            const {return SaveMipsOnly;};
@@ -75,6 +77,7 @@ class Analyses{
   inline void IsToExtractPedestal(bool b)        {ExtractPedestal=b;};
   inline void IsToExtractScaling(bool b)         {ExtractScaling=b;};
   inline void IsToExtractScalingImproved(bool b) {ExtractScalingImproved=b;};
+  inline void IsHGCROC(bool b)                   {HGCROC=b;};
   inline void IsToReextractNoise(bool b)         {ReextractNoise=b;};
   inline void IsToSaveNoiseOnly(bool b)          {SaveNoiseOnly = b;};
   inline void IsToSaveMipsOnly(bool b)           {SaveMipsOnly = b;};
@@ -130,6 +133,7 @@ class Analyses{
   std::fstream ASCIIinput;                // ASCII file streamer for CAEN data
   std::fstream MapInput;                  // file streamer for geometry mapping
   bool Convert                =false;     // Flag for data conversion 
+  bool HGCROC                 =false;     // Flag for HGCROC data conversion
   bool ExtractPedestal        =false;     // Flag for pedestal extraction
   bool ExtractScaling         =false;     // Flag for mip scaling extraction
   bool ExtractScalingImproved =false;     // Flag for mip scaling extraction 2nd pass

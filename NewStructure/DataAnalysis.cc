@@ -285,7 +285,7 @@ bool DataAnalysis::QAData(void){
           ithSpectraTrigg->second.FillSpectra(corrLG,corrHG);
         } else {
           RootOutputHist->cd("IndividualCellsTrigg");
-          hSpectraTrigg[aTile->GetCellID()]=TileSpectra("muonTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+          hSpectraTrigg[aTile->GetCellID()]=TileSpectra("muonTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(),debug);
           hSpectraTrigg[aTile->GetCellID()].FillTrigger(aTile->GetLocalTriggerPrimitive());
           hSpectraTrigg[aTile->GetCellID()].FillSpectra(corrLG,corrHG);
         }
@@ -299,7 +299,7 @@ bool DataAnalysis::QAData(void){
         ithSpectra->second.FillCorr(corrLG,corrHG);
       } else {
         RootOutputHist->cd("IndividualCells");
-        hSpectra[aTile->GetCellID()]=TileSpectra("AllTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),debug);
+        hSpectra[aTile->GetCellID()]=TileSpectra("AllTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(),debug);
         hSpectra[aTile->GetCellID()].FillSpectra(corrLG,corrHG);;
         hSpectra[aTile->GetCellID()].FillTrigger(aTile->GetLocalTriggerPrimitive());;
         hSpectra[aTile->GetCellID()].FillCorr(corrLG,corrHG);
@@ -551,62 +551,62 @@ bool DataAnalysis::QAData(void){
   TCanvas* canvas2DCorr = new TCanvas("canvasCorrPlots","",0,0,1450,1300);  // gives the page size
   DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.045, 0.07);
   canvas2DCorr->SetLogz(1);
-  PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, -10000, -10000, textSizeRel, Form("%s/HG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, -10000, -10000, textSizeRel, Form("%s/LG.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/LGCorr.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraEnergyvsCellID, -10000, -10000, textSizeRel, Form("%s/EnergyVsCellID.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, Form("evts = %d",evts));
-  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCellsMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_MuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, Form("Muon evts = %d",evtsMuon));
-  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells_WoMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_WoMuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, Form("Non Muon evts = %d",evts-evtsMuon));
+  PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, -10000, -10000, textSizeRel, Form("%s/HG.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, -10000, -10000, textSizeRel, Form("%s/LG.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/LGCorr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyvsCellID, -10000, -10000, textSizeRel, Form("%s/EnergyVsCellID.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("evts = %d",evts));
+  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCellsMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("Muon evts = %d",evtsMuon));
+  PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells_WoMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_WoMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("Non Muon evts = %d",evts-evtsMuon));
 
 
-  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayer, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer_MuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
-  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer_WOMuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
-  PlotSimple2D( canvas2DCorr, hAverageXVsLayer, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hAverageXVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer_MuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
-  PlotSimple2D( canvas2DCorr, hAverageXVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer_WOMuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
-  PlotSimple2D( canvas2DCorr, hAverageYVsLayer, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hAverageYVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer_MuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
-  PlotSimple2D( canvas2DCorr, hAverageYVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer_WOMuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
-  PlotSimple2D( canvas2DCorr, hNCellsVsLayer, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true);
-  PlotSimple2D( canvas2DCorr, hNCellsVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_MuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
-  PlotSimple2D( canvas2DCorr, hNCellsVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_WOMuonTrigg.pdf", outputDirPlots.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
+  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayer, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
+  PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer_WOMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
+  PlotSimple2D( canvas2DCorr, hAverageXVsLayer, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hAverageXVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
+  PlotSimple2D( canvas2DCorr, hAverageXVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/XPosVsLayer_WOMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
+  PlotSimple2D( canvas2DCorr, hAverageYVsLayer, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hAverageYVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
+  PlotSimple2D( canvas2DCorr, hAverageYVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/YPosVsLayer_WOMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
+  PlotSimple2D( canvas2DCorr, hNCellsVsLayer, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hNCellsVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
+  PlotSimple2D( canvas2DCorr, hNCellsVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_WOMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
   
   TCanvas* canvas1DSimple = new TCanvas("canvas1DSimple","",0,0,1450,1300);  // gives the page size
   DefaultCancasSettings( canvas1DSimple, 0.08, 0.01, 0.03, 0.07);
   hspectraEnergyTot->Scale(1./evts);
   hspectraEnergyTot->GetYaxis()->SetTitle("counts/event");
-  PlotSimple1D(canvas1DSimple, hspectraEnergyTot, -10000, -10000, textSizeRel, Form("%s/EnergyTot.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT E_{Tot} #GT = %.1f (mip/tile eq.)",hspectraEnergyTot->GetMean() ));
+  PlotSimple1D(canvas1DSimple, hspectraEnergyTot, -10000, -10000, textSizeRel, Form("%s/EnergyTot.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, Form("#LT E_{Tot} #GT = %.1f (mip/tile eq.)",hspectraEnergyTot->GetMean() ));
 
   hspectraEnergyTotMuon->Scale(1./evts);
   hspectraEnergyTotNonMuon->Scale(1./evts);
-  PlotContamination1D(canvas1DSimple, hspectraEnergyTot,hspectraEnergyTotMuon, hspectraEnergyTotNonMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotSplit.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT E_{Tot,non muon} #GT = %.1f (mip/tile eq.)",hspectraEnergyTotNonMuon->GetMean() ));
+  PlotContamination1D(canvas1DSimple, hspectraEnergyTot,hspectraEnergyTotMuon, hspectraEnergyTotNonMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotSplit.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, Form("#LT E_{Tot,non muon} #GT = %.1f (mip/tile eq.)",hspectraEnergyTotNonMuon->GetMean() ));
 
   hspectraNCells->Scale(1./evts);
   hspectraNCells->GetYaxis()->SetTitle("counts/event");
-  PlotSimple1D(canvas1DSimple, hspectraNCells, -10000, -10000, textSizeRel, Form("%s/NCells.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT N_{Cells} #GT = %.1f",hspectraNCells->GetMean() ));
+  PlotSimple1D(canvas1DSimple, hspectraNCells, -10000, -10000, textSizeRel, Form("%s/NCells.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, Form("#LT N_{Cells} #GT = %.1f",hspectraNCells->GetMean() ));
   hspectraNCellsMuon->Scale(1./evts);
   hspectraNCellsNonMuon->Scale(1./evts);  
-  PlotContamination1D( canvas1DSimple, hspectraNCells, hspectraNCellsMuon, hspectraNCellsNonMuon, -10000, -10000, textSizeRel, Form("%s/NCellsSplit.pdf", outputDirPlots.Data()), it->second, 1, Form("#LT N_{Cells,non muon} #GT = %.1f",hspectraNCellsNonMuon->GetMean() ));
+  PlotContamination1D( canvas1DSimple, hspectraNCells, hspectraNCellsMuon, hspectraNCellsNonMuon, -10000, -10000, textSizeRel, Form("%s/NCellsSplit.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, Form("#LT N_{Cells,non muon} #GT = %.1f",hspectraNCellsNonMuon->GetMean() ));
   
   // canvas1DSimple->SetLogy();
-  PlotLayerOverlay(canvas1DSimple, histELayer_All, evts*10, maxXLAll ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/ELayerOverlay_AllTrigg.pdf", outputDirPlots.Data()),it->second, 1, "All triggers");
-  PlotLayerOverlay(canvas1DSimple, histELayer_Muon, evtsMuon*10, maxXLMuon, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/ELayerOverlay_MuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Muon triggers");
-  PlotLayerOverlay(canvas1DSimple, histELayer_WoMuon, (evts-evtsMuon)*10, maxXLAll, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/ELayerOverlay_NonMuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Non muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histELayer_All, evts*10, maxXLAll ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/ELayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
+  PlotLayerOverlay(canvas1DSimple, histELayer_Muon, evtsMuon*10, maxXLMuon, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/ELayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histELayer_WoMuon, (evts-evtsMuon)*10, maxXLAll, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/ELayerOverlay_NonMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Non muon triggers");
   
-  PlotLayerOverlay(canvas1DSimple, histXLayer_All, evts*100, 7.8 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/XPosLayerOverlay_AllTrigg.pdf", outputDirPlots.Data()),it->second, 1, "All triggers");
-  PlotLayerOverlay(canvas1DSimple, histXLayer_Muon, evtsMuon*100, 7.8, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/XPosLayerOverlay_MuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Muon triggers");
-  PlotLayerOverlay(canvas1DSimple, histXLayer_WoMuon, (evts-evtsMuon)*100, 7.8, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/XPosLayerOverlay_NonMuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Non muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histXLayer_All, evts*100, 7.8 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/XPosLayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
+  PlotLayerOverlay(canvas1DSimple, histXLayer_Muon, evtsMuon*100, 7.8, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/XPosLayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histXLayer_WoMuon, (evts-evtsMuon)*100, 7.8, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/XPosLayerOverlay_NonMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Non muon triggers");
 
-  PlotLayerOverlay(canvas1DSimple, histYLayer_All, evts*100, 2.8 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/YPosLayerOverlay_AllTrigg.pdf", outputDirPlots.Data()),it->second, 1, "All triggers");
-  PlotLayerOverlay(canvas1DSimple, histYLayer_Muon, evtsMuon*100, 2.8, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/YPosLayerOverlay_MuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Muon triggers");
-  PlotLayerOverlay(canvas1DSimple, histYLayer_WoMuon, (evts-evtsMuon)*100, 2.8, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/YPosLayerOverlay_NonMuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Non muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histYLayer_All, evts*100, 2.8 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/YPosLayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
+  PlotLayerOverlay(canvas1DSimple, histYLayer_Muon, evtsMuon*100, 2.8, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/YPosLayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histYLayer_WoMuon, (evts-evtsMuon)*100, 2.8, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/YPosLayerOverlay_NonMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Non muon triggers");
 
-  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_All, evts*100, 8.5 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/NCellsLayerOverlay_AllTrigg.pdf", outputDirPlots.Data()),it->second, 1, "All triggers");
-  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_Muon, evtsMuon*100, 8.5, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/NCellsLayerOverlay_MuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Muon triggers");
-  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_WoMuon, (evts-evtsMuon)*100, 8.5, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/NCellsLayerOverlay_NonMuonTrigg.pdf", outputDirPlots.Data()),it->second, 1, "Non muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_All, evts*100, 8.5 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/NCellsLayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
+  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_Muon, evtsMuon*100, 8.5, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/NCellsLayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");
+  PlotLayerOverlay(canvas1DSimple, histNCellsLayer_WoMuon, (evts-evtsMuon)*100, 8.5, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/NCellsLayerOverlay_NonMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Non muon triggers");
   
   if (ExtPlot > 0){
     gSystem->Exec("mkdir -p "+outputDirPlots+"/detailed");
@@ -649,23 +649,23 @@ bool DataAnalysis::QAData(void){
       }
       PlotMipWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               hSpectra, hSpectraTrigg, setup, true, -100, 3800, 1.2, l, 0,
-                              Form("%s/detailed/LocTriggerMip_HG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                              Form("%s/detailed/LocTriggerMip_HG_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       PlotMipWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               hSpectra, hSpectraTrigg, setup, true, -100, maxHG, 1.2, l, 0,
-                              Form("%s/detailed/LocTriggerMip_Zoomed_HG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                              Form("%s/detailed/LocTriggerMip_Zoomed_HG_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       PlotTriggerPrimWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                         hSpectra, setup, averageScale, 0.8, 2.,
-                                        0, 6000, 1.2, l, 0, Form("%s/detailed/All_TriggPrimitive_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                                        0, 6000, 1.2, l, 0, Form("%s/detailed/All_TriggPrimitive_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       if (ExtPlot > 1){
         PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
                                       hSpectra, false, -20, 800, 1.2, l, 0,
-                                      Form("%s/detailed/LGHG_Corr_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                                      Form("%s/detailed/LGHG_Corr_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
         PlotMipWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                   hSpectra, hSpectraTrigg, setup, false, -20, maxLG, 1.2, l, 0,
-                                  Form("%s/detailed/LocTriggerMip_LG_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                                  Form("%s/detailed/LocTriggerMip_LG_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
         PlotTriggerPrimWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                           hSpectraTrigg, setup, averageScale, 0.8, 2.,
-                                          0, maxHG*2, 1.2, l, 0, Form("%s/detailed/LocalMuon_TriggPrimitive_Layer%02d.pdf" ,outputDirPlots.Data(), l), it->second);
+                                          0, maxHG*2, 1.2, l, 0, Form("%s/detailed/LocalMuon_TriggPrimitive_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       }
     }
     std::cout << "done plotting" << std::endl;

@@ -11,14 +11,16 @@
 #include "TCanvas.h"
 #include "TLegend.h"
 #include "Calib.h"
+#include "Tile.h"
 
 class TileSpectra: public TObject{
 
  public:
   TileSpectra():TObject(){}
-  TileSpectra(TString name, int id, TileCalib* cal, int deb=0):TObject()
+  TileSpectra(TString name, int id, TileCalib* cal, ReadOut::Type type, int deb=0):TObject()
   {
     TileName      = name;
+    ROType        = type;
     cellID        = id;
     calib         = cal;
     debug         = deb;
@@ -103,6 +105,7 @@ class TileSpectra: public TObject{
   
  protected:
   TString TileName;
+  ReadOut::Type ROType;
   int cellID;
   TileCalib* calib;
   int debug;

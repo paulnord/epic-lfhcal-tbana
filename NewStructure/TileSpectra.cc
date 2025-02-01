@@ -48,23 +48,23 @@ bool TileSpectra::FillCorr(double l, double h){
 
 bool TileSpectra::FitNoise(double* out, int year = -1, bool isNoiseTrigg = false){        //[0] LG mean, [2] LG sigma, [4] HG mean, [6] HG sigma errors uneven numbers
   TFitResultPtr result;
-  // estimate LG pedestal per channel
-  BackgroundLG=TF1(Form("fped%sLGCellID%d",TileName.Data(),cellID),"gaus",0,400);
-  BackgroundLG.SetNpx(400);
-  if (year == 2023){
-    BackgroundLG.SetParameter(1,50);
-    BackgroundLG.SetParLimits(1,40,60);     // might need to make these values settable
-    BackgroundLG.SetParameter(2,4);
-    BackgroundLG.SetParLimits(2,0,10);     // might need to make these values settable      
-    BackgroundLG.SetRange(0,70);
-  } else {
-    BackgroundLG.SetParameter(1,hspectraLG.GetMean());    
-    BackgroundLG.SetParLimits(1,0,hspectraLG.GetMean()+100);     // might need to make these values settable
-    BackgroundLG.SetParameter(2,10);
-    BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
-  }
-  
-  double maxLG = 0;
+  if (ROType == ReadOut::Type::Caen) {
+    // estimate LG pedestal per channel
+    BackgroundLG=TF1(Form("fped%sLGCellID%d",TileName.Data(),cellID),"gaus",0,400);
+    BackgroundLG.SetNpx(400);
+    if (year == 2023){
+      BackgroundLG.SetParameter(1,50);
+      BackgroundLG.SetParLimits(1,40,60);     // might need to make these values settable
+      BackgroundLG.SetParameter(2,4);
+      BackgroundLG.SetParLimits(2,0,10);     // might need to make these values settable      
+      BackgroundLG.SetRange(0,70);
+    } else {
+      BackgroundLG.SetParameter(1,hspectraLG.GetMean());    
+      BackgroundLG.SetParLimits(1,0,hspectraLG.GetMean()+100);     // might need to make these values settable
+      BackgroundLG.SetParameter(2,10);
+      BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
+    }
+    double maxLG = 0;
   if (isNoiseTrigg){
     maxLG = GetMaxXInRangeLG(0,300);
     BackgroundLG.SetParameter(1,maxLG);
@@ -137,6 +137,58 @@ bool TileSpectra::FitNoise(double* out, int year = -1, bool isNoiseTrigg = false
   out[7]=result->Error(2);
   
   return true;
+  } else if (ROType == ReadOut::Type::Hgcroc) {
+    /*
+    QRMEN0S
+    Q: Quiet mode
+    R: Use TF1::SetRange
+    M: IMPROVE algorithm
+    E: Minos error estimation
+    N: Don't store graphics and don't draw
+    0: Don't draw, but do store? 
+    S: Return full result in TFitResultPtr
+    QNSWW
+    */
+    BackgroundLG = TF1(Form("fped%sLGCellID%d", TileName.Data(), cellID), "gaus", 0, 400);
+    if (debug > 2) {
+      std::cout << "Histogram has " << hspectraLG.GetEntries() << " entries" << std::endl;
+      std::cout << "Mean is " << hspectraLG.GetMean() << std::endl;
+      std::cout << "Standard deviation is " << hspectraLG.GetStdDev() << std::endl;
+    }
+
+    // First iteration
+    // BackgroundLG.SetParLimits(0, 0, hspectraLG.GetEntries());
+    // BackgroundLG.SetParameter(0, hspectraLG.GetEntries() / 5);
+    // BackgroundLG.SetParameter(1, hspectraLG.GetMean());
+    // BackgroundLG.SetParLimits(1, 0, hspectraLG.GetMean() + 100);
+    // BackgroundLG.SetParameter(2, hspectraLG.GetStdDev());
+    // BackgroundLG.SetParLimits(2, 0, 100);
+
+    result = hspectraLG.Fit(&BackgroundLG, "QNSWW");
+    if ((int)result != 0 || result->IsValid() != true) {
+      if (debug > 1) std::cout << "FIT FAILED FOR CELL " << cellID << ", FIRST ITERATION" << std::endl;
+      return false;
+    }
+
+    // Second iteration
+    double minLGFit = result->Parameter(1) - 2 * result->Parameter(2);
+    double maxLGFit = result->Parameter(1) + 1 * result->Parameter(2);
+    if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
+    result = hspectraLG.Fit(&BackgroundLG, "QNSWW", "", minLGFit, maxLGFit);  // limit to 2sigma
+    if ((int)result != 0 || result->IsValid() != true){
+    if (debug > 1) std::cout << "FIT FAILED FOR CELL " << cellID << ", SECOND ITERATION" << std::endl;
+      return false;
+    }
+
+    bpedLG=true; // We're (I'm) being lazy and just calling the HGCROC ADC the low gain.  maybe we use HG for TOT info?
+    calib->PedestalMeanL=result->Parameter(1);
+    calib->PedestalSigL =result->Parameter(2);
+    out[0]=result->Parameter(1);
+    out[1]=result->Error(1);
+    out[2]=result->Parameter(2);
+    out[3]=result->Error(2);
+    return true;
+  }
 }
 
 void TileSpectra::FitFixedNoise(){

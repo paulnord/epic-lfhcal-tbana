@@ -1,3 +1,4 @@
+#pragma once
 #ifndef COMMONHELPERFUNCTIONS_H
 #define COMMONHELPERFUNCTIONS_H
 
@@ -17,7 +18,7 @@
     double avY;
   } ;
 
-  int GetMaxLayer(std::map<int,Layer> layers){
+  inline int GetMaxLayer(std::map<int,Layer> layers){
     int maxLayer      = -1;
     double maxELayer  = 0;
     std::map<int, Layer>::iterator ithLayer;
@@ -29,7 +30,7 @@
     }
     return maxLayer;
   }
-  double GetAverageLayer(std::map<int,Layer> layers){
+  inline double GetAverageLayer(std::map<int,Layer> layers){
     double avLayer    = 0;
     double totE  = 0;
     std::map<int, Layer>::iterator ithLayer;
@@ -41,7 +42,7 @@
     return avLayer;
   }
   
-  double GetXAverage(std::map<int,Layer> layers, int layerMax = -100){
+  inline double GetXAverage(std::map<int,Layer> layers, int layerMax = -100){
     double avLayer    = 0;
     double totE  = 0;
     std::map<int, Layer>::iterator ithLayer;
@@ -55,7 +56,7 @@
     return avLayer;
   }
 
-  double GetYAverage(std::map<int,Layer> layers, int layerMax = -100){
+  inline double GetYAverage(std::map<int,Layer> layers, int layerMax = -100){
     double avLayer    = 0;
     double totE  = 0;
     std::map<int, Layer>::iterator ithLayer;
@@ -136,7 +137,7 @@
     return runs;
   };
 
-  int GetSpeciesIntFromRunInfo(RunInfo currRunInfo){
+  inline int GetSpeciesIntFromRunInfo(RunInfo currRunInfo){
       if (currRunInfo.species.Contains("cosmics")){
           return  0; // cosmics
       } else if (currRunInfo.species.CompareTo("g") == 0){
@@ -154,7 +155,7 @@
       return -1;
   }
   
-  Double_t ReturnMipPlotRangeDepVov(double Vov, bool isHG){
+  inline Double_t ReturnMipPlotRangeDepVov(double Vov, bool isHG){
     if (isHG){
       if (Vov < 2)
         return 550.;
