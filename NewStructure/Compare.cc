@@ -95,6 +95,8 @@ int main(int argc, char* argv[]){
       CompAnalysis.EnableDebug(atoi(optarg));
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-d");
       RootRegexp.erase(it);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
+      RootRegexp.erase(it);
       break;
     case 'r':
       std::cout<<"Trending plots versus run #"<<std::endl;
