@@ -5,9 +5,7 @@
 #include "TObjArray.h"
 #include "TObjString.h"
 
-#ifdef __APPLE__
 Setup* Setup::instancePtr = nullptr;
-#endif
 
 ClassImp(Setup);
 
