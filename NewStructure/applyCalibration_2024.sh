@@ -31,6 +31,14 @@ if [ $1 = "fbock" ]; then
 	dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
 	dataDirOutE=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/ElectronRuns
 	dataDirOutH=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/HadronRuns
+elif [ $1 = "eglimos" ]; then 
+	dataDirCal=/home/ewa/EIC/test_beam2024/fullScanC/Output/MuonRuns
+	dataDirRaw=/home/ewa/EIC/test_beam2024/fullScanC
+	dataDirRawE=/home/ewa/EIC/test_beam2024/fullScanC
+	dataDirRawH=/home/ewa/EIC/test_beam2024/fullScanC
+	dataDirOut=/home/ewa/EIC/test_beam2024/fullScanC/Output/MuonRuns
+	dataDirOutE=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
+	dataDirOutH=/home/ewa/EIC/test_beam2024/fullScanC/Output/HadronRuns
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit
@@ -86,5 +94,31 @@ if [ $2 == "ScanB" ]; then
 # 	for runNr in $runs; do 
 # 		Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
 # 	done;
+fi
+
+if [ $2 == "ScanC" ]; then
+	echo "running calibrate for 43.5V runs, campaign C"
+	calibFile1=$dataDirCal/rawPedAndMuonWBCImp_muonScanC1_43_5V.root 
+	calibFile2=$dataDirCal/rawPedAndMuonWBCImp_muonScanC2_43_5V.root
+
+	#muon runs
+	muonScanC1_43V='376 375'
+	pedScanC1_43V='377'
+	muonScanC2_43V='405 410 408'
+	pedScanC2_43V='404'
+# 	Calib $3 $calibFile1 $dataDirRaw $dataDirOut muonScanB1_42V ../PlotsMuonCalibrated_2024/Run_
+# 	Calib $3 $calibFile2 $dataDirRaw $dataDirOut muonScanB2_42V ../PlotsMuonCalibrated_2024/Run_
+	
+# 	#electron runs
+	runs='379 380 381 384 387' 
+	for runNr in $runs; do 
+		Calib $3 $calibFile1 $dataDirRawE $dataDirOutE $runNr ../PlotsElectronCalibrated_2024/Run_
+	done;
+# 	
+# 	#hadron runs
+	# runs='397 398 399 401' 
+	# for runNr in $runs; do 
+	# 	Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
+	# done;
 fi
 

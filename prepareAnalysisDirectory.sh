@@ -25,8 +25,13 @@ fi
 
 if [ $2 = "new" ]; then
     mkdir -p NewStructure
+    mkdir -p NewStructure/waveform_fitting
+    mkdir -p NewStructure/include/h2g_decode
     ln -sf $LFHCALTBDIR/NewStructure/*.h NewStructure/
     ln -sf $LFHCALTBDIR/NewStructure/*.cc NewStructure/
     ln -sf $LFHCALTBDIR/NewStructure/*.sh NewStructure/
     ln -sf $LFHCALTBDIR/NewStructure/Makefile NewStructure/
+    ln -sf $LFHCALTBDIR/NewStructure/waveform_fitting/*.h NewStructure/waveform_fitting
+    ln -sf $LFHCALTBDIR/NewStructure/waveform_fitting/*.cc NewStructure/waveform_fitting
+    ln -sf $LFHCALTBDIR/NewStructure/include/h2g_decode/*.h NewStructure/include/h2g_decode
 fi
