@@ -16,6 +16,7 @@
 #include "TGaxis.h"
 #include "TSystem.h"
 #include "TStyle.h"
+#include <TH3.h>
 #include "TileSpectra.h"  
 #include "CommonHelperFunctions.h"
   //__________________________________________________________________________________________________________
@@ -653,6 +654,56 @@
       histo->GetYaxis()->SetNdivisions(yNDivisions,kTRUE);
   }
 
+//__________________________________________________________________________________________________________
+void SetStyleHistoTH3ForGraphs( TH3* histo,
+                                TString XTitle,
+                                TString YTitle,
+                                TString ZTitle,
+                                Size_t xLableSize,
+                                Size_t xTitleSize,
+                                Size_t yLableSize,
+                                Size_t yTitleSize,
+                                Size_t zLableSize,
+                                Size_t zTitleSize,
+                                Float_t xTitleOffset    = 1,
+                                Float_t yTitleOffset    = 1,
+                                Float_t zTitleOffset    = 1,
+                                Int_t xNDivisions       = 510,
+                                Int_t yNDivisions       = 510,
+                                Int_t zNDivisions       = 510,
+                                Font_t textFontLabel    = 42,
+                                Font_t textFontTitle    = 62
+                              ){
+  histo->SetXTitle(XTitle);
+  histo->SetYTitle(YTitle);
+  histo->SetZTitle(ZTitle);
+  histo->SetTitle("");
+
+  histo->GetXaxis()->SetLabelFont(textFontLabel);
+  histo->GetYaxis()->SetLabelFont(textFontLabel);
+  histo->GetZaxis()->SetLabelFont(textFontLabel);
+  histo->GetXaxis()->SetTitleFont(textFontTitle);
+  histo->GetYaxis()->SetTitleFont(textFontTitle);
+  histo->GetZaxis()->SetTitleFont(textFontTitle);
+
+  histo->GetXaxis()->SetDecimals();
+  histo->GetXaxis()->SetLabelSize(xLableSize);
+  histo->GetXaxis()->SetTitleSize(xTitleSize);
+  histo->GetXaxis()->SetTitleOffset(xTitleOffset);
+  histo->GetXaxis()->SetNdivisions(xNDivisions,kTRUE);
+
+  histo->GetYaxis()->SetDecimals();
+  histo->GetYaxis()->SetLabelSize(yLableSize);
+  histo->GetYaxis()->SetTitleSize(yTitleSize);
+  histo->GetYaxis()->SetTitleOffset(yTitleOffset);
+  histo->GetYaxis()->SetNdivisions(yNDivisions,kTRUE);
+  
+  histo->GetZaxis()->SetDecimals();
+  histo->GetZaxis()->SetLabelSize(zLableSize);
+  histo->GetZaxis()->SetTitleSize(zTitleSize);
+  histo->GetZaxis()->SetTitleOffset(zTitleOffset);
+  histo->GetZaxis()->SetNdivisions(zNDivisions,kTRUE);
+}
 
   //__________________________________________________________________________________________________________
   void SetStyleTProfile( TH1* histo,

@@ -75,6 +75,12 @@ DataAna.o: DataAna.cc
 DataAnalysis.o: DataAnalysis.cc DataAnalysis.h PlottHelper.h CommonHelperFunctions.h
 	$(CXX) $(FLAGS) -I. -c DataAnalysis.cc -o DataAnalysis.o
 
+Display.o: Display.cc
+	$(CXX) $(FLAGS) -I. -c Display.cc -o Display.o
+
+EventDisplay.o: EventDisplay.cc EventDisplay.h PlottHelper.h CommonHelperFunctions.h
+	$(CXX) $(FLAGS) -I. -c EventDisplay.cc -o EventDisplay.o
+
 Compare.o: Compare.cc
 	$(CXX) $(FLAGS) -I. -c Compare.cc -o Compare.o
 
@@ -99,11 +105,14 @@ HGCROC_Conversion: Convert
 DataAna: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o DataAna.o DataAnalysis.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o DataAna
 
+Display: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o libLFHCAL.so Display.o EventDisplay.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o 
+	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o Display.o EventDisplay.o HGCROC_Convert.o waveform_fit_base.o crystal_ball_fit.o  $(FLAGS) -I. libLFHCAL.so -o Display
+
 Compare: Event.o Setup.o RootSetupWrapper.o Calib.o Tile.o HGCROC.o Caen.o  TileSpectra.o TileTrend.o libLFHCAL.so Compare.o ComparisonCalib.o
 	$(CXX) Event.o Calib.o Setup.o RootSetupWrapper.o Tile.o HGCROC.o Caen.o TileSpectra.o TileTrend.o ComparisonCalib.o Compare.o $(FLAGS) -I. libLFHCAL.so -o Compare
 
 clean:
-	rm -f *.o Cint.cxx Cint_* *.so ./DataPrep ./Compare ./Convert ./DataAna
+	rm -f *.o Cint.cxx Cint_* *.so ./DataPrep ./Compare ./Convert ./DataAna ./Display
 
 cleanLib:
 	rm -f *.so Cint*

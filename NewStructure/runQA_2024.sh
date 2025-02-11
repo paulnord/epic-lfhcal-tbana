@@ -8,6 +8,10 @@ if [ $1 = "fbock" ]; then
 	dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
 	dataDirOutE=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/ElectronRuns
 	dataDirOutH=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/HadronRuns
+elif [ $1 = "eglimos" ]; then 
+	dataDirOut=/home/ewa/EIC/test_beam2024/fullScanC/Output/MuonRuns
+	dataDirOutE=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
+	dataDirOutH=/home/ewa/EIC/test_beam2024/fullScanC/Output/HadronRuns
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit
@@ -30,6 +34,22 @@ if [ $2 == "ScanA" ]; then
 	done;
   time ./DataAna -d 1 -Q -i $dataDirOut/calibratedMuon_muonScanA1_45V.root -O $dataDirOutE/QAHists_Run_muonScanA1_45V.root -a -f -r $runNrFile -P ../QAPlots/muonScanA1_45V
   time ./DataAna -d 1 -Q -i $dataDirOut/calibratedMuon_muonScanA2_45V.root -O $dataDirOutE/QAHists_Run_muonScanA2_45V.root -a -f -r $runNrFile -P ../QAPlots/muonScanA2_45V
+fi
 
+if [ $2 == "ScanC" ]; then
+	echo "running calibrate for 43.5V runs, campaign C"
+	
+# 	#electron runs
+	# runs='379 380 381 384 387' 
+	runs='380' 
+	for runNr in $runs; do 
+    	time ./DataAna -d 1 -Q -i $dataDirOutE/calibrated_Run_$runNr.root -O $dataDirOutE/QAHists_Run_$runNr.root -a -f -r $runNrFile -P ../QAPlots/Run_$runNr
+	done;
+# 	
+# 	#hadron runs
+	# runs='397 398 399 401' 
+	# for runNr in $runs; do 
+	# 	Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
+	# done;
 fi
 
