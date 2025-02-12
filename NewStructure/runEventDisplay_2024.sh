@@ -4,6 +4,7 @@ runNr=""
 if [ $1 = "fbock" ]; then 
 	if [ $2 = "muon" ]; then
 		dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
+		runNr=376
 	elif [ $2 = "electron" ]; then
 		dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/ElectronRuns
 		runNr=379

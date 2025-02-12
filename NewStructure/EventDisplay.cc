@@ -129,6 +129,9 @@ bool EventDisplay::Plot(){
 // creating plotting directory
   TString outputDirPlots = GetPlotOutputDir();
   gSystem->Exec("mkdir -p "+outputDirPlots);
+  
+  TCanvas* canvas3D = new TCanvas("canvas3D","",0,0,1400,750);  // gives the page size
+  DefaultCancasSettings( canvas3D, 0.12, 0.08, 0.05, 0.1);
 
   int evts=TdataIn->GetEntries();
   int evtsMuon= 0;
@@ -172,6 +175,7 @@ bool EventDisplay::Plot(){
         locMuon++;        
       }      
     }
+    
     if (nCells > 0) {
       int nLayerSingleCell = 0;
       for(ithLayer=layers.begin(); ithLayer!=layers.end(); ++ithLayer){
@@ -196,33 +200,34 @@ bool EventDisplay::Plot(){
           if(debug > 2) std::cout << "Event, z, x, y, E: " << i << "\t" << aTile->GetZ()<< "\t" <<aTile->GetX()<< "\t" <<aTile->GetY()<< "\t" <<energy<<std::endl;
         } 
       }
+
+      //**********************************************************************
+      //********************* Plotting ***************************************
+      //**********************************************************************  
+
+      //**********************************************************************
+      // Create canvases for channel overview plotting
+      //**********************************************************************
+      Double_t textSizeRel = 0.035;
+      StyleSettingsBasics("pdf");
+      SetPlotStyle();
+      if( (muontrigg&&plotMuonEvts) || !plotMuonEvts){
+        canvas3D->cd();
+
+        SetStyleHistoTH3ForGraphs(hXYZMapEvt, "z", "x","y", 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 1.1, 1.1, 1.15, 505, 510,510);
+        hXYZMapEvt->Draw("box2z");
+        DrawLatex(0.05, 0.94, GetStringFromRunInfo(it->second, 1), false, 0.85*textSizeRel, 42);
+        if(muontrigg) DrawLatex(0.05, 0.90, Form("Event %d, muon triggered",i), false, 0.85*textSizeRel, 42);
+        else DrawLatex(0.05, 0.90, Form("Event %d",i), false, 0.85*textSizeRel, 42);
+        canvas3D->SaveAs( Form("%s/EventDisplay_evt%i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
+        // canvas3D;
+      }
     }
 
-
-    //**********************************************************************
-    //********************* Plotting ***************************************
-    //**********************************************************************  
-    
-    //**********************************************************************
-    // Create canvases for channel overview plotting
-    //**********************************************************************
-    Double_t textSizeRel = 0.035;
-    StyleSettingsBasics("pdf");
-    SetPlotStyle();
-    if( (muontrigg&&plotMuonEvts) || !plotMuonEvts){
-      TCanvas* canvas3D = new TCanvas("canvas3D","",0,0,1400,750);  // gives the page size
-      DefaultCancasSettings( canvas3D, 0.12, 0.08, 0.05, 0.1);
-
-      SetStyleHistoTH3ForGraphs(hXYZMapEvt, "z", "x","y", 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 1.1, 1.1, 1.15, 505, 510,510);
-      hXYZMapEvt->Draw("box2z");
-      DrawLatex(0.05, 0.94, GetStringFromRunInfo(it->second, 1), false, 0.85*textSizeRel, 42);
-      if(muontrigg) DrawLatex(0.05, 0.90, Form("Event %d, muon triggered",i), false, 0.85*textSizeRel, 42);
-      else DrawLatex(0.05, 0.90, Form("Event %d",i), false, 0.85*textSizeRel, 42);
-      canvas3D->SaveAs( Form("%s/EventDisplay_evt%i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
-    }
     hXYZMapEvt->Reset();
   }
 
     delete hXYZMapEvt;
+    delete canvas3D;
     return true;
 }
