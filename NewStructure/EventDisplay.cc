@@ -7,6 +7,8 @@
 #include "TFitResultPtr.h"
 #include "TH1D.h"
 #include "TH2D.h"
+#include "TH3F.h"
+#include "TPaletteAxis.h"
 #include "TProfile.h"
 #include "TChain.h"
 #include "CommonHelperFunctions.h"
@@ -120,19 +122,44 @@ bool EventDisplay::Plot(){
       return false;
   }
   
+  std::cout << "debug level set to : " << debug << std::endl;
+  
   // create 3D histo
   int towersx       = 4;
   int towersy       = 2; 
   int towersz       = 64;
-  TH3F*   hXYZMapEvt    = new TH3F("hXYZMapEvt","",towersz, 0, 140, towersx, -10, 10, towersy, -5, 5);
+  TH3F*   hXYZMapEvt          = new TH3F("hXYZMapEvt","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
+  TH3F*   hXYZMapEvt_Muon     = new TH3F("hXYZMapEvt_Muon","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
+  TH3F*   hXYZMapEvt_nonMuon  = new TH3F("hXYZMapEvt_nonMuon","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
+    
+  TH1D* hX_energy_Evt    = new TH1D("hXenergyEvt","",towersx, -10, 10);
+  hX_energy_Evt->Sumw2();
+  TH1D* hY_energy_Evt    = new TH1D("hYenergyEvt","",towersy, -5, 5);
+  hY_energy_Evt->Sumw2();
+  TH1D* hZ_energy_Evt    = new TH1D("hZenergyEvt","",towersz, 0, towersz*2);
+  hZ_energy_Evt->Sumw2();
+  
+  TH1D* hX_energy_Evt_Muon    = new TH1D("hXenergyEvt_muon","",towersx, -10, 10);
+  hX_energy_Evt_Muon->Sumw2();
+  TH1D* hY_energy_Evt_Muon    = new TH1D("hYenergyEvt_muon","",towersy, -5, 5);
+  hY_energy_Evt_Muon->Sumw2();
+  TH1D* hZ_energy_Evt_Muon    = new TH1D("hZenergyEvt_muon","",towersz, 0, towersz*2);
+  hZ_energy_Evt_Muon->Sumw2();
 
-// creating plotting directory
+  TH1D* hX_energy_Evt_nonMuon    = new TH1D("hXenergyEvt_nonMuon","",towersx, -10, 10);
+  hX_energy_Evt_nonMuon->Sumw2();
+  TH1D* hY_energy_Evt_nonMuon    = new TH1D("hYenergyEvt_nonMuon","",towersy, -5, 5);
+  hY_energy_Evt_nonMuon->Sumw2();
+  TH1D* hZ_energy_Evt_nonMuon    = new TH1D("hZenergyEvt_nonMuon","",towersz, 0, towersz*2);
+  hZ_energy_Evt_nonMuon->Sumw2();
+
+  // creating plotting directory
+  StyleSettingsBasics(plotSuffix);
   TString outputDirPlots = GetPlotOutputDir();
   gSystem->Exec("mkdir -p "+outputDirPlots);
   
   TCanvas* canvas3D = new TCanvas("canvas3D","",0,0,1400,750);  // gives the page size
   DefaultCancasSettings( canvas3D, 0.12, 0.08, 0.05, 0.1);
-
   int evts=TdataIn->GetEntries();
   int evtsMuon= 0;
   for(int i=plotEvt; i<plotEvt+nEvts; i++){
@@ -141,7 +168,7 @@ bool EventDisplay::Plot(){
       return false;
     }
     TdataIn->GetEntry(i);
-    // if (i%5000 == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    if (i%100 == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
     double Etot = 0;
     int nCells  = 0;
     bool muontrigg = false;
@@ -151,8 +178,6 @@ bool EventDisplay::Plot(){
     
     for(int j=0; j<event.GetNTiles(); j++){
       Caen* aTile=(Caen*)event.GetTile(j);
-      double corrHG = aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID());
-      double corrLG = aTile->GetADCLow()-calib.GetPedestalMeanL(aTile->GetCellID());
       if(aTile->GetE()>0.3 ){ 
         nCells++;
         int currLayer = setup->GetLayer(aTile->GetCellID());
@@ -188,23 +213,54 @@ bool EventDisplay::Plot(){
         muontrigg = true;
         evtsMuon++;
       }
-      if (muontrigg && debug > 3){
-          std::cout << "Muon triggered:\t" <<  fracLayer1Cell << "\t" << fracLocMuon << std::endl;
+      if (muontrigg && debug > 1){
+          std::cout << "Event: " << i << "\tMuon triggered:\t" <<  fracLayer1Cell << "\t" << fracLocMuon << std::endl;
       }
+      Float_t minE = 1e10;
+      Float_t maxE = 0;
       for(int j=0; j<event.GetNTiles(); j++){
         Caen* aTile=(Caen*)event.GetTile(j);
         // remove bad channels from output
-        double energy = aTile->GetE();
+        Float_t energy = (Float_t)aTile->GetE();
+        Etot+=aTile->GetE();
+        if (energy < minE) minE = energy;
+        if (energy > maxE) maxE = energy;
         if(energy>0.3){ 
           hXYZMapEvt->Fill(aTile->GetZ(),aTile->GetX(),aTile->GetY(),energy);
-          if(debug > 2) std::cout << "Event, z, x, y, E: " << i << "\t" << aTile->GetZ()<< "\t" <<aTile->GetX()<< "\t" <<aTile->GetY()<< "\t" <<energy<<std::endl;
+          hX_energy_Evt->Fill(aTile->GetX(), energy);
+          hY_energy_Evt->Fill(aTile->GetY(), energy);
+          hZ_energy_Evt->Fill(aTile->GetZ(), energy);
+          if(debug > 2) std::cout << "Event, x, y, z, E: " << i << "\t" <<aTile->GetX()<< "\t" <<aTile->GetY()<< "\t" << aTile->GetZ()<< "\t" <<energy<<std::endl;
+          if (aTile->GetLocalTriggerBit() == 1){
+            hXYZMapEvt_Muon->Fill(aTile->GetZ(),aTile->GetX(),aTile->GetY(),energy);
+            hX_energy_Evt_Muon->Fill(aTile->GetX(), energy);
+            hY_energy_Evt_Muon->Fill(aTile->GetY(), energy);
+            hZ_energy_Evt_Muon->Fill(aTile->GetZ(), energy);
+
+          } else {
+            hXYZMapEvt_nonMuon->Fill(aTile->GetZ(),aTile->GetX(),aTile->GetY(),energy);
+            hX_energy_Evt_nonMuon->Fill(aTile->GetX(), energy);
+            hY_energy_Evt_nonMuon->Fill(aTile->GetY(), energy);
+            hZ_energy_Evt_nonMuon->Fill(aTile->GetZ(), energy);
+          }
         } 
       }
 
       //**********************************************************************
       //********************* Plotting ***************************************
       //**********************************************************************  
-
+      Float_t maxEX = 0;
+      Float_t maxEY = 0;
+      Float_t maxEZ = 0;
+      for (Int_t k = 1; k < hX_energy_Evt->GetNbinsX()+1; k++){
+        if (maxEX < hX_energy_Evt->GetBinContent(k)) maxEX = hX_energy_Evt->GetBinContent(k);
+      }
+      for (Int_t k = 1; k < hY_energy_Evt->GetNbinsX()+1; k++){
+        if (maxEY < hY_energy_Evt->GetBinContent(k)) maxEY = hY_energy_Evt->GetBinContent(k);
+      }
+      for (Int_t k = 1; k < hZ_energy_Evt->GetNbinsX()+1; k++){
+        if (maxEZ < hZ_energy_Evt->GetBinContent(k)) maxEZ = hZ_energy_Evt->GetBinContent(k);
+      }
       //**********************************************************************
       // Create canvases for channel overview plotting
       //**********************************************************************
@@ -212,22 +268,55 @@ bool EventDisplay::Plot(){
       StyleSettingsBasics("pdf");
       SetPlotStyle();
       if( (muontrigg&&plotMuonEvts) || !plotMuonEvts){
+        EventDisplayWithSliceHighlighted( hXYZMapEvt, hX_energy_Evt, hY_energy_Evt, hZ_energy_Evt, 
+                                         hXYZMapEvt_Muon, hX_energy_Evt_Muon, hY_energy_Evt_Muon, hX_energy_Evt_Muon, 
+                                         hXYZMapEvt_nonMuon, hX_energy_Evt_nonMuon, hY_energy_Evt_nonMuon, hZ_energy_Evt_nonMuon, 
+                                         i, Etot, maxE, maxEX, maxEY, maxEZ,  muontrigg,
+                                         it->second, Form("%s/EventDisplay_muonHighlighed_evt", outputDirPlots.Data()), plotSuffix);    
+      }
+
+      if( (muontrigg&&plotMuonEvts) || !plotMuonEvts){
         canvas3D->cd();
 
         SetStyleHistoTH3ForGraphs(hXYZMapEvt, "z", "x","y", 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 1.1, 1.1, 1.15, 505, 510,510);
-        hXYZMapEvt->Draw("box2z");
+        hXYZMapEvt->SetMaximum(maxE);
+        hXYZMapEvt->DrawCopy("box2z");
         DrawLatex(0.05, 0.94, GetStringFromRunInfo(it->second, 1), false, 0.85*textSizeRel, 42);
         if(muontrigg) DrawLatex(0.05, 0.90, Form("Event %d, muon triggered",i), false, 0.85*textSizeRel, 42);
         else DrawLatex(0.05, 0.90, Form("Event %d",i), false, 0.85*textSizeRel, 42);
-        canvas3D->SaveAs( Form("%s/EventDisplay_evt%i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
-        // canvas3D;
+        
+        canvas3D->SaveAs( Form("%s/EventDisplay_evt%06i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
+        canvas3D->ResetDrawn();
       }
     }
 
     hXYZMapEvt->Reset();
+    hXYZMapEvt_Muon->Reset();
+    hXYZMapEvt_nonMuon->Reset();
+    hX_energy_Evt->Reset();
+    hY_energy_Evt->Reset();
+    hZ_energy_Evt->Reset();
+    hX_energy_Evt_Muon->Reset();
+    hY_energy_Evt_Muon->Reset();
+    hZ_energy_Evt_Muon->Reset();
+    hX_energy_Evt_nonMuon->Reset();
+    hY_energy_Evt_nonMuon->Reset();
+    hZ_energy_Evt_nonMuon->Reset();
   }
 
     delete hXYZMapEvt;
+    delete hXYZMapEvt_Muon;
+    delete hXYZMapEvt_nonMuon;
+    delete hX_energy_Evt;
+    delete hY_energy_Evt;
+    delete hZ_energy_Evt;
+    delete hX_energy_Evt_Muon;
+    delete hY_energy_Evt_Muon;
+    delete hZ_energy_Evt_Muon;
+    delete hX_energy_Evt_nonMuon;
+    delete hY_energy_Evt_nonMuon;
+    delete hZ_energy_Evt_nonMuon;
     delete canvas3D;
+    
     return true;
 }

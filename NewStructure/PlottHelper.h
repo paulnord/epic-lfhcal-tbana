@@ -97,6 +97,7 @@
       gStyle->SetCanvasColor(0);
       gStyle->SetPadTickX(1);
       gStyle->SetPadTickY(1);
+      // gStyle->SetPadTickZ(1);
       gStyle->SetLineWidth(1);
       gStyle->SetPaintTextFormat(".3f");
       
@@ -2026,5 +2027,124 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     if (skipped < 6)
       canvas8Panel->SaveAs(nameOutput.Data());
   }
+    
+  //__________________________________________________________________________________________________________
+  // Simple event display with different highlighted triggers
+  //__________________________________________________________________________________________________________
+  void EventDisplayWithSliceHighlighted( TH3F* h3All, TH1D* h1XAll, TH1D* h1YAll, TH1D* h1ZAll, 
+                                         TH3F* h3LocTrigg, TH1D* h1XLocTrigg, TH1D* h1YLocTrigg, TH1D* h1ZLocTrigg, 
+                                         TH3F* h3Remain, TH1D* h1XRemain, TH1D* h1YRemain, TH1D* h1ZRemain, 
+                                         Int_t evtNr, Float_t etot, Float_t maxE, 
+                                         Float_t maxEX, Float_t maxEY, Float_t maxEZ, bool ktrigg,
+                                         RunInfo currRunInfo, TString outputName, TString suffix = "pdf"
+                                        ){
+    Double_t textSizeRel = 0.035;
+    Double_t textSizeSubpad = 0.06;
+    
+    TCanvas* canvas3D2 = new TCanvas("canvas3D2","",0,0,1400,750);  // gives the page size
+    // DefaultCancasSettings( canvas3D2, 0.05, 0.25, 0.05, 0.1);
+    TPad* padEvt[4];
+    padEvt[0] = new TPad("pad_0", "", 0, 0, 0.75, 0.9,-1, -1, -2);
+    padEvt[1] = new TPad("pad_1", "", 0.75, 0.66, 1, 1,-1, -1, -2);
+    padEvt[2] = new TPad("pad_2", "", 0.75, 0.33, 1, 0.66,-1, -1, -2);
+    padEvt[3] = new TPad("pad_3", "", 0.75, 0., 1., 0.33,-1, -1, -2);
+    
+    DefaultPadSettings( padEvt[0], 0.04, 0.02, 0.0, 0.1);
+    padEvt[0]->SetFillStyle(4000);
+    padEvt[0]->SetLineStyle(0);
+    DefaultPadSettings( padEvt[1], 0.12, 0.015, 0.02, 0.12);
+    padEvt[1]->SetFillStyle(4000);
+    padEvt[1]->SetLineStyle(0);
+    DefaultPadSettings( padEvt[2], 0.12, 0.015, 0.02, 0.12);
+    padEvt[2]->SetFillStyle(4000);
+    padEvt[2]->SetLineStyle(0);
+    DefaultPadSettings( padEvt[3], 0.12, 0.015, 0.02, 0.12);
+    padEvt[3]->SetFillStyle(4000);
+    padEvt[3]->SetLineStyle(0);
+    
+    canvas3D2->Draw();
+    canvas3D2->cd();
+    
+    DrawLatex(0.01, 0.95, "LFHCal test beam", false, 0.85*textSizeRel, 42);
+    DrawLatex(0.01, 0.92, GetStringFromRunInfo(currRunInfo, 1), false, 0.85*textSizeRel, 42);
+    if(ktrigg) DrawLatex(0.01, 0.89, Form("Event %d, muon triggered",evtNr), false, 0.85*textSizeRel, 42);
+    else DrawLatex(0.01, 0.89, Form("Event %d",evtNr), false, 0.85*textSizeRel, 42);
+    DrawLatex(0.01, 0.86, Form("#it{E}_{tot} = %.2f mip eq/tile", etot), false, 0.85*textSizeRel, 42);
+    DrawLatex(0.01, 0.83, Form("#it{E}_{max,cell} = %.2f mip eq/tile", maxE), false, 0.85*textSizeRel, 42);
+    
+    padEvt[0]->Draw();
+    padEvt[0]->cd();
+    padEvt[0]->SetTheta(50);
+    padEvt[0]->SetPhi(40);
+    
+    SetStyleHistoTH3ForGraphs(h3All, "#it{z} (cm)  ", " #it{x} (cm)","#it{y} (cm)", 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel, 1.5, 1.3, 0.7, 510, 505, 502);
+    h3All->GetXaxis()->SetLabelOffset(-0.004);
+    h3All->GetYaxis()->SetLabelOffset(-0.002);
+    SetStyleHistoTH3ForGraphs(h3LocTrigg, "#it{z} (cm)  ", "#it{x} (cm)","#it{y} (cm)", 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel,  1.5, 1.6, 0.6, 510, 505, 502);
+    SetStyleHistoTH3ForGraphs(h3Remain, "#it{z} (cm)  ", "#it{x} (cm)","#it{y} (cm)", 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel, 0.65*textSizeRel,0.85*textSizeRel,  1.5, 1.6, 0.6, 510, 505, 502);
+    h3All->SetMaximum(maxE);
+    h3All->SetLineColor(kBlack);
+    h3All->Draw("box");
+    h3Remain->SetMaximum(maxE);
+    h3Remain->SetLineColor(kBlue+1);
+    h3Remain->Draw("box,same,X+,Y+,Z+");
+    h3LocTrigg->SetMaximum(maxE);
+    h3LocTrigg->SetLineColor(kRed+1);
+    h3LocTrigg->SetFillColorAlpha(kRed+1, 0.5);
+    h3LocTrigg->Draw("BOX3,same");
+    
+    canvas3D2->cd();
+    padEvt[1]->Draw();
+    padEvt[1]->cd();
+    SetStyleHistoTH1ForGraphs( h1XAll, "#it{x} (cm)", "#it{E} (mip eq./tile)", 0.85*textSizeSubpad, textSizeSubpad, 0.85*textSizeSubpad, textSizeSubpad,0.9, 0.9);  
+    SetMarkerDefaults(h1XAll, 24, 1, kBlack, kBlack, kFALSE);   
+    SetMarkerDefaults(h1XLocTrigg, 20, 0.8, kRed+1, kRed+1, kFALSE);   
+    SetMarkerDefaults(h1XRemain, 34, 0.8, kBlue+1, kBlue+1, kFALSE);   
+    h1XAll->GetYaxis()->SetRangeUser(0.,1.1*maxEX);
+    h1XAll->Draw("pe");
+    h1XLocTrigg->Draw("pe,same");
+    h1XRemain->Draw("pe,same");
+    canvas3D2->cd();
+    padEvt[2]->Draw();
+    padEvt[2]->cd();
+    SetStyleHistoTH1ForGraphs( h1YAll, "#it{y} (cm)", "#it{E} (mip eq./tile)", 0.85*textSizeSubpad, textSizeSubpad, 0.85*textSizeSubpad, textSizeSubpad,0.9, 0.9);  
+    SetMarkerDefaults(h1YAll, 24, 1, kBlack, kBlack, kFALSE);   
+    SetMarkerDefaults(h1YLocTrigg, 20, 0.8, kRed+1, kRed+1, kFALSE);   
+    SetMarkerDefaults(h1YRemain, 34, 0.8, kBlue+1, kBlue+1, kFALSE);   
+    h1YAll->GetYaxis()->SetRangeUser(0.,1.1*maxEY);
+    h1YAll->Draw("pe");
+    h1YLocTrigg->Draw("pe,same");
+    h1YRemain->Draw("pe,same");
+    
+    canvas3D2->cd();
+    padEvt[3]->Draw();
+    padEvt[3]->cd();
+    SetStyleHistoTH1ForGraphs( h1ZAll, "#it{z} (cm)", "#it{E} (mip eq./tile)", 0.85*textSizeSubpad, textSizeSubpad, 0.85*textSizeSubpad, textSizeSubpad,0.9, 0.9);  
+    SetMarkerDefaults(h1ZAll, 24, 1, kBlack, kBlack, kFALSE);   
+    SetMarkerDefaults(h1ZLocTrigg, 20, 0.8, kRed+1, kRed+1, kFALSE);   
+    SetMarkerDefaults(h1ZRemain, 34, 0.8, kBlue+1, kBlue+1, kFALSE);   
+    h1ZAll->GetYaxis()->SetRangeUser(0.,1.1*maxEZ);
+    h1ZAll->Draw("pe");
+    h1ZLocTrigg->Draw("pe,same");
+    h1ZRemain->Draw("pe,same");
+    
+    canvas3D2->cd();
+    TLegend* legend = GetAndSetLegend2( 0.6, 0.89, 0.75, 0.97, 0.85*textSizeRel, 1, "", 42, 0.2);
+    legend->AddEntry(h1ZAll, "all cells", "pl");
+    legend->AddEntry(h1ZLocTrigg, "local #mu triggered", "pl");
+    legend->AddEntry(h1ZRemain, "remaing cells", "pl");
+    legend->Draw();
+    
+    canvas3D2->SaveAs( Form("%s%06i.%s", outputName.Data(), evtNr, suffix.Data()));
+    
+    delete padEvt[0];
+    delete padEvt[1];
+    delete padEvt[2];
+    delete padEvt[3];
+    delete legend;
+    delete canvas3D2;
+    return;
+  }
+
     
 #endif
