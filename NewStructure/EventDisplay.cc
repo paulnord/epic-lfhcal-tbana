@@ -276,6 +276,10 @@ bool EventDisplay::Plot(){
       }
 
       if( (muontrigg&&plotMuonEvts) || !plotMuonEvts){
+        EventDisplayWithSlice(  hXYZMapEvt, hX_energy_Evt, hY_energy_Evt, hZ_energy_Evt, 
+                                i, Etot, maxE, maxEX, maxEY, maxEZ,  muontrigg,
+                                it->second, Form("%s/EventDisplay_MonoChrome_evt", outputDirPlots.Data()), plotSuffix);    
+
         canvas3D->cd();
 
         SetStyleHistoTH3ForGraphs(hXYZMapEvt, "z", "x","y", 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 0.85*textSizeRel,textSizeRel, 1.1, 1.1, 1.15, 505, 510,510);
@@ -285,7 +289,7 @@ bool EventDisplay::Plot(){
         if(muontrigg) DrawLatex(0.05, 0.90, Form("Event %d, muon triggered",i), false, 0.85*textSizeRel, 42);
         else DrawLatex(0.05, 0.90, Form("Event %d",i), false, 0.85*textSizeRel, 42);
         
-        canvas3D->SaveAs( Form("%s/EventDisplay_evt%06i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
+        canvas3D->SaveAs( Form("%s/EventDisplay_Colored_evt%06i.%s", outputDirPlots.Data(), i, plotSuffix.Data()));
         canvas3D->ResetDrawn();
       }
     }
