@@ -48,6 +48,15 @@ class Setup{
   bool    Initialize   (TString, int);
   bool    Initialize   (RootSetupWrapper&);
   bool    IsInit       (void) const;
+  float     GetMinX       (void) const;
+  float     GetMaxX       (void) const;
+  float     GetMinY       (void) const;
+  float     GetMaxY       (void) const;
+  float     GetMinZ       (void) const;
+  float     GetMaxZ       (void) const;
+  float     GetCellWidth  (void) const;
+  float     GetCellHeight (void) const;
+  float     GetCellDepth  (void) const;
 
   friend class RootSetupWrapper;
   
@@ -71,7 +80,10 @@ class Setup{
   int nMaxModule;
   int nMaxROUnit;
   int maxCellID;
-  ClassDef(Setup,1)
+  float cellW=5.;/*cm, width*/
+  float cellH=5.;/*cm, height*/
+  float cellD=2.;/*cm, depth*/
+  ClassDef(Setup,2)
 };
 
 

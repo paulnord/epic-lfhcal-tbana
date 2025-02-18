@@ -181,17 +181,17 @@ int Setup::GetTotalNbChannels(void) const {
 
 double Setup::GetX(int cellID) const{
   int col=GetColumn(cellID);
-  return -7.5/*cm*/+col*5./*cm*/ /*+GetModuleX()*/;
+  return -7.5/*cm*/+col*cellW/*cm*/ /*+GetModuleX()*/;
 }
 
 double Setup::GetY(int cellID) const{
   int row=GetRow(cellID);
-  return (2*row-1)*2.5/*cm*/ /* +GetModuleY()*/;
+  return -2.5/*cm*/+row*cellH/*cm*/ /* +GetModuleY()*/;
 }
 
 double Setup::GetZ(int cellID) const{
   int lay=GetLayer(cellID);
-  return lay*2.0/*cm*/;
+  return cellD/2 + lay*cellD/*cm*/;
 }
 
 TString Setup::DecodeCellID(int cellID) const{
@@ -229,4 +229,76 @@ int Setup::GetChannelInLayer(int cellID) const{
   int column  = GetColumn(cellID);
   int absChL  = row*(nMaxColumn+1)+column;
   return absChL;
+}
+
+float Setup::GetMinX() const{
+  float min = 1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetX(cellID) < min ) min = GetX(cellID);
+  }
+  return min-(cellW/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetMaxX() const{
+  float max = -1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetX(cellID) > max ) max = GetX(cellID);
+  }
+  return max+(cellW/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetMinY() const{
+  float min = 1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetY(cellID) < min ) min = GetY(cellID);
+  }
+  return min-(cellH/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetMaxY() const{
+  float max = -1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetY(cellID) > max ) max = GetY(cellID);
+  }
+  return max+(cellH/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetMinZ() const{
+  float min = 1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetZ(cellID) < min ) min = GetZ(cellID);
+  }
+  return min-(cellD/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetMaxZ() const{
+  float max = -1e6;
+  std::map<int, TString>::const_iterator it;
+  for(it=assemblyID.begin(); it!=assemblyID.end(); ++it){
+    int cellID = it->first;
+    if( GetZ(cellID) > max ) max = GetZ(cellID);
+  }
+  return max+(cellD/2);/*to get to the center of the tile*/
+}
+
+float Setup::GetCellWidth() const{
+  return cellW;
+}
+
+float Setup::GetCellHeight() const{
+  return cellH;
+}
+
+float Setup::GetCellDepth() const{
+  return cellD;
 }

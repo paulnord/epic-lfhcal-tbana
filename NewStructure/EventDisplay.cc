@@ -125,33 +125,41 @@ bool EventDisplay::Plot(){
   std::cout << "debug level set to : " << debug << std::endl;
   
   // create 3D histo
-  int towersx       = 4;
-  int towersy       = 2; 
-  int towersz       = 64;
-  TH3F*   hXYZMapEvt          = new TH3F("hXYZMapEvt","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
-  TH3F*   hXYZMapEvt_Muon     = new TH3F("hXYZMapEvt_Muon","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
-  TH3F*   hXYZMapEvt_nonMuon  = new TH3F("hXYZMapEvt_nonMuon","",towersz, 0, towersz*2, towersx, -10, 10, towersy, -5, 5);
-    
-  TH1D* hX_energy_Evt    = new TH1D("hXenergyEvt","",towersx, -10, 10);
+  // int towersx         = setup->GetNMaxColumn()+1;/*GetNMAxColumn() returns */
+  float towersx_min   = setup->GetMinX();
+  float towersx_max   = setup->GetMaxX();
+  int towersx         = (towersx_max-towersx_min)/setup->GetCellWidth();
+  float towersy_min   = setup->GetMinY();
+  float towersy_max   = setup->GetMaxY();
+  int towersy         = (towersy_max-towersy_min)/setup->GetCellHeight();
+  float towersz_min   = setup->GetMinZ();
+  float towersz_max   = setup->GetMaxZ();
+  int towersz         = (towersz_max-towersz_min)/setup->GetCellDepth();
+
+  TH3F*   hXYZMapEvt          = new TH3F("hXYZMapEvt","",towersz, towersz_min, towersz_max, towersx, towersx_min, towersx_max, towersy, towersy_min, towersy_max);
+  TH3F*   hXYZMapEvt_Muon     = new TH3F("hXYZMapEvt_Muon","",towersz, towersz_min, towersz_max, towersx, towersx_min, towersx_max, towersy, towersy_min, towersy_max);
+  TH3F*   hXYZMapEvt_nonMuon  = new TH3F("hXYZMapEvt_nonMuon","",towersz, towersz_min, towersz_max, towersx, towersx_min, towersx_max, towersy, towersy_min, towersy_max);
+
+  TH1D* hX_energy_Evt    = new TH1D("hXenergyEvt","",towersx, towersx_min, towersx_max);
   hX_energy_Evt->Sumw2();
-  TH1D* hY_energy_Evt    = new TH1D("hYenergyEvt","",towersy, -5, 5);
+  TH1D* hY_energy_Evt    = new TH1D("hYenergyEvt","",towersy, towersy_min, towersy_max);
   hY_energy_Evt->Sumw2();
-  TH1D* hZ_energy_Evt    = new TH1D("hZenergyEvt","",towersz, 0, towersz*2);
+  TH1D* hZ_energy_Evt    = new TH1D("hZenergyEvt","",towersz, towersz_min, towersz_max);
   hZ_energy_Evt->Sumw2();
-  
-  TH1D* hX_energy_Evt_Muon    = new TH1D("hXenergyEvt_muon","",towersx, -10, 10);
+
+  TH1D* hX_energy_Evt_Muon    = new TH1D("hXenergyEvt_muon","",towersx, towersx_min, towersx_max);
   hX_energy_Evt_Muon->Sumw2();
-  TH1D* hY_energy_Evt_Muon    = new TH1D("hYenergyEvt_muon","",towersy, -5, 5);
+  TH1D* hY_energy_Evt_Muon    = new TH1D("hYenergyEvt_muon","",towersy, towersy_min, towersy_max);
   hY_energy_Evt_Muon->Sumw2();
-  TH1D* hZ_energy_Evt_Muon    = new TH1D("hZenergyEvt_muon","",towersz, 0, towersz*2);
+  TH1D* hZ_energy_Evt_Muon    = new TH1D("hZenergyEvt_muon","",towersz, towersz_min, towersz_max);
   hZ_energy_Evt_Muon->Sumw2();
 
-  TH1D* hX_energy_Evt_nonMuon    = new TH1D("hXenergyEvt_nonMuon","",towersx, -10, 10);
+  TH1D* hX_energy_Evt_nonMuon    = new TH1D("hXenergyEvt_nonMuon","",towersx, towersx_min, towersx_max);
   hX_energy_Evt_nonMuon->Sumw2();
-  TH1D* hY_energy_Evt_nonMuon    = new TH1D("hYenergyEvt_nonMuon","",towersy, -5, 5);
+  TH1D* hY_energy_Evt_nonMuon    = new TH1D("hYenergyEvt_nonMuon","",towersy, towersy_min, towersy_max);
   hY_energy_Evt_nonMuon->Sumw2();
-  TH1D* hZ_energy_Evt_nonMuon    = new TH1D("hZenergyEvt_nonMuon","",towersz, 0, towersz*2);
-  hZ_energy_Evt_nonMuon->Sumw2();
+  TH1D* hZ_energy_Evt_nonMuon    = new TH1D("hZenergyEvt_nonMuon","",towersz, towersz_min, towersz_max);
+  hZ_energy_Evt_nonMuon->Sumw2();  
 
   // creating plotting directory
   StyleSettingsBasics(plotSuffix);

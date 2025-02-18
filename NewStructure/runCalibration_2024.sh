@@ -220,13 +220,13 @@ fi
 # 240.2K events
 muonScanC1_43_5V='376 375'
 pedScanC1_43_5V='377'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC1" ] || [ $2 == "muoncalibAllC" ]; then
 	echo "running muon calib for 43.5V runs, campaing C1"
 	MuonCalib $3 $pedScanC1_43_5V muonScanC1_43_5V $dataDirRaw $dataDirOut muonScanC1_43_5V $badChannelMap
 fi
 muonScanC2_43_5V='405 410 408'
 pedScanC2_43_5V='404'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibC2" ] || [ $2 == "muoncalibAllC" ]; then
 	echo "running muon calib for 43.5V runs, campaing C2"
 	MuonCalib $3 $pedScanC2_43_5V muonScanC2_43_5V $dataDirRaw $dataDirOut muonScanC2_43_5V $badChannelMap
 fi

@@ -21,7 +21,7 @@ elif [ $1 = "eglimos" ]; then
 		runNr=376
 	elif [ $2 = "electron" ]; then
 		dataDirOut=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
-		runNr=379
+		runNr=380
 	elif [ $2 = "hadron" ]; then
 		dataDirOut=/home/ewa/EIC/test_beam2024/fullScanC/Output/HadronRuns
 		runNr=397
@@ -37,8 +37,8 @@ fi
 runNrFile='../configs/DataTakingDB_202409_CAEN.csv'
 
 if [ $5 == "muonTrig" ]; then
-	./Display -i $dataDirOut/calibrated_Run_$runNr.root -r $runNrFile -P ../3DPlot/Run_$runNr/MuonTrig -e $3 -N $4 -M -d 2
+	./Display -i $dataDirOut/calibrated_Run_$runNr.root -r $runNrFile -P ../3DPlot/Run_$runNr/MuonTrig -e $3 -N $4 -M
 else
-	./Display -i $dataDirOut/calibrated_Run_$runNr.root -r $runNrFile -P ../3DPlot/Run_$runNr -e $3 -N $4 -d 2
+	./Display -i $dataDirOut/calibrated_Run_$runNr.root -r $runNrFile -P ../3DPlot/Run_$runNr -e $3 -N $4
 fi 
 

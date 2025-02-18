@@ -106,15 +106,15 @@ if [ $2 == "ScanC" ]; then
 	pedScanC1_43V='377'
 	muonScanC2_43V='405 410 408'
 	pedScanC2_43V='404'
-	Calib $3 $calibFile1 $dataDirRaw $dataDirOut muonScanC1_43_5V ../PlotsMuonCalibrated_2024/Run_376
+	# Calib $3 $calibFile1 $dataDirRaw $dataDirOut muonScanC1_43_5V ../PlotsMuonCalibrated_2024/Run_376
 	# Calib $3 $calibFile2 $dataDirRaw $dataDirOut muonScanB2_42V ../PlotsMuonCalibrated_2024/Run_
 	
 # 	#electron runs
-	runs='379 380 381 384 387' 
-	# runs='380' 
-	# for runNr in $runs; do 
-	# 	Calib $3 $calibFile1 $dataDirRawE $dataDirOutE $runNr ../PlotsElectronCalibrated_2024/Run_
-	# done;
+	# runs='379 380 381 384 387' 
+	runs='380' 
+	for runNr in $runs; do 
+		Calib $3 $calibFile1 $dataDirRawE $dataDirOutE $runNr ../PlotsElectronCalibrated_2024/Run_
+	done;
 # 	
 	#hadron runs
 	# runs='397 398 399 401' 
