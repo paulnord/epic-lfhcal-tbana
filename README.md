@@ -3,7 +3,7 @@
 This software repo is meant to serve as basis for the test beam root based analysis of the LFHCal test beams and test beam setups.
 The repo contains the initial code used in 2023 under OldStructure & the newer version of the code under NewStructure <br>
 
-A detaile introduction to this package in particular the NewStructure can be found [here](https://friederikebock.gitbook.io/epiclfhcaltb-ana)
+A detailed introduction to this package in particular the NewStructure can be found [here](https://friederikebock.gitbook.io/epiclfhcaltb-ana)
 
 For convenience a linker script is provided, which can be used to recreate the software structure with soft links. Execute it in the directory where you would like to work after having added your user name and path to the software repo
 
@@ -38,7 +38,7 @@ OldStructure/CompareDifferentRunsForSinglePhotonSpectra.C.C
 ```
 
 ## NewStructure
-This part of hte software has been developed by Vincent Andrieux (@vandrie) primarily for the 2024 test beam analysis, it is being adapted to be usable also for the 2023 data.
+This part of the software has been developed by Vincent Andrieux (@vandrie) primarily for the 2024 test beam analysis; it is being adapted to be usable also for the 2023 data.
 
 ### Running the analysis through scripts
 
@@ -174,7 +174,7 @@ The DB of runs is saved in a txt file and is also hard coded.
 
 
 # HGCROC Conversion
-The first pass of converting the HGCROC data to a format usable in this analaysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the `NewStructure/lib/` folder, and compile with HGCROC_Conversion.
+The first pass of converting the HGCROC data to a format usable in this analysis package is complete.  It requries linking against the [h2g_decode package](https://github.com/tlprotzman/h2g_decode) package, which can be compiled with `make libh2g_decode.so`.  Add the shared library to the `NewStructure/lib/` folder, and compile with HGCROC_Conversion.
 Currently, the mapping is hardcoded into the library, this will be worked on next.  Additionally, there is no waveform analysis yet, so E, TOT, and TOA are all set to 0.  However, the waveform for each channel is stored.  I have been testing with 
     
     ```
