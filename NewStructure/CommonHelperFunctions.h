@@ -71,7 +71,7 @@
   }
   
   struct RunInfo{
-    RunInfo(): runNr(0), species(""), pdg(0), energy(0), vop(0), vbr(0), lgSet(0), hgSet(0), posX(0), posY(0), assemblyNr(0){}
+    RunInfo(): runNr(0), species(""), pdg(0), energy(0), vop(0), vbr(0), lgSet(0), hgSet(0), posX(0), posY(0), assemblyNr(0), year(-1), month(-1), readout(""), facility(""), beamline("") {}
     int runNr;
     TString species;
     int pdg;
@@ -83,6 +83,11 @@
     float posX;
     float posY;
     int assemblyNr;
+    int year;
+    int month;
+    TString readout;
+    TString facility;
+    TString beamline;
   } ;
 
   TString GetStringFromRunInfo(RunInfo, Int_t);
@@ -101,13 +106,37 @@
       return runs;
     }
 
+    TString facility="";
+    TString beamline="";
+    TString readout="";
+    int year = -1;
+    int month = -1;
     for( TString tempLine; tempLine.ReadLine(runListFile, kTRUE); ) {
       // check if line should be considered
       if (tempLine.BeginsWith("%") || tempLine.BeginsWith("#")){
         continue;
       }
       if (debug > 1) std::cout << tempLine.Data() << std::endl;
-
+      
+      TObjArray *tempArr2  = tempLine.Tokenize(" ");
+      if(tempArr2->GetEntries()>0){
+        if (tempLine.BeginsWith("year")){
+          year=((TString)((TObjString*)tempArr2->At(1))->GetString()).Atoi();
+          continue;
+        } else if (tempLine.BeginsWith("month")){
+          month=((TString)((TObjString*)tempArr2->At(1))->GetString()).Atoi();
+          continue;
+        } else if (tempLine.BeginsWith("readout")){
+          readout=((TString)((TObjString*)tempArr2->At(1))->GetString());
+          continue;
+        } else if (tempLine.BeginsWith("facility")){
+          facility=((TString)((TObjString*)tempArr2->At(1))->GetString());
+          continue;
+        } else if (tempLine.BeginsWith("beam-line")){ 
+          beamline=((TString)((TObjString*)tempArr2->At(1))->GetString());
+          continue;
+        }
+      }
       // Separate the string according to tabulators
       TObjArray *tempArr  = tempLine.Tokenize(",");
       if(tempArr->GetEntries()<1){
@@ -128,12 +157,19 @@
       tempRun.lgSet    = ((TString)((TObjString*)tempArr->At(7))->GetString()).Atoi();
       tempRun.posX    = ((TString)((TObjString*)tempArr->At(8))->GetString()).Atoi();
       tempRun.posY    = ((TString)((TObjString*)tempArr->At(9))->GetString()).Atoi();
+      tempRun.facility= facility;
+      tempRun.beamline= beamline;
+      tempRun.readout = readout;
+      tempRun.year    = year; 
+      tempRun.month    = month; 
       if (specialData == 1) tempRun.assemblyNr = ((TString)((TObjString*)tempArr->At(10))->GetString()).Atoi();
                   
       if (debug > 1) std::cout << "Run " << tempRun.runNr << "\t species: " << tempRun.species << "\t energy: "  << tempRun.energy << "\t Vop: " << tempRun.vop << "\t Vov: " << tempRun.vop-tempRun.vbr << "\t Xbeam: " << tempRun.posX<< "\t Ybeam: " << tempRun.posY<< std::endl;
       runs[tempRun.runNr]=tempRun;
     }
+    std::cout << year << "-" << month << "\t:\t" << facility.Data() << "-" << beamline.Data() << "\t Readout: " << readout.Data() << std::endl;
     std::cout << "registered " << runs.size() << " runs from  "<< runListFileName.Data() << std::endl;
+    
     return runs;
   };
 

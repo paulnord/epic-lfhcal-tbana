@@ -1,3 +1,8 @@
+year 2023
+month 09
+readout CAEN
+facility CERN-SPS
+beam-line H4
 #run_number,species,pdg,energy,Vov,HGgain,LGgain
 3,e,11,100,56.0,52.5,50,50,0.0,0.0,3.5
 19,e,11,100,56.0,52.5,50,50,0.0,0.0,3.5

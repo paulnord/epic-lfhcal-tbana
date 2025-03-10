@@ -820,6 +820,18 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
           }
       } else if (option == 5){
           return Form("pedestal, Run %d, #it{V}_{#it{op}} = %1.1f V", currRunInfo.runNr, currRunInfo.vop  )   ;
+      } else if (option == 6){
+          if (currRunInfo.facility.CompareTo("")!=0 && currRunInfo.beamline.CompareTo("")!=0 && currRunInfo.year != -1 && currRunInfo.month != -1 && currRunInfo.readout.CompareTo("")!=0)
+          return Form("%s-%s, %02d-%d, %s read-out", currRunInfo.facility.Data(), currRunInfo.beamline.Data(),   currRunInfo.month, currRunInfo.year, currRunInfo.readout.Data());
+          else if (currRunInfo.facility.CompareTo("")!=0 && currRunInfo.beamline.CompareTo("")!=0 && currRunInfo.year != -1 && currRunInfo.month != -1 )
+          return Form("%s-%s, %02d-%d", currRunInfo.facility.Data(), currRunInfo.beamline.Data(),   currRunInfo.month, currRunInfo.year);
+      } else if (option == 7){
+          if (currRunInfo.facility.CompareTo("")!=0 && currRunInfo.beamline.CompareTo("")!=0 && currRunInfo.year != -1 && currRunInfo.month != -1 )
+          return Form("%s-%s, %02d-%d", currRunInfo.facility.Data(), currRunInfo.beamline.Data(), currRunInfo.month, currRunInfo.year);
+      } else if (option == 8){
+          if ( currRunInfo.readout.CompareTo("")!=0)
+          return Form("%s read-out",  currRunInfo.readout.Data());
+        
       }
       
       return "";
@@ -856,7 +868,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       } else {
         gStyle->SetPaintTextFormat(".3f");
       }
-      hist->Draw(drwOpt.Data());
+      hist->DrawCopy(drwOpt.Data());
       
       if (!blegAbove)
         DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
@@ -908,7 +920,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       } else {
         gStyle->SetPaintTextFormat(".3f");
       }
-      hist->Draw(drwOpt.Data());
+      hist->DrawCopy(drwOpt.Data());
       
       if (!blegAbove)
         DrawLatex(0.85, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
@@ -932,6 +944,69 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     canvas2D->SaveAs(nameOutput.Data());
   }
 
+  //__________________________________________________________________________________________________________
+  // Plot 2D distribution with graph on top
+  //__________________________________________________________________________________________________________  
+  void Plot2DWithGraph( TCanvas* canvas2D, 
+                     TH2* hist, TGraphErrors* graph, double maxy, double maxx, 
+                     Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
+                     int labelOpt = 1, Bool_t hasNeg = kFALSE, TString drwOpt ="colz", 
+                     bool blegAbove = false, TString additionalLabel = ""
+                    ){
+      canvas2D->cd();
+      
+      SetStyleHistoTH2ForGraphs( hist, hist->GetXaxis()->GetTitle(), hist->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.9, 1.05);  
+      hist->GetZaxis()->SetLabelSize(0.85*textSizeRel);
+      hist->GetZaxis()->SetTitleOffset(1.06);
+      hist->GetZaxis()->SetTitleSize(textSizeRel);
+      // if (hist->GetYaxis()->GetTitle().CompareTo("") != 0)
+      
+      if (canvas2D->GetLogy() == 1){
+        if (maxy > -10000)hist->GetYaxis()->SetRangeUser(0.05,maxy+0.1);
+      } else {
+        if (maxy > -10000)hist->GetYaxis()->SetRangeUser(hist->GetYaxis()->GetBinCenter(1)-0.1,maxy+0.1);
+      }
+      if (maxx > -10000)hist->GetXaxis()->SetRangeUser(hist->GetXaxis()->GetBinCenter(1)-0.1,maxx+0.1);
+      if (!hasNeg)
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(0),hist->GetMaximum());
+      else 
+        hist->GetZaxis()->SetRangeUser(hist->GetMinimum(),hist->GetMaximum());
+    
+      if (((TString)hist->GetZaxis()->GetTitle()).Contains("counts")){
+        gStyle->SetPaintTextFormat(".0f");
+        std::cout << "entered counts case" << std::endl;
+      } else {
+        gStyle->SetPaintTextFormat(".3f");
+      }
+      hist->DrawCopy(drwOpt.Data());
+      
+      if (graph){
+        SetMarkerDefaultsTGraphErr(  graph, 24, 2, kGray+1,kGray+1, 3, kFALSE, 0, kFALSE);
+        graph->Draw("same,pe");
+      }
+      if (!blegAbove){
+        DrawLatex(0.835, 0.935, Form("#it{#bf{LFHCal TB:} %s}",GetStringFromRunInfo(currRunInfo,7).Data()), true, textSizeRel, 42);
+        DrawLatex(0.835, 0.90, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+        DrawLatex(0.835, 0.865, Form("%s",GetStringFromRunInfo(currRunInfo,8).Data()), true, 0.85*textSizeRel, 42);
+      }
+      else 
+        DrawLatex(0.92, 0.97, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+
+      if (additionalLabel.CompareTo("") != 0){
+        if (!blegAbove)
+          DrawLatex(0.11, 0.92, additionalLabel, false, 0.85*textSizeRel, 42);
+        else 
+          DrawLatex(0.08, 0.97, additionalLabel, false, 0.85*textSizeRel, 42);
+      }
+      if (((TString)hist->GetXaxis()->GetTitle()).Contains("cell ID")){
+        if (maxx > -10000)
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1, maxx+0.1,0., 0., 5, kGray+1, 10);  
+        else
+          DrawLines(hist->GetXaxis()->GetBinCenter(1)-0.1,hist->GetXaxis()->GetBinCenter(hist->GetNbinsX()-1)+0.1,0., 0., 5, kGray+1, 10);  
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }  
+  
   //__________________________________________________________________________________________________________
   // Plot 1D distribution
   //__________________________________________________________________________________________________________  
@@ -1006,7 +1081,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
                      TH1D** histLayer, Float_t maxy, Float_t maxx, Float_t meanLayer, int maxLayer,
                      Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
                      int labelOpt = 1,
-                     TString additionalLabel = ""
+                     TString additionalLabel = "", bool frebin = true
                     ){
       canvas2D->cd();
       canvas2D->SetLogy(1);
@@ -1045,14 +1120,14 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         lineBottom  = (2+5);
         
       if (setup->GetNMaxLayer()+1 == 64 && (NCellsxaxis || Posxaxis )){
-        legend = GetAndSetLegend2( 0.11, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.95-2*0.85*textSizeRel,0.75*textSizeRel, 15, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
+        legend = GetAndSetLegend2( 0.11, 0.93-lineBottom*0.85*textSizeRel, 0.95, 0.93-2*0.85*textSizeRel,0.75*textSizeRel, 15, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
       } else if (setup->GetNMaxLayer()+1 == 64 ){
-        legend = GetAndSetLegend2( 0.4, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.95-2*0.85*textSizeRel,0.75*textSizeRel, 8, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
+        legend = GetAndSetLegend2( 0.4, 0.93-lineBottom*0.85*textSizeRel, 0.95, 0.93-2*0.85*textSizeRel,0.75*textSizeRel, 8, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.4);
       } else {
-        legend = GetAndSetLegend2( 0.4, 0.95-lineBottom*0.85*textSizeRel, 0.95, 0.93-2*0.85*textSizeRel,0.75*textSizeRel, 5, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.2);
+        legend = GetAndSetLegend2( 0.4, 0.93-lineBottom*0.85*textSizeRel, 0.95, 0.93-2*0.85*textSizeRel,0.75*textSizeRel, 5, Form("Layer, #LTlayer#GT = %.2f",meanLayer), 42,0.2);
       }
       for (int l = 0; l< setup->GetNMaxLayer()+1; l++){
-          if (Exaxis )histLayer[l]->Rebin(4);
+          if (Exaxis & frebin)histLayer[l]->Rebin(4);
           SetLineDefaults(histLayer[l], GetColorLayer(l), 4, GetLineStyleLayer(l));   
           histLayer[l]->SetMarkerColor(GetColorLayer(l));
           histLayer[l]->Draw("same,hist");
@@ -1064,13 +1139,14 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       histLayer[0]->DrawCopy("axis,same");
       legend->Draw();
       
-      DrawLatex(0.95, 0.92, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      DrawLatex(0.95, 0.92, Form("#it{#bf{LFHCal TB:} %s}",GetStringFromRunInfo(currRunInfo,7).Data()), true, 0.85*textSizeRel, 42);
+      DrawLatex(0.95, 0.885, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
       if (additionalLabel.CompareTo("") != 0){
-        DrawLatex(0.95, 0.92-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+        DrawLatex(0.95, 0.885-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
       }
       if ( setup->GetNMaxLayer()+1 == 64 && (NCellsxaxis || Posxaxis))
         lineBottom--;
-      DrawLatex(0.95, 0.95-(lineBottom+1)*0.85*textSizeRel, "#bf{bold #} indicates max layer", true, 0.75*textSizeRel, 42);
+      DrawLatex(0.95, 0.935-(lineBottom+1)*0.85*textSizeRel, "#bf{bold #} indicates max layer", true, 0.75*textSizeRel, 42);
         
     canvas2D->SaveAs(nameOutput.Data());
   }
@@ -2065,7 +2141,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     canvas3D2->Draw();
     canvas3D2->cd();
     
-    DrawLatex(0.01, 0.95, "LFHCal test beam", false, 0.85*textSizeRel, 42);
+    DrawLatex(0.01, 0.95, Form("#it{#bf{LFHCal TB}}: #it{%s}",GetStringFromRunInfo(currRunInfo, 6).Data()), false, textSizeRel, 42);
     DrawLatex(0.01, 0.92, GetStringFromRunInfo(currRunInfo, 1), false, 0.85*textSizeRel, 42);
     if(ktrigg) DrawLatex(0.01, 0.89, Form("Event %d, muon triggered",evtNr), false, 0.85*textSizeRel, 42);
     else DrawLatex(0.01, 0.89, Form("Event %d",evtNr), false, 0.85*textSizeRel, 42);
@@ -2181,7 +2257,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     canvas3D2->Draw();
     canvas3D2->cd();
     
-    DrawLatex(0.01, 0.95, "LFHCal test beam", false, 0.85*textSizeRel, 42);
+    DrawLatex(0.01, 0.95, Form("#it{#bf{LFHCal TB}}: #it{%s}",GetStringFromRunInfo(currRunInfo, 6).Data()), false, textSizeRel, 42);
     DrawLatex(0.01, 0.92, GetStringFromRunInfo(currRunInfo, 1), false, 0.85*textSizeRel, 42);
     if(ktrigg) DrawLatex(0.01, 0.89, Form("Event %d, muon triggered",evtNr), false, 0.85*textSizeRel, 42);
     else DrawLatex(0.01, 0.89, Form("Event %d",evtNr), false, 0.85*textSizeRel, 42);

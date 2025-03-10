@@ -143,6 +143,8 @@ bool DataAnalysis::QAData(void){
 
   int species = -1;
   species = GetSpeciesIntFromRunInfo(it->second);
+  float beamE = it->second.energy;
+  std::cout << "Beam energy:" << beamE << std::endl;
   if (species == -1){
       std::cout << "WARNING: species unknown: " << it->second.species.Data() << "  aborting"<< std::endl;
       return false;
@@ -201,26 +203,40 @@ bool DataAnalysis::QAData(void){
     hspectraEnergyVsLayerMuon       = new TH2D( "hspectraTotLayerEnergy_vsLayerMuon","Energy in layer vs Layer Muon triggers; Layer; E_{layer} (mip eq./tile) ; counts",
                                                 setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 4000,0,800);
   }
+  
   hspectraEnergyTotvsNCells->SetDirectory(0);
+  hspectraEnergyTotvsNCells->Sumw2();
   hspectraEnergyTotvsNCellsMuon->SetDirectory(0);
+  hspectraEnergyTotvsNCellsMuon->Sumw2();
   hspectraEnergyVsLayer->SetDirectory(0);
+  hspectraEnergyVsLayer->Sumw2();
   hspectraEnergyVsLayerMuon->SetDirectory(0);
-
+  hspectraEnergyVsLayerMuon->Sumw2();
+  
   TH2D* hAverageXVsLayer  = new TH2D( "hAverageX_vsLayer","Av. X pos in layer vs Layer; Layer; X_{pos} (cm) ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 100,-10,10);
   hAverageXVsLayer->SetDirectory(0);
+  hAverageXVsLayer->Sumw2();
   TH2D* hAverageXVsLayerMuon  = new TH2D( "hAverageX_vsLayerMuon","Av. X pos in layer vs Layer Muon triggers; Layer; X_{pos} (cm) ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 100,-10,10);
   hAverageXVsLayerMuon->SetDirectory(0);
+  hAverageXVsLayer->Sumw2();
   TH2D* hAverageYVsLayer  = new TH2D( "hAverageX_vsLayer","Av. Y pos in layer vs Layer; Layer; Y_{pos} (cm) ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 50,-5,5);
+  hAverageYVsLayer->SetDirectory(0);
+  hAverageYVsLayer->Sumw2();
   TH2D* hAverageYVsLayerMuon  = new TH2D( "hAverageX_vsLayerMuon","Av. Y pos in layer vs Layer Muon triggers; Layer; Y_{pos} (cm) ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 50,-5,5);
   hAverageYVsLayerMuon->SetDirectory(0);
+  hAverageYVsLayerMuon->Sumw2();
   TH2D* hNCellsVsLayer  = new TH2D( "hnCells_vsLayer","NCells in layer vs Layer; Layer; N_{cells,layer} ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 9,-0.5,8.5);
+  hNCellsVsLayer->SetDirectory(0);
+  hNCellsVsLayer->Sumw2();
   TH2D* hNCellsVsLayerMuon  = new TH2D( "hnCells_vsLayerMuon","NCells in layer vs Layer  Muon triggers; Layer; N_{cells,layer} ; counts",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, 9,-0.5,8.5);
+  hNCellsVsLayerMuon->SetDirectory(0);
+  hNCellsVsLayerMuon->Sumw2();
   
   
   
@@ -476,19 +492,24 @@ bool DataAnalysis::QAData(void){
   std::map<int,Layer> layersMeanWOMuon;
   std::map<int, Layer>::iterator ithLayerMeanWOMuon;
   
-        
+  TGraphErrors* graphMeanE_Layer        = new TGraphErrors();
+  TGraphErrors* graphMeanE_Layer_muon   = new TGraphErrors();
+  TGraphErrors* graphMeanE_Layer_woMuon = new TGraphErrors();
   
   for(int l = 0; l < setup->GetNMaxLayer()+1;l++){  
     histELayer_All[l]     = (TH1D*)hspectraEnergyVsLayer->ProjectionY(Form("histELayer_AllTrigg_Layer_%02d",l),l+1,l+1);
+    histELayer_All[l]->Sumw2();
     histELayer_All[l]->Write();
     if (maxYLAll < histELayer_All[l]->GetMaximum() )maxYLAll =  histELayer_All[l]->GetMaximum();
     
     if (maxXLAll < FindLastBinXAboveMin(histELayer_All[l],2)) maxXLAll = FindLastBinXAboveMin(histELayer_All[l],2);
     histELayer_Muon[l]    = (TH1D*)hspectraEnergyVsLayerMuon->ProjectionY(Form("histELayer_MuonTrigg_Layer_%02d",l),l+1,l+1);
+    histELayer_Muon[l]->Sumw2();
     histELayer_Muon[l]->Write();
     if (maxYLMuon < histELayer_Muon[l]->GetMaximum() )maxYLMuon =  histELayer_Muon[l]->GetMaximum();
     if (maxXLMuon < FindLastBinXAboveMin(histELayer_Muon[l],2)) maxXLMuon = FindLastBinXAboveMin(histELayer_Muon[l],2);
     histELayer_WoMuon[l]  = (TH1D*)hspectraEnergyVsLayer_WoMuon->ProjectionY(Form("histELayer_WOMuonTrigg_Layer_%02d",l),l+1,l+1);
+    histELayer_WoMuon[l]->Sumw2();
     histELayer_WoMuon[l]->Write();
     if (maxYLWOMuon < histELayer_WoMuon[l]->GetMaximum() )maxYLWOMuon =  histELayer_WoMuon[l]->GetMaximum();
     if (maxXLWOMuon < FindLastBinXAboveMin(histELayer_WoMuon[l],2)) maxXLWOMuon = FindLastBinXAboveMin(histELayer_WoMuon[l],2);
@@ -532,8 +553,24 @@ bool DataAnalysis::QAData(void){
     layersMeanWOMuon[l].avX+=histXLayer_WoMuon[l]->GetMean();
     layersMeanWOMuon[l].avY+=histYLayer_WoMuon[l]->GetMean();
     layersMeanWOMuon[l].nCells+=histNCellsLayer_WoMuon[l]->GetMean();
+    
+    graphMeanE_Layer->SetPoint(graphMeanE_Layer->GetN(), l,histELayer_All[l]->GetMean());
+    graphMeanE_Layer->SetPointError(graphMeanE_Layer->GetN()-1, 0,histELayer_All[l]->GetMeanError());
+    // graphMeanE_Layer->SetPointError(graphMeanE_Layer->GetN()-1, 0,histELayer_All[l]->GetRMS());
+    graphMeanE_Layer_muon->SetPoint(graphMeanE_Layer_muon->GetN(),l,histELayer_Muon[l]->GetMean());
+    graphMeanE_Layer_muon->SetPointError(graphMeanE_Layer_muon->GetN()-1, 0,histELayer_Muon[l]->GetMeanError());
+    // graphMeanE_Layer_muon->SetPointError(graphMeanE_Layer_muon->GetN()-1, 0,histELayer_Muon[l]->GetRMS());
+    graphMeanE_Layer_woMuon->SetPoint(graphMeanE_Layer_woMuon->GetN(),l,histELayer_WoMuon[l]->GetMean());
+    graphMeanE_Layer_woMuon->SetPointError(graphMeanE_Layer_woMuon->GetN()-1, 0,histELayer_WoMuon[l]->GetMeanError());
+    // graphMeanE_Layer_woMuon->SetPointError(graphMeanE_Layer_woMuon->GetN()-1, 0,histELayer_WoMuon[l]->GetRMS());
   }
   
+  std::cout<< "average per layer - All" << std::endl;
+  graphMeanE_Layer->Write("graphMeanE_Layer");
+  std::cout<< "average per layer - no Muon" << std::endl;
+  graphMeanE_Layer_woMuon->Write("graphMeanE_Layer_woMuon");
+  std::cout<< "average per layer - Muon" << std::endl;
+  graphMeanE_Layer_muon->Write("graphMeanE_Layer_Muon");
   
   //**********************************************************************
   //********************* Plotting ***************************************
@@ -551,6 +588,9 @@ bool DataAnalysis::QAData(void){
   TCanvas* canvas2DCorr = new TCanvas("canvasCorrPlots","",0,0,1450,1300);  // gives the page size
   DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.045, 0.07);
   canvas2DCorr->SetLogz(1);
+  TCanvas* canvas2DCorrWOLine = new TCanvas("canvasCorrPlotsWoLine","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas2DCorrWOLine, 0.08, 0.13, 0.01, 0.07);
+  canvas2DCorrWOLine->SetLogz(1);
   PlotSimple2D( canvas2DCorr, hspectraHGvsCellID, -10000, -10000, textSizeRel, Form("%s/HG.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraLGvsCellID, -10000, -10000, textSizeRel, Form("%s/LG.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
@@ -559,7 +599,6 @@ bool DataAnalysis::QAData(void){
   PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("evts = %d",evts));
   PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCellsMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("Muon evts = %d",evtsMuon));
   PlotSimple2D( canvas2DCorr, hspectraEnergyTotvsNCells_WoMuon, -10000, -10000, textSizeRel, Form("%s/EnergyTotalVsNCells_WoMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, Form("Non Muon evts = %d",evts-evtsMuon));
-
 
   PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayer, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
   PlotSimple2D( canvas2DCorr, hspectraEnergyVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/EnergyVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
@@ -574,6 +613,29 @@ bool DataAnalysis::QAData(void){
   PlotSimple2D( canvas2DCorr, hNCellsVsLayerMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Muon triggers");
   PlotSimple2D( canvas2DCorr, hNCellsVsLayer_WoMuon, -10000, -10000, textSizeRel, Form("%s/NcellsLayerVsLayer_WOMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true, "Non Muon triggers");
   
+  double maxEProp = 400.;
+  if (TMath::Abs(beamE -5.0) < 0.01) {
+      maxEProp = 300;
+      std::cout << "reset max for beam E" << beamE << "\t" << maxEProp << std::endl;
+  }
+  if (species == 0 || species == 2){
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayerMuon, nullptr, maxEProp, -10000,  textSizeRel, Form("%s/EnergyVsLayer_Propaganda.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayerMuon, graphMeanE_Layer_muon, maxEProp, -10000,  textSizeRel, Form("%s/EnergyVsLayer_PropagandaWGraph.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+  } else {
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayer_WoMuon,  nullptr, maxEProp, -10000, textSizeRel, Form("%s/EnergyVsLayer_Propaganda.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayer_WoMuon,  graphMeanE_Layer_woMuon, maxEProp, -10000, textSizeRel, Form("%s/EnergyVsLayer_PropagandaWGraph.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+  }
+  canvas2DCorrWOLine->SetLogy();
+  if (species == 0 || species == 2){
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayerMuon, nullptr, 400, -10000,  textSizeRel, Form("%s/EnergyVsLayer_Propaganda_LogY.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayerMuon, graphMeanE_Layer_muon, 400, -10000,  textSizeRel, Form("%s/EnergyVsLayer_PropagandaWGraph_LogY.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+  } else {
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayer_WoMuon,  nullptr, 400, -10000, textSizeRel, Form("%s/EnergyVsLayer_Propaganda_LogY.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+    Plot2DWithGraph( canvas2DCorrWOLine, hspectraEnergyVsLayer_WoMuon,  graphMeanE_Layer_woMuon, 400, -10000, textSizeRel, Form("%s/EnergyVsLayer_PropagandaWGraph_LogY.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", false, "");
+  }
+  canvas2DCorrWOLine->SetLogy(kFALSE);
+  
+
   TCanvas* canvas1DSimple = new TCanvas("canvas1DSimple","",0,0,1450,1300);  // gives the page size
   DefaultCancasSettings( canvas1DSimple, 0.08, 0.01, 0.03, 0.07);
   hspectraEnergyTot->Scale(1./evts);
@@ -595,6 +657,13 @@ bool DataAnalysis::QAData(void){
   PlotLayerOverlay(canvas1DSimple, histELayer_All, evts*10, maxXLAll ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/ELayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
   PlotLayerOverlay(canvas1DSimple, histELayer_Muon, evtsMuon*10, maxXLMuon, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/ELayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");
   PlotLayerOverlay(canvas1DSimple, histELayer_WoMuon, (evts-evtsMuon)*10, maxXLAll, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/ELayerOverlay_NonMuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Non muon triggers");
+  
+  if (species == 0 || species == 2){
+    PlotLayerOverlay(canvas1DSimple, histELayer_Muon, evtsMuon*10, maxXLMuon, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/ELayerOverlay_Propaganda.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "", false);
+  } else {
+    PlotLayerOverlay(canvas1DSimple, histELayer_WoMuon, (evts-evtsMuon)*10, maxXLAll, GetAverageLayer(layersMeanWOMuon), GetMaxLayer(layersMeanWOMuon),textSizeRel, Form("%s/ELayerOverlay_Propaganda.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "", false);
+  }
+
   
   PlotLayerOverlay(canvas1DSimple, histXLayer_All, evts*100, 7.8 ,GetAverageLayer(layersMeanAll), GetMaxLayer(layersMeanAll), textSizeRel, Form("%s/XPosLayerOverlay_AllTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "All triggers");
   PlotLayerOverlay(canvas1DSimple, histXLayer_Muon, evtsMuon*100, 7.8, GetAverageLayer(layersMeanMuon), GetMaxLayer(layersMeanMuon),textSizeRel, Form("%s/XPosLayerOverlay_MuonTrigg.%s", outputDirPlots.Data(), plotSuffix.Data()),it->second, 1, "Muon triggers");

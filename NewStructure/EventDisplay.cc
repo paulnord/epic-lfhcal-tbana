@@ -316,19 +316,19 @@ bool EventDisplay::Plot(){
     hZ_energy_Evt_nonMuon->Reset();
   }
 
-    delete hXYZMapEvt;
-    delete hXYZMapEvt_Muon;
-    delete hXYZMapEvt_nonMuon;
-    delete hX_energy_Evt;
-    delete hY_energy_Evt;
-    delete hZ_energy_Evt;
-    delete hX_energy_Evt_Muon;
-    delete hY_energy_Evt_Muon;
-    delete hZ_energy_Evt_Muon;
-    delete hX_energy_Evt_nonMuon;
-    delete hY_energy_Evt_nonMuon;
-    delete hZ_energy_Evt_nonMuon;
-    delete canvas3D;
-    
-    return true;
+  delete hXYZMapEvt;
+  delete hXYZMapEvt_Muon;
+  delete hXYZMapEvt_nonMuon;
+  delete hX_energy_Evt;
+  delete hY_energy_Evt;
+  delete hZ_energy_Evt;
+  delete hX_energy_Evt_Muon;
+  delete hY_energy_Evt_Muon;
+  delete hZ_energy_Evt_Muon;
+  delete hX_energy_Evt_nonMuon;
+  delete hY_energy_Evt_nonMuon;
+  delete hZ_energy_Evt_nonMuon;
+  delete canvas3D;
+  
+  return true;
 }

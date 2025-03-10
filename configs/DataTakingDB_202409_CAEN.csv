@@ -1,3 +1,8 @@
+year 2024
+month 09
+readout CAEN
+facility CERN-PS
+beam-line T09
 #Run #,beam species,pdg,beam energy (GeV),Voltage,Vbr,HG gain,LG HG,Xpos,Ypos
 45,Muon +,-13,5,43,38.3,50,50,-2.5,2.5
 46,Muon +,-13,5,43,38.3,50,50,-2.5,2.5

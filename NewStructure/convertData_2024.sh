@@ -24,6 +24,12 @@ if [ $2 == "single" ]; then
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
+elif [ $2 == "calibA" ]; then 
+  runs='271 277 244 250 282 283' 
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;
+  
 elif [ $2 == "electronsA" ]; then 
   runs='251 252 254 257 258 ' 
   for runNr in $runs; do 

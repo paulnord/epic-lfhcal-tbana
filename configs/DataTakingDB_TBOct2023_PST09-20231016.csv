@@ -1,3 +1,8 @@
+year 2023
+month 10
+readout CAEN
+facility CERN-PS
+beam-line T09
 Run Number,beam species,pdg,beam energy (GeV),VOP,VBR,HG gain,LG gain,x in cm,y in cm,VOV,shapping time [ns],hold delay [ns],# tungsten focalE india,# tungsten focalE japan,W/layer thickness (mm),total external W thickness (cm),
 383,pion,-221,10,57,52.5,50,50,-1.3,3.0,4.5,87.5,0,0,0,3.5,0 
 384,pion,-221,10,57,52.5,50,50,-1.3,3.0,4.5,87.5,0,0,0,3.5,0 
