@@ -27,31 +27,36 @@ class TileTrend: public TObject{
     gTrendLGscale  = TGraphErrors();
     gTrendHGscale  = TGraphErrors();
     gTrendHGLGcorr = TGraphErrors();
+    gTrendLGHGcorr = TGraphErrors();
     
     gTrendLGped    .SetName(Form("TrendLGpedCellID%d",CellID));
     gTrendHGped    .SetName(Form("TrendHGpedCellID%d",CellID));
     gTrendLGscale  .SetName(Form("TrendLGscaleCellID%d",CellID));
     gTrendHGscale  .SetName(Form("TrendHGscaleCellID%d",CellID));
     gTrendHGLGcorr .SetName(Form("TrendHGLGcorrCellID%d",CellID));
+    gTrendLGHGcorr .SetName(Form("TrendLGHGcorrCellID%d",CellID));
     
     gTrendLGped    .SetLineColor(kRed);
     gTrendHGped    .SetLineColor(kRed);
     gTrendLGscale  .SetLineColor(kRed);
     gTrendHGscale  .SetLineColor(kRed);
     gTrendHGLGcorr .SetLineColor(kRed);
+    gTrendLGHGcorr .SetLineColor(kRed);
     
     gTrendLGped    .SetMarkerColor(kRed);
     gTrendHGped    .SetMarkerColor(kRed);
     gTrendLGscale  .SetMarkerColor(kRed);
     gTrendHGscale  .SetMarkerColor(kRed);
     gTrendHGLGcorr .SetMarkerColor(kRed);
+    gTrendLGHGcorr .SetMarkerColor(kRed);
     
     gTrendLGped    .SetMarkerStyle(kFullCircle);
     gTrendHGped    .SetMarkerStyle(kFullCircle);
     gTrendLGscale  .SetMarkerStyle(kFullCircle);
     gTrendHGscale  .SetMarkerStyle(kFullCircle);
     gTrendHGLGcorr .SetMarkerStyle(kFullCircle);
-
+    gTrendLGHGcorr .SetMarkerStyle(kFullCircle);
+    
     //gTrendLGped    .SetDirectory(0);
     //gTrendHGped    .SetDirectory(0);
     //gTrendLGscale  .SetDirectory(0);
@@ -66,6 +71,7 @@ class TileTrend: public TObject{
   bool DrawLGscale(TString);
   bool DrawHGscale(TString);
   bool DrawHGLGcorr(TString);
+  bool DrawLGHGcorr(TString);
   bool SetLineColor(uint);
   bool SetMarkerColor(uint);
   bool SetMarkerStyle(uint);
@@ -79,8 +85,10 @@ class TileTrend: public TObject{
   inline double GetMaxLGscale() {return MaxLGscale;};
   inline double GetMinHGscale() {return MinHGscale;};
   inline double GetMaxHGscale() {return MaxHGscale;};
-  inline double GetMinHGHGcorr(){return MinHGLGcorr;};
-  inline double GetMaxHGHGcorr(){return MaxHGLGcorr;};
+  inline double GetMinHGLGcorr(){return MinHGLGcorr;};
+  inline double GetMaxHGLGcorr(){return MaxHGLGcorr;};
+  inline double GetMinLGHGcorr(){return MinLGHGcorr;};
+  inline double GetMaxLGHGcorr(){return MaxLGHGcorr;};
   
  protected:
   int CellID;
@@ -90,18 +98,21 @@ class TileTrend: public TObject{
   TGraphErrors gTrendLGscale  ;
   TGraphErrors gTrendHGscale  ;
   TGraphErrors gTrendHGLGcorr ;
-
+  TGraphErrors gTrendLGHGcorr ;
+  
   double MaxLGped    =0.;
   double MaxHGped    =0.;
   double MaxLGscale  =0.;
   double MaxHGscale  =0.;
   double MaxHGLGcorr =0.;
+  double MaxLGHGcorr =0.;
   
   double MinLGped    =9999.;
   double MinHGped    =9999.;
   double MinLGscale  =9999.;
   double MinHGscale  =9999.;
   double MinHGLGcorr =9999.;
+  double MinLGHGcorr =9999.;
 
   ClassDef(TileTrend,1);
 };

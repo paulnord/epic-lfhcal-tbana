@@ -26,9 +26,13 @@ bool TileTrend::Fill(double x, const TileCalib& tc){
   if(tc.ScaleH>MaxHGscale) MaxHGscale=tc.ScaleH;
   
   gTrendHGLGcorr.AddPoint     (x,tc.HGLGCorr     );
-  gTrendHGLGcorr.SetPointError(gTrendHGLGcorr.GetN()-1,0.,tc.LGHGCorr);
+  gTrendHGLGcorr.SetPointError(gTrendHGLGcorr.GetN()-1,0.,0.);
   if(tc.HGLGCorr<MinHGLGcorr) MinHGLGcorr=tc.HGLGCorr;
   if(tc.HGLGCorr>MaxHGLGcorr) MaxHGLGcorr=tc.HGLGCorr;
+  gTrendLGHGcorr.AddPoint     (x,tc.LGHGCorr     );
+  gTrendLGHGcorr.SetPointError(gTrendLGHGcorr.GetN()-1,0.,0.);
+  if(tc.LGHGCorr<MinLGHGcorr) MinLGHGcorr=tc.LGHGCorr;
+  if(tc.LGHGCorr>MaxLGHGcorr) MaxLGHGcorr=tc.LGHGCorr;
   return true;
 }
 
@@ -54,6 +58,10 @@ bool TileTrend::DrawHGLGcorr(TString opt){
   gTrendHGLGcorr.Draw(opt.Data());
   return true;
 }
+bool TileTrend::DrawLGHGcorr(TString opt){
+  gTrendLGHGcorr.Draw(opt.Data());
+  return true;
+}
 
 bool TileTrend::SetLineColor(uint col){
   gTrendLGped    .SetLineColor(col);
@@ -61,6 +69,7 @@ bool TileTrend::SetLineColor(uint col){
   gTrendLGscale  .SetLineColor(col);
   gTrendHGscale  .SetLineColor(col);
   gTrendHGLGcorr .SetLineColor(col);
+  gTrendLGHGcorr .SetLineColor(col);
   return true;
 }
 bool TileTrend::SetMarkerColor(uint col){
@@ -69,6 +78,7 @@ bool TileTrend::SetMarkerColor(uint col){
   gTrendLGscale  .SetMarkerColor(col);
   gTrendHGscale  .SetMarkerColor(col);
   gTrendHGLGcorr .SetMarkerColor(col);
+  gTrendLGHGcorr .SetMarkerColor(col);
   return true;
 }
 bool TileTrend::SetMarkerStyle(uint col){
@@ -77,6 +87,7 @@ bool TileTrend::SetMarkerStyle(uint col){
   gTrendLGscale  .SetMarkerStyle(col);
   gTrendHGscale  .SetMarkerStyle(col);
   gTrendHGLGcorr .SetMarkerStyle(col);
+  gTrendLGHGcorr .SetMarkerStyle(col);
   return true;
 }
 
@@ -87,5 +98,6 @@ bool TileTrend::Write(TFile* f){
   gTrendLGscale  .Write();
   gTrendHGscale  .Write();
   gTrendHGLGcorr .Write();
+  gTrendLGHGcorr .Write();
   return true;
 }

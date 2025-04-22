@@ -65,7 +65,7 @@ class ComparisonCalib{
   bool Overwrite              =false;     // Flag to overwrite outputs
   int debug                   =0;         // debug level 
   int yearData                =-1;        // data taking year externally set
-  int Xaxis                   =0;         // Trending dependence
+  int Xaxis                   =0;         // Trending dependence 0: run nr, 1: Voltage
   RootSetupWrapper rsw;                   // Wrapper singleton class for setup
   RootSetupWrapper* rswptr;               // Pointer to wrapper for singleton class for setup
   Setup* setup;                           // geometry setup
