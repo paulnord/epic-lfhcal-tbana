@@ -29,6 +29,7 @@ void PrintHelp(char* exe){
   std::cout<<exe<<" [-option (arguments)]"<<std::endl;
   std::cout<<"Options:"<<std::endl;
   std::cout<<"-i uuu   Input file list"<<std::endl;
+  std::cout<<"-I uuu   expanded input file list"<<std::endl;
   std::cout<<"-o vvv   Output file name (mandatory)"<<std::endl;
   std::cout<<"-O kkk   Output directory name for plots (mandatory)"<<std::endl;
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
@@ -55,7 +56,7 @@ int main(int argc, char* argv[]){
   }
   ComparisonCalib CompAnalysis;
   int c;
-  while((c=getopt(argc,argv,"fo:O:d:i:rVth"))!=-1){
+  while((c=getopt(argc,argv,"fo:O:d:i:I:rVth"))!=-1){
     switch(c){
     case 'f':
       std::cout<<"If output already exists it will be overwritten"<<std::endl;
@@ -83,6 +84,15 @@ int main(int argc, char* argv[]){
       std::cout<<"Root input file is: "<<optarg<<std::endl;
       CompAnalysis.SetInputList(Form("%s",optarg));
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-i");
+      RootRegexp.erase(it);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
+      RootRegexp.erase(it);
+      break;
+    case 'I':
+      std::cout<<"Expanded Root input file is: "<<optarg<<std::endl;
+      CompAnalysis.SetInputList(Form("%s",optarg));
+      CompAnalysis.ExpandedList(true);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-I");
       RootRegexp.erase(it);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
       RootRegexp.erase(it);

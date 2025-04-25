@@ -18,6 +18,7 @@
 #include "TStyle.h"
 #include <TH3.h>
 #include "TileSpectra.h"  
+#include "TileTrend.h"  
 #include "CommonHelperFunctions.h"
   //__________________________________________________________________________________________________________
   //__________________________________________________________________________________________________________
@@ -2311,4 +2312,112 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     delete canvas3D2;
     return;
   }    
+  
+  //__________________________________________________________________________________________________________
+  // Plot Corr with Fits for Full layer
+  //__________________________________________________________________________________________________________
+  void PlotTrendingPerLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
+                              std::map<int,TileTrend> trending, int optionTrend, 
+                              Double_t xPMin, Double_t xPMax, int layer, int mod,  TString nameOutput, TString nameOutputSummary, Int_t detailedPlot = 1){ // RunInfo currRunInfo){
+                                  
+    Setup* setupT = Setup::GetInstance();
+    
+    std::map<int, TileTrend>::iterator ithTrend;    
+    int nRow = setupT->GetNMaxRow()+1;
+    int nCol = setupT->GetNMaxColumn()+1;
+    int skipped = 0;
+
+    Double_t minY = 9999;
+    Double_t maxY = 0.;
+    
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        ithTrend=trending.find(tempCellID);
+        if (optionTrend == 0){
+          if(minY>ithTrend->second.GetMinHGped()) minY=ithTrend->second.GetMinHGped();
+          if(maxY<ithTrend->second.GetMaxHGped()) maxY=ithTrend->second.GetMaxHGped();
+        } else if (optionTrend == 1){
+          if(minY>ithTrend->second.GetMinLGped()) minY=ithTrend->second.GetMinLGped();
+          if(maxY<ithTrend->second.GetMaxLGped()) maxY=ithTrend->second.GetMaxLGped();
+        } else if (optionTrend == 2){
+          if(minY>ithTrend->second.GetMinHGscale()) minY=ithTrend->second.GetMinHGscale();
+          if(maxY<ithTrend->second.GetMaxHGscale()) maxY=ithTrend->second.GetMaxHGscale();
+        } else if (optionTrend == 3){
+          if(minY>ithTrend->second.GetMinLGscale()) minY=ithTrend->second.GetMinLGscale();
+          if(maxY<ithTrend->second.GetMaxLGscale()) maxY=ithTrend->second.GetMaxLGscale();
+        } else if (optionTrend == 4){
+          if(minY>ithTrend->second.GetMinLGHGcorr()) minY=ithTrend->second.GetMinLGHGcorr();
+          if(maxY<ithTrend->second.GetMaxLGHGcorr()) maxY=ithTrend->second.GetMaxLGHGcorr();
+        } else if (optionTrend == 5){
+          if(minY>ithTrend->second.GetMinHGLGcorr()) minY=ithTrend->second.GetMinHGLGcorr();
+          if(maxY<ithTrend->second.GetMaxHGLGcorr()) maxY=ithTrend->second.GetMaxHGLGcorr();          
+        }
+      }
+    }
+    minY = 0.9*minY;
+    maxY = 1.1*maxY;
+        
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        canvas8Panel->cd();
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        int p = setupT->GetChannelInLayer(tempCellID);
+        pads[p]->Draw();
+        pads[p]->SetLogy(0);
+        pads[p]->cd();
+        
+        ithTrend=trending.find(tempCellID);
+        if(ithTrend==trending.end()){
+          skipped++;
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          // if (p ==7 ){
+          //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+          //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+          // }
+        continue;
+        } 
+        TGraphErrors* tempGraph = nullptr;
+        if (optionTrend == 0) tempGraph = ithTrend->second.GetHGped();
+        else if (optionTrend == 1) tempGraph = ithTrend->second.GetLGped();
+        else if (optionTrend == 2) tempGraph = ithTrend->second.GetHGScale();            
+        else if (optionTrend == 3) tempGraph = ithTrend->second.GetLGScale();
+        else if (optionTrend == 4) tempGraph = ithTrend->second.GetLGHGcorr();
+        else if (optionTrend == 5) tempGraph = ithTrend->second.GetHGLGcorr();
+        
+        if (!tempGraph) continue;
+        TH1D* dummyhist = new TH1D("dummyhist", "", 100, xPMin, xPMax);
+        SetStyleHistoTH1ForGraphs( dummyhist, tempGraph->GetXaxis()->GetTitle(), tempGraph->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.5, 510, 510, 43, 63);  
+
+        SetMarkerDefaultsTGraphErr(tempGraph, 20, 1, kBlue+1, kBlue+1);   
+        dummyhist->GetYaxis()->SetRangeUser(minY,maxY);
+        dummyhist->Draw("axis");
+        tempGraph->Draw("pe, same");
+                
+        TString label           = Form("row %d col %d", r, c);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+        // std::cout << label.Data() << "\t" << topRCornerX[p]-0.045 << "\t" << topRCornerY[p]-1.2*relSize8P[p] << "\t" << 0.85*textSizePixel << std::endl;
+        TLatex *labelChannel    = new TLatex(topRCornerX[p]-0.045,topRCornerY[p]-1.2*relSize8P[p],label);
+        SetStyleTLatex( labelChannel, 0.85*textSizePixel,4,1,43,kTRUE,31);
+        labelChannel->Draw();
+        
+        // if (p ==7 ){
+        //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+        //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+        // }
+      }
+    }
+    if (skipped < 8){
+      if(detailedPlot) canvas8Panel->SaveAs(nameOutput.Data());
+      if (layer == 0) canvas8Panel->Print(Form("%s.pdf[",nameOutputSummary.Data()));
+      canvas8Panel->Print(Form("%s.pdf",nameOutputSummary.Data()));
+      if (layer == setupT->GetNMaxLayer()) canvas8Panel->Print(Form("%s.pdf]",nameOutputSummary.Data()));
+    }
+  }
+  
+  
 #endif

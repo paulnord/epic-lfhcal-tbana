@@ -43,7 +43,8 @@ class ComparisonCalib{
   //Overload method for boolean...or is it too dangerous?
   inline void CanOverWrite(bool b)               {Overwrite=b;};
   inline void EnableDebug(int i)                 {debug=i;};
-    
+  inline void ExpandedList(bool b)               {expandedList=b;};  
+  
   inline void AddInputFile(TString name)         {RootInputNames.push_back(name);};
   inline void SetInputList(TString name)         {InputListName=name;};
   inline void SetRootOutput(TString name)        {RootOutputName =name;};
@@ -60,9 +61,11 @@ class ComparisonCalib{
   std::vector<TString> RootInputNames;    // file name of root output with tree
   //TString RootOutputNameHist;             // file name of root output with additional histograms & fits
   TString OutputNameDirPlots;             // directory name of output for plots
+  TString plotSuffix        = "pdf";      // output file format for plots
   TString InputListName;                  // file name of input file list 
   TFile* RootOutput         =nullptr;     // root file output tree
   bool Overwrite              =false;     // Flag to overwrite outputs
+  bool expandedList           =false;     // Expanded input list option
   int debug                   =0;         // debug level 
   int yearData                =-1;        // data taking year externally set
   int Xaxis                   =0;         // Trending dependence 0: run nr, 1: Voltage

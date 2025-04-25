@@ -36,6 +36,13 @@ class TileTrend: public TObject{
     gTrendHGLGcorr .SetName(Form("TrendHGLGcorrCellID%d",CellID));
     gTrendLGHGcorr .SetName(Form("TrendLGHGcorrCellID%d",CellID));
     
+    gTrendLGped     .GetYaxis()->SetTitle("#mu_{PED, LG} (arb. units)");
+    gTrendHGped     .GetYaxis()->SetTitle("#mu_{PED, HG} (arb. units)");
+    gTrendLGscale   .GetYaxis()->SetTitle("Max_{LG} (arb. units)");
+    gTrendHGscale   .GetYaxis()->SetTitle("Max_{HG} (arb. units)");
+    gTrendHGLGcorr  .GetYaxis()->SetTitle("a_{HG-LG} (arb. units)");
+    gTrendLGHGcorr  .GetYaxis()->SetTitle("a_{LG-HG} (arb. units)");
+    
     gTrendLGped    .SetLineColor(kRed);
     gTrendHGped    .SetLineColor(kRed);
     gTrendLGscale  .SetLineColor(kRed);
@@ -65,7 +72,8 @@ class TileTrend: public TObject{
     }
   ~TileTrend(){}
 
-  bool Fill(double, const TileCalib&);
+  bool Fill(double, const TileCalib&, int);
+  bool AppendHistRun(int, TH1D, TH1D);
   bool DrawLGped(TString);
   bool DrawHGped(TString);
   bool DrawLGscale(TString);
@@ -75,6 +83,7 @@ class TileTrend: public TObject{
   bool SetLineColor(uint);
   bool SetMarkerColor(uint);
   bool SetMarkerStyle(uint);
+  bool SetXAxisTitle(TString);
   bool Write(TFile*);
 
   inline double GetMinLGped()   {return MinLGped;};
@@ -89,6 +98,15 @@ class TileTrend: public TObject{
   inline double GetMaxHGLGcorr(){return MaxHGLGcorr;};
   inline double GetMinLGHGcorr(){return MinLGHGcorr;};
   inline double GetMaxLGHGcorr(){return MaxLGHGcorr;};
+  inline int GetFirstRun()      {if (runNrs.size()> 0) return runNrs[0]; else return -1;};
+  inline int GetLastRun()       {if (runNrs.size()> 0) return runNrs[runNrs.size()-1]; else return -1;};
+
+  inline TGraphErrors* GetHGped() {return &gTrendHGped;};
+  inline TGraphErrors* GetLGped() {return &gTrendLGped;};
+  inline TGraphErrors* GetHGScale() {return &gTrendHGscale;};
+  inline TGraphErrors* GetLGScale() {return &gTrendLGscale;};
+  inline TGraphErrors* GetLGHGcorr() {return &gTrendLGHGcorr;};
+  inline TGraphErrors* GetHGLGcorr() {return &gTrendHGLGcorr;};
   
  protected:
   int CellID;
@@ -114,7 +132,12 @@ class TileTrend: public TObject{
   double MinHGLGcorr =9999.;
   double MinLGHGcorr =9999.;
 
-  ClassDef(TileTrend,1);
+  std::vector<int> runNrs;
+  std::map<int, TH1D> HGTriggRuns;
+  std::map<int, TH1D> LGTriggRuns;
+  // std::map<int, TProfile> LGHGTriggRuns;
+  
+  ClassDef(TileTrend,2);
 };
 
 #endif
