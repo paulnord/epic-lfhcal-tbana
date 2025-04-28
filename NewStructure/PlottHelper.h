@@ -19,6 +19,7 @@
 #include <TH3.h>
 #include "TileSpectra.h"  
 #include "TileTrend.h"  
+#include "CalibSummary.h"  
 #include "CommonHelperFunctions.h"
   //__________________________________________________________________________________________________________
   //__________________________________________________________________________________________________________
@@ -67,7 +68,7 @@
   }
 
   //__________________________________________________________________________________________________________
-  // find bin with smallest content
+  // find bin last filled X bin
   //__________________________________________________________________________________________________________
   Double_t FindLastBinXAboveMin(TH1* hist, Double_t min = 1 ){
     int i = hist->GetNbinsX();
@@ -77,6 +78,20 @@
     else 
       return hist->GetBinCenter(hist->GetNbinsX()-1);
   }
+
+  //__________________________________________________________________________________________________________
+  // find bin first filled X bin
+  //__________________________________________________________________________________________________________
+  Double_t FindFirstBinXAboveMin(TH1* hist, Double_t min = 1 ){
+    int i = 1;
+    while (i < hist->GetNbinsX() && hist->GetBinContent(i) < min) i++;
+    if (i != hist->GetNbinsX()-1)
+      return hist->GetBinCenter(i+1);
+    else 
+      return hist->GetBinCenter(1);
+  }
+  
+  
   
   // ---------------------------- Function definiton --------------------------------------------------------------------------------------------
   // StyleSettingsBasics will make some standard settings for gStyle
@@ -139,7 +154,7 @@
       TColor::CreateGradientColorTable(nRGBs, stops, red, green, blue, nCont);
       gStyle->SetNumberContours(nCont);
   }
-
+  
   //__________________________________________________________________________________________________________  
   Color_t GetColorLayer(int l){
     Color_t colors[10] = {kBlack, kViolet+4, kBlue-3, kCyan+1, kGreen+1, kYellow-4, kOrange, kRed-4, kPink-5, kMagenta+2 };
@@ -2418,6 +2433,99 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       if (layer == setupT->GetNMaxLayer()) canvas8Panel->Print(Form("%s.pdf]",nameOutputSummary.Data()));
     }
   }
+  
+  
+  //__________________________________________________________________________________________________________
+  // Plot 1D distribution
+  //__________________________________________________________________________________________________________  
+  void PlotCalibRunOverlay( TCanvas* canvas2D, Int_t option, 
+                            std::map<int, CalibSummary> sumRuns, 
+                            Float_t textSizeRel, TString nameOutput, // RunInfo currRunInfo, 
+                            //int labelOpt = 1,
+                            TString additionalLabel = "", int debug = 0
+                            ){
+      
+    Double_t minY = 0;
+    Double_t maxY = 0;
+    Double_t minX = 9999;
+    Double_t maxX = 0;
+    std::map<int, CalibSummary>::iterator itrun;
+    Int_t nruns = 0;
+    for(itrun=sumRuns.begin(); itrun!=sumRuns.end(); ++itrun){
+      TH1D* tempH; 
+      if (option==0) tempH = itrun->second.GetHGped();
+      else if (option==1) tempH = itrun->second.GetHGpedwidth();
+      else if (option==2) tempH = itrun->second.GetLGped();
+      else if (option==3) tempH = itrun->second.GetLGpedwidth();
+      else if (option==4) tempH = itrun->second.GetHGScale();
+      else if (option==5) tempH = itrun->second.GetHGScalewidth();
+      else if (option==6) tempH = itrun->second.GetLGScale();
+      else if (option==7) tempH = itrun->second.GetLGScalewidth();
+      else if (option==8) tempH = itrun->second.GetLGHGcorr();
+      else if (option==9) tempH = itrun->second.GetHGLGcorr();
+      else if (option==10) tempH = itrun->second.GetLGScaleCalc();
+      if (maxY < tempH->GetMaximum()) maxY = tempH->GetMaximum();
+      if ( maxX < FindLastBinXAboveMin(tempH)) maxX = FindLastBinXAboveMin(tempH);
+      if ( minX > FindFirstBinXAboveMin(tempH)) minX = FindFirstBinXAboveMin(tempH);
+      nruns++;
+    }
+    // std::cout << "min X\t"  << minX << "\t max X \t" << maxX << std::endl;
+    
+    
+    canvas2D->cd();
+        
+      TH1D* histos[30];
+      if (debug > 0){
+        if (nruns > 30) std::cout << "more than 30 runs are included in this, only 30 will be plotted, currently " << nruns << "\t runs were requested" << std::endl;
+        else std::cout << nruns << " will be plotted" << std::endl;
+      }
+      Int_t lineBottom  = (1+5);
+      if (nruns < 7) lineBottom = (1+1);
+      else if (nruns < 13) lineBottom = (1+2);
+      else if (nruns < 19) lineBottom = (1+3);
+      else if (nruns < 25) lineBottom = (1+4);
+      TLegend* legend = GetAndSetLegend2( 0.4, 0.93-lineBottom*0.85*textSizeRel, 0.95, 0.93-1*0.85*textSizeRel,
+                                          0.75*textSizeRel, 6, "",42,0.2);;
+      
+        
+      int currRun = 0;
+      for(itrun=sumRuns.begin(); (itrun!=sumRuns.end()) && (currRun < 30); ++itrun){
+        histos[currRun] = nullptr;
+        if (option==0) histos[currRun] = itrun->second.GetHGped();
+        else if (option==1) histos[currRun]  = itrun->second.GetHGpedwidth();
+        else if (option==2) histos[currRun]  = itrun->second.GetLGped();
+        else if (option==3) histos[currRun]  = itrun->second.GetLGpedwidth();
+        else if (option==4) histos[currRun]  = itrun->second.GetHGScale();
+        else if (option==5) histos[currRun]  = itrun->second.GetHGScalewidth();
+        else if (option==6) histos[currRun]  = itrun->second.GetLGScale();
+        else if (option==7) histos[currRun]  = itrun->second.GetLGScalewidth();
+        else if (option==8) histos[currRun]  = itrun->second.GetLGHGcorr();
+        else if (option==9) histos[currRun]  = itrun->second.GetHGLGcorr();
+        else if (option==10) histos[currRun]  = itrun->second.GetLGScale();
+        SetStyleHistoTH1ForGraphs( histos[currRun], histos[currRun]->GetXaxis()->GetTitle(), histos[currRun]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.95, 1.02);  
+        SetLineDefaults(histos[currRun], GetColorLayer(currRun), 4, GetLineStyleLayer(currRun));   
+        histos[currRun]->SetMarkerColor(GetColorLayer(currRun));
+        if(currRun == 0){
+          histos[currRun]->GetXaxis()->SetRangeUser(minX-5*histos[currRun]->GetBinWidth(1),maxX+5*histos[currRun]->GetBinWidth(1));
+          histos[currRun]->GetYaxis()->SetRangeUser(minY,maxY*1.1);
+          histos[currRun]->Draw("hist");
+        } else {
+          histos[currRun]->Draw("same,hist");
+        }
+        legend->AddEntry(histos[currRun],Form("%d",itrun->first),"l");
+        currRun++;  
+      }  
+      histos[0]->DrawCopy("axis,same");
+      legend->Draw();
+      
+      // DrawLatex(0.95, 0.92, Form("#it{#bf{LFHCal TB:} %s}",GetStringFromRunInfo(currRunInfo,7).Data()), true, 0.85*textSizeRel, 42);
+      // DrawLatex(0.95, 0.885, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
+      if (additionalLabel.CompareTo("") != 0){
+        DrawLatex(0.95, 0.885-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
+      }
+    canvas2D->SaveAs(nameOutput.Data());
+  }  
+  
   
   
 #endif

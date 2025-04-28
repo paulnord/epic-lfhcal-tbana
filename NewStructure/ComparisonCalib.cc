@@ -206,8 +206,13 @@ bool ComparisonCalib::Process(void){
     }
     sumCalibs[calib.GetRunNumber()]=aSum;
   }
-  std::cout << "Calibs summary: "<< sumCalibs.size() << std::endl;
   
+  if (debug > 0){
+    std::cout << "Calibs summary: "<< sumCalibs.size() << std::endl;
+    for(isumCalibs=sumCalibs.begin(); isumCalibs!=sumCalibs.end(); ++isumCalibs){
+      isumCalibs->second.Analyse();
+    }
+  }
   if (Xaxis == 0){
     Xmin= Xmin-10;
     Xmax= Xmax+10;
@@ -273,33 +278,59 @@ bool ComparisonCalib::Process(void){
   Double_t topRCornerX[8];
   Double_t topRCornerY[8];
   Int_t textSizePixel = 30;
+
   Double_t relSize8P[8];
   CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel, 0.045);
 
-  Int_t detailed = 0;
   for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
     if (l%10 == 0 && l > 0 && debug > 0)
       std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 0, Xmin,Xmax, l, 0,
-                              Form("%s/HGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestal",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/HGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestal",OutputNameDirPlots.Data()),ExtPlot);        
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 1, Xmin,Xmax, l, 0,
-                              Form("%s/LGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestal",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/LGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestal",OutputNameDirPlots.Data()),ExtPlot);        
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 2, Xmin,Xmax, l, 0,
-                              Form("%s/HGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGScale",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/HGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGScale",OutputNameDirPlots.Data()),ExtPlot);        
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 3, Xmin,Xmax, l, 0,
-                              Form("%s/LGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGScale",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/LGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGScale",OutputNameDirPlots.Data()),ExtPlot);        
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 4, Xmin,Xmax, l, 0,
-                              Form("%s/LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGCorr",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGCorr",OutputNameDirPlots.Data()),ExtPlot);        
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 5, Xmin,Xmax, l, 0,
-                              Form("%s/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()),detailed);        
+                              Form("%s/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()),ExtPlot);        
   }  
-  
+
+  Float_t textSizeRel   = 0.04;  
+  TCanvas* canvas1DRunsOverlay = new TCanvas("canvas1DRunsOverlay","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas1DRunsOverlay, 0.075, 0.015, 0.025, 0.09);
+
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 0, sumCalibs, textSizeRel, 
+                       Form("%s/HGPedSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 1, sumCalibs, textSizeRel, 
+                       Form("%s/HGPedWidthSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 2, sumCalibs, textSizeRel, 
+                       Form("%s/LGPedSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 3, sumCalibs, textSizeRel, 
+                       Form("%s/LGPedWidthSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 4, sumCalibs, textSizeRel, 
+                       Form("%s/HGScaleSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 5, sumCalibs, textSizeRel, 
+                       Form("%s/HGScaleWidthSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 6, sumCalibs, textSizeRel, 
+                       Form("%s/LGScaleSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 7, sumCalibs, textSizeRel, 
+                       Form("%s/LGScaleWidthSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 8, sumCalibs, textSizeRel, 
+                       Form("%s/LGHGCorr_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 9, sumCalibs, textSizeRel, 
+                       Form("%s/HGLGCorr_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 10, sumCalibs, textSizeRel, 
+                       Form("%s/LGScaleCalcSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), "", debug);
   return status;
 }
 

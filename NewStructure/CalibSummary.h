@@ -22,21 +22,24 @@ class CalibSummary: public TObject{
  {
     RunNr             = id;
     hHGped            = TH1D(Form("hMeanPedHG_%i",id),"; #mu_{noise, HG} (arb. units); counts ", 500, -0.5, 500-0.5);
-    hHGpedwidth       = TH1D(Form("hMeanPedHGwidth_%i",id),"; #sigma_{noise, HG} (arb. units); counts ", 200, -0.5, 50-0.5);
+    hHGpedwidth       = TH1D(Form("hMeanPedHGwidth_%i",id),"; #sigma_{noise, HG} (arb. units); counts ", 400, -0.5*50/400, 50-(0.5*50/400));
     hLGped            = TH1D(Form("hMeanPedLG_%i",id),"; #mu_{noise, LG} (arb. units); counts ", 500, -0.5, 500-0.5);
-    hLGpedwidth       = TH1D(Form("hMeanPedLGwidth_%i",id),"; #sigma_{noise, LG} (arb. units); counts ", 200, -0.5, 50-0.5);
-    hHGscale          = TH1D(Form("hHGScale_%i",id),";Max_{HG} (arb. units) ; counts ", 2000, -0.5, 2000-0.5);
-    hHGscalewidth     = TH1D(Form("hHGScalewidth_%i",id),";Width_{HG} (arb. units) ; counts ", 2000, -0.5, 1000-0.5);
-    hLGscale          = TH1D(Form("hLGScale_%i",id),";Max_{LG} (arb. units) ; counts ", 2000, -0.5, 500-0.5);
-    hLGscalewidth     = TH1D(Form("hHGScalewidth_%i",id),";Width_{LG} (arb. units) ; counts ", 2000, -0.5, 250-0.5);
-    hLGHGcorr         = TH1D(Form("hLGHGCorr_%i",id),"; a_{LG-HG} (arb. units) ; counts ", 400, -20, 20);
-    hHGLGcorr         = TH1D(Form("hHGLGCorr_%i",id),"; a_{HG-LG} (arb. units) ; counts ", 400, -1., 1.);
+    hLGpedwidth       = TH1D(Form("hMeanPedLGwidth_%i",id),"; #sigma_{noise, LG} (arb. units); counts ", 400, -0.5*20/400, 20-(0.5*20/400));
+    hHGscale          = TH1D(Form("hHGScale_%i",id),";Max_{HG} (arb. units) ; counts ", 2000, -0.25, 1000-0.25);
+    hHGscalewidth     = TH1D(Form("hHGScalewidth_%i",id),";Width_{HG} (arb. units) ; counts ", 2000, -0.25, 1000-0.25);
+    hLGscale          = TH1D(Form("hLGScale_%i",id),";Max_{LG} (arb. units) ; counts ", 2000, -0.5*250/2000, 250-(0.5*250/2000));
+    hLGscaleCalc      = TH1D(Form("hLGScaleCalc_%i",id),";Max_{LG,calc} (arb. units) ; counts ", 2000, -0.5*250/2000, 250-(0.5*250/2000));
+    hLGscalewidth     = TH1D(Form("hHGScalewidth_%i",id),";Width_{LG} (arb. units) ; counts ", 2000, -0.5*250/2000, 250-(0.5*250/2000));
+    hLGHGcorr         = TH1D(Form("hLGHGCorr_%i",id),"; a_{LG-HG} (arb. units) ; counts ", 400, 0, 20);
+    hHGLGcorr         = TH1D(Form("hHGLGCorr_%i",id),"; a_{HG-LG} (arb. units) ; counts ", 400, 0., 1.);
   }
   ~CalibSummary(){}
 
+  bool Analyse();
   bool Fill(const TileCalib&);
   bool Write(TFile*);
-
+  
+  
   inline TH1D* GetHGped()         {return &hHGped;};
   inline TH1D* GetHGpedwidth()    {return &hHGpedwidth;};
   inline TH1D* GetLGped()         {return &hLGped;};
@@ -44,9 +47,10 @@ class CalibSummary: public TObject{
   inline TH1D* GetHGScale()       {return &hHGscale;};
   inline TH1D* GetHGScalewidth()  {return &hHGscalewidth;};
   inline TH1D* GetLGScale()       {return &hLGscale;};
+  inline TH1D* GetLGScaleCalc()   {return &hLGscaleCalc;};
   inline TH1D* GetLGScalewidth()  {return &hLGscalewidth;};
-  inline TH1D* GetLGHGcorr()      {return &hHGLGcorr;};
-  inline TH1D* GetHGLGcorr()      {return &hLGHGcorr;};
+  inline TH1D* GetLGHGcorr()      {return &hLGHGcorr;};
+  inline TH1D* GetHGLGcorr()      {return &hHGLGcorr;};
   
  protected:
   int RunNr;
@@ -55,6 +59,7 @@ class CalibSummary: public TObject{
   TH1D hHGped             ;
   TH1D hHGpedwidth        ;
   TH1D hLGscale      ;
+  TH1D hLGscaleCalc  ;
   TH1D hLGscalewidth ;
   TH1D hHGscale      ;
   TH1D hHGscalewidth ;
