@@ -2501,7 +2501,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         else if (option==7) histos[currRun]  = itrun->second.GetLGScalewidth();
         else if (option==8) histos[currRun]  = itrun->second.GetLGHGcorr();
         else if (option==9) histos[currRun]  = itrun->second.GetHGLGcorr();
-        else if (option==10) histos[currRun]  = itrun->second.GetLGScale();
+        else if (option==10) histos[currRun]  = itrun->second.GetLGScaleCalc();
         SetStyleHistoTH1ForGraphs( histos[currRun], histos[currRun]->GetXaxis()->GetTitle(), histos[currRun]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.95, 1.02);  
         SetLineDefaults(histos[currRun], GetColorLayer(currRun), 4, GetLineStyleLayer(currRun));   
         histos[currRun]->SetMarkerColor(GetColorLayer(currRun));
