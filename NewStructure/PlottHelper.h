@@ -382,6 +382,7 @@
                               Int_t LineWidth,
                               Int_t LineStyle ) {
       histo1->SetLineColor(LineColor);
+      histo1->SetMarkerColor(LineColor);
       histo1->SetLineWidth(LineWidth);
       histo1->SetLineStyle(LineStyle);
   }
@@ -847,7 +848,12 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       } else if (option == 8){
           if ( currRunInfo.readout.CompareTo("")!=0)
           return Form("%s read-out",  currRunInfo.readout.Data());
-        
+      } else if (option == 9){
+          if (currRunInfo.facility.CompareTo("")!=0 && currRunInfo.beamline.CompareTo("")!=0 )
+          return Form("%s-%s", currRunInfo.facility.Data(), currRunInfo.beamline.Data());
+      } else if (option == 10){
+          if ( currRunInfo.year != -1 && currRunInfo.month != -1 )
+          return Form("%02d-%d", currRunInfo.month, currRunInfo.year);
       }
       
       return "";
@@ -1145,7 +1151,6 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       for (int l = 0; l< setup->GetNMaxLayer()+1; l++){
           if (Exaxis & frebin)histLayer[l]->Rebin(4);
           SetLineDefaults(histLayer[l], GetColorLayer(l), 4, GetLineStyleLayer(l));   
-          histLayer[l]->SetMarkerColor(GetColorLayer(l));
           histLayer[l]->Draw("same,hist");
           if (maxLayer == l)
             legend->AddEntry(histLayer[l],Form("#bf{%d}",l),"l");
@@ -2333,7 +2338,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
   //__________________________________________________________________________________________________________
   void PlotTrendingPerLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
                               std::map<int,TileTrend> trending, int optionTrend, 
-                              Double_t xPMin, Double_t xPMax, int layer, int mod,  TString nameOutput, TString nameOutputSummary, Int_t detailedPlot = 1){ // RunInfo currRunInfo){
+                              Double_t xPMin, Double_t xPMax, int layer, int mod,  TString nameOutput, TString nameOutputSummary, RunInfo currRunInfo, Int_t  detailedPlot = 1){
                                   
     Setup* setupT = Setup::GetInstance();
     
@@ -2341,7 +2346,9 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     int nRow = setupT->GetNMaxRow()+1;
     int nCol = setupT->GetNMaxColumn()+1;
     int skipped = 0;
-
+    bool isSameVoltage    = true;
+    double commanVoltage  = 0;
+    
     Double_t minY = 9999;
     Double_t maxY = 0.;
     
@@ -2367,63 +2374,141 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         } else if (optionTrend == 5){
           if(minY>ithTrend->second.GetMinHGLGcorr()) minY=ithTrend->second.GetMinHGLGcorr();
           if(maxY<ithTrend->second.GetMaxHGLGcorr()) maxY=ithTrend->second.GetMaxHGLGcorr();          
+        } else if (optionTrend == 6){
+          if(minY>ithTrend->second.GetMinTrigg()) minY=ithTrend->second.GetMinTrigg();
+          if(maxY<ithTrend->second.GetMaxTrigg()) maxY=ithTrend->second.GetMaxTrigg();          
+        } else if (optionTrend == 7){
+          if(minY>ithTrend->second.GetMinSBSignal()) minY=ithTrend->second.GetMinSBSignal();
+          if(maxY<ithTrend->second.GetMaxSBSignal()) maxY=ithTrend->second.GetMaxSBSignal();          
+        } else if (optionTrend == 8){
+          if(minY>ithTrend->second.GetMinSBNoise()) minY=ithTrend->second.GetMinSBNoise();
+          if(maxY<ithTrend->second.GetMaxSBNoise()) maxY=ithTrend->second.GetMaxSBNoise();          
+        } else if (optionTrend == 9){
+          if(minY>ithTrend->second.GetMinHGMPV()) minY=ithTrend->second.GetMinHGMPV();
+          if(maxY<ithTrend->second.GetMaxHGMPV()) maxY=ithTrend->second.GetMaxHGMPV();          
+        } else if (optionTrend == 10){
+          if(minY>ithTrend->second.GetMinLGMPV()) minY=ithTrend->second.GetMinLGMPV();
+          if(maxY<ithTrend->second.GetMaxLGMPV()) maxY=ithTrend->second.GetMaxLGMPV();          
+        } else if (optionTrend == 11){
+          if(minY>ithTrend->second.GetMinHGLSigma()) minY=ithTrend->second.GetMinHGLSigma();
+          if(maxY<ithTrend->second.GetMaxHGLSigma()) maxY=ithTrend->second.GetMaxHGLSigma();          
+        } else if (optionTrend == 12){
+          if(minY>ithTrend->second.GetMinLGLSigma()) minY=ithTrend->second.GetMinLGLSigma();
+          if(maxY<ithTrend->second.GetMaxLGLSigma()) maxY=ithTrend->second.GetMaxLGLSigma();          
+        } else if (optionTrend == 13){
+          if(minY>ithTrend->second.GetMinHGGSigma()) minY=ithTrend->second.GetMinHGGSigma();
+          if(maxY<ithTrend->second.GetMaxHGGSigma()) maxY=ithTrend->second.GetMaxHGGSigma();          
+        } else if (optionTrend == 14){
+          if(minY>ithTrend->second.GetMinLGGSigma()) minY=ithTrend->second.GetMinLGGSigma();
+          if(maxY<ithTrend->second.GetMaxLGGSigma()) maxY=ithTrend->second.GetMaxLGGSigma();          
+        } else if (optionTrend == 15){
+          if(minY>ithTrend->second.GetMinHGpedwidth()) minY=ithTrend->second.GetMinHGpedwidth();
+          if(maxY<ithTrend->second.GetMaxHGpedwidth()) maxY=ithTrend->second.GetMaxHGpedwidth();          
+        } else if (optionTrend == 16){
+          if(minY>ithTrend->second.GetMinLGpedwidth()) minY=ithTrend->second.GetMinLGpedwidth();
+          if(maxY<ithTrend->second.GetMaxLGpedwidth()) maxY=ithTrend->second.GetMaxLGpedwidth();          
+        }
+        for (int rc = 0; rc < ithTrend->second.GetNRuns() && rc < 30; rc++ ){
+          if (r == 0 && c == 0){
+            if (rc == 0){
+              commanVoltage = ithTrend->second.GetVoltage(rc);
+            } else {
+              if (commanVoltage != ithTrend->second.GetVoltage(rc))  isSameVoltage = false;
+            }
+          }
         }
       }
     }
-    minY = 0.9*minY;
-    maxY = 1.1*maxY;
-        
+    if (minY == 9999 && maxY == 0.){
+      std::cout <<"Something went wrong! No ranges set for layer " <<  layer << " \t trend plotting option: " << optionTrend << "\t ABORTING!" << std::endl;
+      return;
+    }
+    // prep for log scale
+    if (optionTrend == 6){ 
+      if (minY ==0 ) minY = 1;
+      else minY = minY/5.;
+      maxY= maxY*5.;
+    } else {
+      minY = 0.9*minY;
+      maxY = 1.1*maxY;      
+    }
     for (int r = 0; r < nRow; r++){
       for (int c = 0; c < nCol; c++){
+        
         canvas8Panel->cd();
         int tempCellID = setupT->GetCellID(r,c, layer, mod);
         int p = setupT->GetChannelInLayer(tempCellID);
+
+        TString label           = Form("row %d col %d", r, c);
+        TString label2          = Form("Common V_{op} = %2.1f V", commanVoltage);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+
         pads[p]->Draw();
-        pads[p]->SetLogy(0);
-        pads[p]->cd();
         
+        if (optionTrend == 6){ 
+          pads[p]->SetLogy(1);
+        } else {
+          pads[p]->SetLogy(0);          
+        }
+
+        pads[p]->cd();
         ithTrend=trending.find(tempCellID);
         if(ithTrend==trending.end()){
           skipped++;
           std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
           pads[p]->Clear();
           pads[p]->Draw();
-          // if (p ==7 ){
-          //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
-          //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
-          // }
-        continue;
+          if (p ==4 ){
+            TString lab1 = Form("#it{#bf{LFHCal TB:}} %s", GetStringFromRunInfo(currRunInfo, 9).Data());
+            TString lab2 = GetStringFromRunInfo(currRunInfo, 8);
+            TString lab3 = GetStringFromRunInfo(currRunInfo, 10);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-1*0.85*relSize8P[p], lab1, true, 0.85*textSizePixel, 43);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-2*0.85*relSize8P[p], lab2, true, 0.85*textSizePixel, 43);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-3*0.85*relSize8P[p], lab3, true, 0.85*textSizePixel, 43);
+          }
+          continue;
         } 
         TGraphErrors* tempGraph = nullptr;
-        if (optionTrend == 0) tempGraph = ithTrend->second.GetHGped();
-        else if (optionTrend == 1) tempGraph = ithTrend->second.GetLGped();
-        else if (optionTrend == 2) tempGraph = ithTrend->second.GetHGScale();            
-        else if (optionTrend == 3) tempGraph = ithTrend->second.GetLGScale();
-        else if (optionTrend == 4) tempGraph = ithTrend->second.GetLGHGcorr();
-        else if (optionTrend == 5) tempGraph = ithTrend->second.GetHGLGcorr();
-        
+        if (optionTrend == 0)       tempGraph = ithTrend->second.GetHGped();
+        else if (optionTrend == 1)  tempGraph = ithTrend->second.GetLGped();
+        else if (optionTrend == 2)  tempGraph = ithTrend->second.GetHGScale();            
+        else if (optionTrend == 3)  tempGraph = ithTrend->second.GetLGScale();
+        else if (optionTrend == 4)  tempGraph = ithTrend->second.GetLGHGcorr();
+        else if (optionTrend == 5)  tempGraph = ithTrend->second.GetHGLGcorr();
+        else if (optionTrend == 6)  tempGraph = ithTrend->second.GetTrigger();
+        else if (optionTrend == 7)  tempGraph = ithTrend->second.GetSBSignal();
+        else if (optionTrend == 8)  tempGraph = ithTrend->second.GetSBNoise();
+        else if (optionTrend == 9)  tempGraph = ithTrend->second.GetHGLMPV();
+        else if (optionTrend == 10) tempGraph = ithTrend->second.GetLGLMPV();
+        else if (optionTrend == 11) tempGraph = ithTrend->second.GetHGLSigma();
+        else if (optionTrend == 12) tempGraph = ithTrend->second.GetLGLSigma();
+        else if (optionTrend == 13) tempGraph = ithTrend->second.GetHGGSigma();
+        else if (optionTrend == 14) tempGraph = ithTrend->second.GetLGGSigma();
+        else if (optionTrend == 15) tempGraph = ithTrend->second.GetHGpedwidth();
+        else if (optionTrend == 16) tempGraph = ithTrend->second.GetLGpedwidth();
         if (!tempGraph) continue;
         TH1D* dummyhist = new TH1D("dummyhist", "", 100, xPMin, xPMax);
         SetStyleHistoTH1ForGraphs( dummyhist, tempGraph->GetXaxis()->GetTitle(), tempGraph->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.5, 510, 510, 43, 63);  
-
+        // if (optionTrend == 6)std::cout << "\t" << tempGraph->GetXaxis()->GetTitle() << "\t" << tempGraph->GetYaxis()->GetTitle() << std::endl;
         SetMarkerDefaultsTGraphErr(tempGraph, 20, 1, kBlue+1, kBlue+1);   
         dummyhist->GetYaxis()->SetRangeUser(minY,maxY);
         dummyhist->Draw("axis");
         tempGraph->Draw("pe, same");
                 
-        TString label           = Form("row %d col %d", r, c);
-        if (p == 7){
-          label = Form("row %d col %d layer %d", r, c, layer);
+        DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p], label, true, 0.85*textSizePixel, 43);
+        if (isSameVoltage && p == 7){
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-1*0.85*relSize8P[p], label2, true, 0.85*textSizePixel, 43);
         }
-        // std::cout << label.Data() << "\t" << topRCornerX[p]-0.045 << "\t" << topRCornerY[p]-1.2*relSize8P[p] << "\t" << 0.85*textSizePixel << std::endl;
-        TLatex *labelChannel    = new TLatex(topRCornerX[p]-0.045,topRCornerY[p]-1.2*relSize8P[p],label);
-        SetStyleTLatex( labelChannel, 0.85*textSizePixel,4,1,43,kTRUE,31);
-        labelChannel->Draw();
-        
-        // if (p ==7 ){
-        //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
-        //   DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
-        // }
+        if (p ==4 ){
+          TString lab1 = Form("#it{#bf{LFHCal TB:}} %s", GetStringFromRunInfo(currRunInfo, 9).Data());
+          TString lab2 = GetStringFromRunInfo(currRunInfo, 8);
+          TString lab3 = GetStringFromRunInfo(currRunInfo, 10);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-1*0.85*relSize8P[p], lab1, true, 0.85*textSizePixel, 43);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-2*0.85*relSize8P[p], lab2, true, 0.85*textSizePixel, 43);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-3*0.85*relSize8P[p], lab3, true, 0.85*textSizePixel, 43);
+        }
       }
     }
     if (skipped < 8){
@@ -2440,15 +2525,18 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
   //__________________________________________________________________________________________________________  
   void PlotCalibRunOverlay( TCanvas* canvas2D, Int_t option, 
                             std::map<int, CalibSummary> sumRuns, 
-                            Float_t textSizeRel, TString nameOutput, // RunInfo currRunInfo, 
+                            Float_t textSizeRel, TString nameOutput, RunInfo currRunInfo, 
                             //int labelOpt = 1,
                             TString additionalLabel = "", int debug = 0
                             ){
       
-    Double_t minY = 0;
-    Double_t maxY = 0;
-    Double_t minX = 9999;
-    Double_t maxX = 0;
+    Double_t minY         = 0;
+    Double_t maxY         = 0;
+    Double_t minX         = 9999;
+    Double_t maxX         = 0;
+    bool isSameVoltage    = true;
+    double commanVoltage  = 0;
+    
     std::map<int, CalibSummary>::iterator itrun;
     Int_t nruns = 0;
     for(itrun=sumRuns.begin(); itrun!=sumRuns.end(); ++itrun){
@@ -2467,11 +2555,16 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       if (maxY < tempH->GetMaximum()) maxY = tempH->GetMaximum();
       if ( maxX < FindLastBinXAboveMin(tempH)) maxX = FindLastBinXAboveMin(tempH);
       if ( minX > FindFirstBinXAboveMin(tempH)) minX = FindFirstBinXAboveMin(tempH);
+      if (nruns==0){
+        commanVoltage = itrun->second.GetVoltage();
+      } else {
+        if (commanVoltage != itrun->second.GetVoltage())  isSameVoltage = false;
+      }
       nruns++;
     }
     // std::cout << "min X\t"  << minX << "\t max X \t" << maxX << std::endl;
     
-    
+    TString label2          = Form("Common V_{op} = %2.1f V", commanVoltage);
     canvas2D->cd();
         
       TH1D* histos[30];
@@ -2479,15 +2572,14 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         if (nruns > 30) std::cout << "more than 30 runs are included in this, only 30 will be plotted, currently " << nruns << "\t runs were requested" << std::endl;
         else std::cout << nruns << " will be plotted" << std::endl;
       }
-      Int_t lineBottom  = (1+5);
-      if (nruns < 7) lineBottom = (1+1);
-      else if (nruns < 13) lineBottom = (1+2);
-      else if (nruns < 19) lineBottom = (1+3);
-      else if (nruns < 25) lineBottom = (1+4);
-      TLegend* legend = GetAndSetLegend2( 0.4, 0.93-lineBottom*0.85*textSizeRel, 0.95, 0.93-1*0.85*textSizeRel,
-                                          0.75*textSizeRel, 6, "",42,0.2);;
-      
-        
+      double lineBottom  = 6;
+      if (nruns < 6) lineBottom = 1;
+      else if (nruns < 11) lineBottom = 2;
+      else if (nruns < 16) lineBottom = 3;
+      else if (nruns < 21) lineBottom = 4;
+      else if (nruns < 26) lineBottom = 5;
+      TLegend* legend = GetAndSetLegend2( 0.55, 0.88-lineBottom*textSizeRel, 0.95, 0.88,
+                                          0.85*textSizeRel, 5, "",42,0.35);;
       int currRun = 0;
       for(itrun=sumRuns.begin(); (itrun!=sumRuns.end()) && (currRun < 30); ++itrun){
         histos[currRun] = nullptr;
@@ -2504,7 +2596,6 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         else if (option==10) histos[currRun]  = itrun->second.GetLGScaleCalc();
         SetStyleHistoTH1ForGraphs( histos[currRun], histos[currRun]->GetXaxis()->GetTitle(), histos[currRun]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.95, 1.02);  
         SetLineDefaults(histos[currRun], GetColorLayer(currRun), 4, GetLineStyleLayer(currRun));   
-        histos[currRun]->SetMarkerColor(GetColorLayer(currRun));
         if(currRun == 0){
           histos[currRun]->GetXaxis()->SetRangeUser(minX-5*histos[currRun]->GetBinWidth(1),maxX+5*histos[currRun]->GetBinWidth(1));
           histos[currRun]->GetYaxis()->SetRangeUser(minY,maxY*1.1);
@@ -2518,14 +2609,159 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       histos[0]->DrawCopy("axis,same");
       legend->Draw();
       
-      // DrawLatex(0.95, 0.92, Form("#it{#bf{LFHCal TB:} %s}",GetStringFromRunInfo(currRunInfo,7).Data()), true, 0.85*textSizeRel, 42);
-      // DrawLatex(0.95, 0.885, GetStringFromRunInfo(currRunInfo,labelOpt), true, 0.85*textSizeRel, 42);
-      if (additionalLabel.CompareTo("") != 0){
-        DrawLatex(0.95, 0.885-textSizeRel, additionalLabel, true, 0.85*textSizeRel, 42);
-      }
+      DrawLatex(0.95, 0.92, Form("#it{#bf{LFHCal TB:} %s}",GetStringFromRunInfo(currRunInfo,7).Data()), true, 0.85*textSizeRel, 42);
+      DrawLatex(0.95, 0.885, GetStringFromRunInfo(currRunInfo,8), true, 0.85*textSizeRel, 42);
+      if (isSameVoltage)
+        DrawLatex(0.95, 0.88-0.5*0.85*textSizeRel-lineBottom*textSizeRel , label2, true, 0.85*textSizeRel, 42);
+      
     canvas2D->SaveAs(nameOutput.Data());
   }  
   
+  //__________________________________________________________________________________________________________
+  // Plot Corr with Fits for Full layer
+  //__________________________________________________________________________________________________________
+  void PlotRunOverlayPerLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
+                              std::map<int,TileTrend> trending, int nruns, int optionTrend, 
+                              Double_t xPMin, Double_t xPMax, int layer, int mod,  TString nameOutput, TString nameOutputSummary, RunInfo currRunInfo, Int_t detailedPlot = 1){
+                                  
+    Setup* setupT = Setup::GetInstance();
+    
+    std::map<int, TileTrend>::iterator ithTrend;    
+    int nRow = setupT->GetNMaxRow()+1;
+    int nCol = setupT->GetNMaxColumn()+1;
+    int skipped = 0;
+    
+    Double_t maxY         = 0.;
+    Double_t minY         = 9999.;
+    bool isSameVoltage    = true;
+    double commanVoltage  = 0;
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        ithTrend=trending.find(tempCellID);
+        if (optionTrend == 0){      // HG
+          if(maxY<ithTrend->second.GetMaxHGSpec()) maxY=ithTrend->second.GetMaxHGSpec();
+          if(minY>ithTrend->second.GetMinHGSpec()) minY=ithTrend->second.GetMinHGSpec();
+        } else if (optionTrend == 1){   //LG
+          if(maxY<ithTrend->second.GetMaxLGSpec()) maxY=ithTrend->second.GetMaxLGSpec();
+          if(minY>ithTrend->second.GetMinLGSpec()) minY=ithTrend->second.GetMinLGSpec();
+        } 
+        
+        for (int rc = 0; rc < ithTrend->second.GetNRuns() && rc < 30; rc++ ){
+          if (r == 0 && c == 0){
+            if (rc == 0){
+              commanVoltage = ithTrend->second.GetVoltage(rc);
+            } else {
+              if (commanVoltage != ithTrend->second.GetVoltage(rc))  isSameVoltage = false;
+            }
+          }
+        }
+      }
+    }
+    if (maxY == 0 && minY == 9999.){
+      std::cout <<"Something went wrong! No ranges set for layer " <<  layer << " \t trend plotting option: " << optionTrend << "\t ABORTING!" << std::endl;
+      return;
+    }
+    maxY = 3*maxY;
+    TH1D* histos[30];
+
+    double lineBottom  = (1.4+6);
+    if (nruns < 6) lineBottom = (1.4+1);
+    else if (nruns < 11) lineBottom = (1.4+2);
+    else if (nruns < 16) lineBottom = (1.4+3);
+    else if (nruns < 21) lineBottom = (1.4+4);
+    else if (nruns < 26) lineBottom = (1.4+5);
+    TLegend* legend = nullptr;
+    
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        canvas8Panel->cd();
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        int p = setupT->GetChannelInLayer(tempCellID);
+        pads[p]->Draw();
+        pads[p]->cd();
+        pads[p]->SetLogy(1);
+        ithTrend=trending.find(tempCellID);
+
+        TString label           = Form("row %d col %d", r, c);
+        TString label2          = Form("Common V_{op} = %2.1f V", commanVoltage);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+        if(ithTrend==trending.end()){
+          skipped++;
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==4 ){
+            TString lab1 = Form("#it{#bf{LFHCal TB:}} %s", GetStringFromRunInfo(currRunInfo, 9).Data());
+            TString lab2 = GetStringFromRunInfo(currRunInfo, 8);
+            TString lab3 = GetStringFromRunInfo(currRunInfo, 10);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-1*0.85*relSize8P[p], lab1, true, 0.85*textSizePixel, 43);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-2*0.85*relSize8P[p], lab2, true, 0.85*textSizePixel, 43);
+            DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-3*0.85*relSize8P[p], lab3, true, 0.85*textSizePixel, 43);
+          }
+          
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p], label, true, 0.85*textSizePixel, 43);
+          continue;
+        } 
+
+        if (p ==7 ){
+          double startLegY  = topRCornerY[p]-lineBottom*relSize8P[p];
+          double endLegY    = topRCornerY[p]-1.4*relSize8P[p];
+          legend = GetAndSetLegend2(  0.3, startLegY, topRCornerX[p]-0.045/2, endLegY,
+                                      0.85*textSizePixel, 5, "",43,0.25);
+        }
+        
+        for (int rc = 0; rc < ithTrend->second.GetNRuns() && rc < 30; rc++ ){
+          int tmpRunNr = ithTrend->second.GetRunNr(rc);
+          histos[rc] = nullptr;
+          if (tmpRunNr != -1) {
+            if (optionTrend == 0){      // HG
+              histos[rc] = ithTrend->second.GetHGTriggRun(ithTrend->second.GetRunNr(rc));
+            } else if (optionTrend == 1){      // LG
+              histos[rc] = ithTrend->second.GetLGTriggRun(ithTrend->second.GetRunNr(rc));
+            }
+          }
+          if (histos[rc]){
+            SetStyleHistoTH1ForGraphs( histos[rc], histos[rc]->GetXaxis()->GetTitle(), histos[rc]->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.95, 1.3,  510, 510, 43, 63);  
+            SetLineDefaults(histos[rc], GetColorLayer(rc), 2, GetLineStyleLayer(rc));   
+            if(rc == 0){
+              histos[rc]->GetXaxis()->SetRangeUser(xPMin,xPMax);
+              histos[rc]->GetYaxis()->SetRangeUser(minY,maxY);
+              histos[rc]->Draw("hist");
+            } else {
+              histos[rc]->Draw("same,hist");
+            }
+            if(p == 7) legend->AddEntry(histos[rc],Form("%d",tmpRunNr),"l");
+          }
+        }
+        if (histos[0]) histos[0]->Draw("axis,same");                
+        
+        // labeling inside the panels & legend drawing 
+        DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p], label, true, 0.85*textSizePixel, 43);
+        if (isSameVoltage && p == 7){
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-(lineBottom+0.5)*relSize8P[p], label2, true, 0.85*textSizePixel, 43);
+        }
+        
+        if (p == 7) legend->Draw();
+        if (p ==4 ){
+          TString lab1 = Form("#it{#bf{LFHCal TB:}} %s", GetStringFromRunInfo(currRunInfo, 9).Data());
+          TString lab2 = GetStringFromRunInfo(currRunInfo, 8);
+          TString lab3 = GetStringFromRunInfo(currRunInfo, 10);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-1*0.85*relSize8P[p], lab1, true, 0.85*textSizePixel, 43);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-2*0.85*relSize8P[p], lab2, true, 0.85*textSizePixel, 43);
+          DrawLatex(topRCornerX[p]-0.045, topRCornerY[p]-1.2*relSize8P[p]-3*0.85*relSize8P[p], lab3, true, 0.85*textSizePixel, 43);
+        }
+      }
+    }
+    if (skipped < 8){
+      if(detailedPlot) canvas8Panel->SaveAs(nameOutput.Data());
+      if (layer == 0) canvas8Panel->Print(Form("%s.pdf[",nameOutputSummary.Data()));
+      canvas8Panel->Print(Form("%s.pdf",nameOutputSummary.Data()));
+      if (layer == setupT->GetNMaxLayer()) canvas8Panel->Print(Form("%s.pdf]",nameOutputSummary.Data()));
+    }
+  }
   
   
 #endif

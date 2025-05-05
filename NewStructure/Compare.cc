@@ -36,7 +36,8 @@ void PrintHelp(char* exe){
   std::cout<<"-I uuu   expanded input file list"<<std::endl;
   std::cout<<"-o vvv   Output file name (mandatory)"<<std::endl;
   std::cout<<"-O kkk   Output directory name for plots (mandatory)"<<std::endl;
-  std::cout<<"-r       Trending plots versus run #"<<std::endl;
+  std::cout<<"-r rrr   Name of run list file  2024 PS TB [../configs/DataTakingDB_202409_CAEN.csv] "<<std::endl;
+  std::cout<<"-R       Trending plots versus run #"<<std::endl;
   std::cout<<"-V       Trending plots versus Vop"<<std::endl;
   //std::cout<<"-t       Trending plots versus BoR time"<<std::endl;
   std::cout<<"-h       this help"<<std::endl<<std::endl;
@@ -58,7 +59,7 @@ int main(int argc, char* argv[]){
   }
   ComparisonCalib CompAnalysis;
   int c;
-  while((c=getopt(argc,argv,"d:e:fF:i:I:o:O:rVth"))!=-1){
+  while((c=getopt(argc,argv,"d:e:fF:i:I:o:O:r:RVth"))!=-1){
     switch(c){
     case 'd':
       std::cout<<"Compare: enable debug " << optarg <<std::endl;
@@ -101,7 +102,7 @@ int main(int argc, char* argv[]){
     case 'I':
       std::cout<<"Compare: Expanded Root input file is: "<<optarg<<std::endl;
       CompAnalysis.SetInputList(Form("%s",optarg));
-      CompAnalysis.ExpandedList(true);
+      CompAnalysis.ExpandedList(1);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-I");
       RootRegexp.erase(it);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
@@ -124,9 +125,17 @@ int main(int argc, char* argv[]){
       RootRegexp.erase(it);
       break;
     case 'r':
+      std::cout<<"Compare: run list file from: "<<optarg<<std::endl;
+      CompAnalysis.SetRunListInput(Form("%s",optarg));
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-r");
+      RootRegexp.erase(it);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
+      RootRegexp.erase(it);
+      break;
+    case 'R':
       std::cout<<"Compare: Trending plots versus run #"<<std::endl;
       CompAnalysis.SetTrendingAxis(0);
-      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-r");
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-R");
       RootRegexp.erase(it);
       break;
     case 'V':
