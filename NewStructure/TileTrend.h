@@ -100,7 +100,8 @@ class TileTrend: public TObject{
       gTrendSBSignal .SetLineColor(kRed);
       gTrendSBSignal .SetMarkerColor(kRed);
       gTrendSBSignal .SetMarkerStyle(kFullCircle);
-        
+    } 
+    if (ext == 1){
       gTrendHGLMPV = TGraphErrors();
       gTrendHGLMPV .SetName(Form("TrendHGLMPVCellID%d",CellID));
       gTrendHGLMPV .GetYaxis()->SetTitle("MPV_{HG} (arb. units)");
@@ -142,17 +143,33 @@ class TileTrend: public TObject{
       gTrendLGGSigma .SetLineColor(kRed);
       gTrendLGGSigma .SetMarkerColor(kRed);
       gTrendLGGSigma .SetMarkerStyle(kFullCircle);
+    } else if (ext == 2){
+      gTrendHGLGOffset = TGraphErrors();
+      gTrendHGLGOffset .SetName(Form("TrendHGLGOffsetCellID%d",CellID));
+      gTrendHGLGOffset .GetYaxis()->SetTitle("b_{HG,LG} (arb. units)");
+      gTrendHGLGOffset .SetLineColor(kRed);
+      gTrendHGLGOffset .SetMarkerColor(kRed);
+      gTrendHGLGOffset .SetMarkerStyle(kFullCircle);
+
+      gTrendLGHGOffset = TGraphErrors();
+      gTrendLGHGOffset .SetName(Form("TrendLGHGOffsetCellID%d",CellID));
+      gTrendLGHGOffset .GetYaxis()->SetTitle("b_{LG,HG} (arb. units)");
+      gTrendLGHGOffset .SetLineColor(kRed);
+      gTrendLGHGOffset .SetMarkerColor(kRed);
+      gTrendLGHGOffset .SetMarkerStyle(kFullCircle);
+      
     }
   }
   ~TileTrend(){}
 
   // Fill objects 
   bool Fill           (double, const TileCalib&, int, double);
-  bool FillExtended   (double, int, int, TH1D*, TH1D*);
+  bool FillExtended   (double, int, int, TH1D*, TH1D*, TProfile*);
   void FillMPV        (double, double, double, double, double);
   void FillLSigma     (double, double, double, double, double);
   void FillGSigma     (double, double, double, double, double);
   void FillSB         (double, double, double);
+  void FillCorrOffset (double, double, double, double, double);
   
   // Drawing functions for graphs
   bool DrawLGped      (TString);
@@ -172,12 +189,17 @@ class TileTrend: public TObject{
   bool DrawLGLSigma   (TString);
   bool DrawHGGSigma   (TString);
   bool DrawLGGSigma   (TString);
+  bool DrawHGLGOffset (TString);
+  bool DrawLGHGOffset (TString);
   
   // Set default drawing options for all graphs
   bool SetLineColor   (uint);
   bool SetMarkerColor (uint);
   bool SetMarkerStyle (uint);
   bool SetXAxisTitle  (TString);
+  
+  // Sort graph according to voltage or run number
+  void Sort          ();
   // Write graphs to file
   bool Write          (TFile*);
 
@@ -224,6 +246,10 @@ class TileTrend: public TObject{
   inline double GetMaxSBSignal()  {return MaxSBSignal;};
   inline double GetMinSBNoise()   {return MinSBNoise;};
   inline double GetMaxSBNoise()   {return MaxSBNoise;};
+  inline double GetMinLGHGOffset(){return MinLGHGOff;};
+  inline double GetMaxLGHGOffset(){return MaxLGHGOff;};
+  inline double GetMinHGLGOffset(){return MinHGLGOff;};
+  inline double GetMaxHGLGOffset(){return MaxHGLGOff;};
   
   inline int GetNRuns()           {return (int)runNrs.size();};
   inline int GetFirstRun()        {if (runNrs.size()> 0) return runNrs[0]; else return -1;};
@@ -250,9 +276,12 @@ class TileTrend: public TObject{
   inline TGraphErrors* GetLGLSigma()  {return &gTrendLGLSigma;};
   inline TGraphErrors* GetHGGSigma()  {return &gTrendHGGSigma;};
   inline TGraphErrors* GetLGGSigma()  {return &gTrendLGGSigma;};
+  inline TGraphErrors* GetLGHGOff()   {return &gTrendLGHGOffset;};
+  inline TGraphErrors* GetHGLGOff()   {return &gTrendHGLGOffset;};
   // Getters for individual graph histgrams
   TH1D* GetHGTriggRun(int);
   TH1D* GetLGTriggRun(int);
+  TProfile* GetLGHGTriggRun(int);
   
  protected:
   int CellID;
@@ -277,6 +306,9 @@ class TileTrend: public TObject{
   TGraphErrors gTrendLGLSigma ;
   TGraphErrors gTrendLGGSigma ;
   
+  TGraphErrors gTrendLGHGOffset ;
+  TGraphErrors gTrendHGLGOffset ;
+  
   double MaxLGped    =0.;
   double MaxHGped    =0.;
   double MaxLGpedwidth =0.;
@@ -296,6 +328,8 @@ class TileTrend: public TObject{
   double MaxLGGSigma =0.;
   double MaxSBNoise  =0.;
   double MaxSBSignal =0.;
+  double MaxLGHGOff  =-10000.;
+  double MaxHGLGOff  =-10000.;
   
   double MinLGped    =9999.;
   double MinHGped    =9999.;
@@ -316,14 +350,16 @@ class TileTrend: public TObject{
   double MinLGGSigma =9999.;
   double MinSBNoise  =9999.;
   double MinSBSignal =9999.;
+  double MinLGHGOff  =9999.;
+  double MinHGLGOff  =9999.;
   
   std::vector<int> runNrs;
   std::vector<double> voltages;
   std::map<int, TH1D> HGTriggRuns;
   std::map<int, TH1D> LGTriggRuns;
-  // std::map<int, TProfile> LGHGTriggRuns;
+  std::map<int, TProfile> LGHGTriggRuns;
   
-  ClassDef(TileTrend,3);
+  ClassDef(TileTrend,4);
 };
 
 #endif

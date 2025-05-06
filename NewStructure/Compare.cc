@@ -30,6 +30,7 @@ void PrintHelp(char* exe){
   std::cout<<"Options:"<<std::endl;
   std::cout<<"-d [0-3] Debugging mode"<<std::endl;
   std::cout<<"-e [0-1] extended plotting"<<std::endl;
+  std::cout<<"-E [0-3] histo reading options for expanded file list"<<std::endl;
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
   std::cout<<"-F fff   set explicit plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-i uuu   Input file list"<<std::endl;
@@ -59,7 +60,7 @@ int main(int argc, char* argv[]){
   }
   ComparisonCalib CompAnalysis;
   int c;
-  while((c=getopt(argc,argv,"d:e:fF:i:I:o:O:r:RVth"))!=-1){
+  while((c=getopt(argc,argv,"d:e:E:fF:i:I:o:O:r:RVth"))!=-1){
     switch(c){
     case 'd':
       std::cout<<"Compare: enable debug " << optarg <<std::endl;
@@ -73,6 +74,14 @@ int main(int argc, char* argv[]){
       std::cout<<"Compare: enabling extended plotting"<<std::endl;
       CompAnalysis.SetExtPlotting(atoi(optarg));
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-e");
+      RootRegexp.erase(it);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
+      RootRegexp.erase(it);
+      break;
+    case 'E':
+      std::cout<<"Compare: set histo reading option"<<std::endl;
+      CompAnalysis.ExpandedList(atoi(optarg));
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-E");
       RootRegexp.erase(it);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
       RootRegexp.erase(it);
@@ -102,7 +111,9 @@ int main(int argc, char* argv[]){
     case 'I':
       std::cout<<"Compare: Expanded Root input file is: "<<optarg<<std::endl;
       CompAnalysis.SetInputList(Form("%s",optarg));
-      CompAnalysis.ExpandedList(1);
+      if (CompAnalysis.GetExpandedList() == 0){
+        CompAnalysis.ExpandedList(1);
+      }
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-I");
       RootRegexp.erase(it);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));

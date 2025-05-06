@@ -289,15 +289,22 @@ bool ComparisonCalib::Process(void){
       if (nRun < (int)RootInputNames.size()){
         std::cout << RootInputNames[nRun].Data() << std::endl;
         tempFile      = new TFile(RootInputNames[nRun].Data(),"READ");
-        hTrigger2D    = (TH2D*)tempFile->Get("hmipTriggers");
-        hHG_LMPV2D    = (TH2D*)tempFile->Get("hspectraHGLMPVVsLayer");
-        hHG_LSigma2D  = (TH2D*)tempFile->Get("hspectraHGLSigmaVsLayer");
-        hHG_GSigma2D  = (TH2D*)tempFile->Get("hspectraHGGSigmaVsLayer");
-        hLG_LMPV2D    = (TH2D*)tempFile->Get("hspectraLGLMPVVsLayer");
-        hLG_LSigma2D  = (TH2D*)tempFile->Get("hspectraLGLSigmaVsLayer");
-        hLG_GSigma2D  = (TH2D*)tempFile->Get("hspectraLGGSigmaVsLayer");
-        hSB_Noise2D   = (TH2D*)tempFile->Get("hSuppresionNoise");
-        hSB_Signal2D  = (TH2D*)tempFile->Get("hSuppresionSignal");
+        
+        if (expandedList == 1){
+          hTrigger2D    = (TH2D*)tempFile->Get("hmipTriggers");
+          hHG_LMPV2D    = (TH2D*)tempFile->Get("hspectraHGLMPVVsLayer");
+          hHG_LSigma2D  = (TH2D*)tempFile->Get("hspectraHGLSigmaVsLayer");
+          hHG_GSigma2D  = (TH2D*)tempFile->Get("hspectraHGGSigmaVsLayer");
+          hLG_LMPV2D    = (TH2D*)tempFile->Get("hspectraLGLMPVVsLayer");
+          hLG_LSigma2D  = (TH2D*)tempFile->Get("hspectraLGLSigmaVsLayer");
+          hLG_GSigma2D  = (TH2D*)tempFile->Get("hspectraLGGSigmaVsLayer");
+          hSB_Noise2D   = (TH2D*)tempFile->Get("hSuppresionNoise");
+          hSB_Signal2D  = (TH2D*)tempFile->Get("hSuppresionSignal");
+        } else if (expandedList == 2){
+          hTrigger2D    = (TH2D*)tempFile->Get("hmipTriggers");
+          hSB_Noise2D   = (TH2D*)tempFile->Get("hSuppresionNoise");
+          hSB_Signal2D  = (TH2D*)tempFile->Get("hSuppresionSignal");          
+        }
       }
     }
     
@@ -324,12 +331,21 @@ bool ComparisonCalib::Process(void){
       double lgGSigma_E = 0.;
       double sbNoise    = 0.;
       double sbSignal   = 0.;
+      double lghgOff    = -10000.;
+      double lghgOff_E  = 0.;
+      double hglgOff    = -10000.;
+      double hglgOff_E  = 0.;
+      
       
       TH1D* histCellHG      = nullptr;
       TH1D* histCellLG      = nullptr;
-      if (expandedList > 0){
+      TProfile* profCellLGHG= nullptr;
+      TF1* fitLGHG          = nullptr;
+      TF1* fitHGLG          = nullptr;
+      if (expandedList == 1){
         histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
         histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));
+        profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCellsTrigg/hCoorspectramipTriggLGHGCellID%i",itcalib->first));
         int layer     = setup->GetLayer(itcalib->first);
         int chInLayer = setup->GetChannelInLayer(itcalib->first);
         triggers      = hTrigger2D->GetBinContent(hTrigger2D->FindBin(layer,chInLayer));
@@ -347,6 +363,25 @@ bool ComparisonCalib::Process(void){
         lgGSigma_E    = hLG_GSigma2D->GetBinError(hLG_GSigma2D->FindBin(layer,chInLayer));
         sbNoise       = hSB_Noise2D->GetBinError(hSB_Noise2D->FindBin(layer,chInLayer));
         sbSignal      = hSB_Signal2D->GetBinError(hSB_Signal2D->FindBin(layer,chInLayer));
+      } else if (expandedList == 2){
+        profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCells/hCoorspectramip1stLGHGCellID%i",itcalib->first));
+        histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
+        histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));       
+        fitLGHG         = (TF1*)tempFile->Get(Form("IndividualCells/fcorrmip1stLGHGCellID%i",itcalib->first));
+        fitHGLG         = (TF1*)tempFile->Get(Form("IndividualCells/fcorrmip1stHGLGCellID%i",itcalib->first));
+        int layer     = setup->GetLayer(itcalib->first);
+        int chInLayer = setup->GetChannelInLayer(itcalib->first);
+        triggers      = hTrigger2D->GetBinContent(hTrigger2D->FindBin(layer,chInLayer));
+        sbNoise       = hSB_Noise2D->GetBinError(hSB_Noise2D->FindBin(layer,chInLayer));
+        sbSignal      = hSB_Signal2D->GetBinError(hSB_Signal2D->FindBin(layer,chInLayer));
+        if (fitLGHG){
+          lghgOff     = fitLGHG->GetParameter(0);
+          lghgOff_E   = fitLGHG->GetParError(0);
+        }
+        if (fitHGLG){
+          hglgOff     = fitHGLG->GetParameter(0);
+          hglgOff_E   = fitHGLG->GetParError(0);
+        }
       }
       
       // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -363,12 +398,16 @@ bool ComparisonCalib::Process(void){
         // fill minimal object
         itrend->second.Fill(Xvalue,itcalib->second, (int)calib.GetRunNumber(), (double)calib.GetVop());
         // fill with additional information
-        if (expandedList > 0){
-          itrend->second.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG); 
+        if (expandedList == 1){
+          itrend->second.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           itrend->second.FillMPV(Xvalue, hgLMPV, hgLMPV_E, lgLMPV, lgLMPV_E);
           itrend->second.FillLSigma(Xvalue, hgLSigma, hgLSigma_E, lgLSigma, lgLSigma_E);
           itrend->second.FillGSigma(Xvalue, hgGSigma, hgGSigma_E, lgGSigma, lgGSigma_E);
           itrend->second.FillSB(Xvalue, sbSignal, sbNoise);
+        } else if (expandedList == 2){
+          itrend->second.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
+          itrend->second.FillSB(Xvalue, sbSignal, sbNoise);
+          itrend->second.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
         }
       // create new TileTrend object if not yet available in map
       } else {
@@ -376,12 +415,16 @@ bool ComparisonCalib::Process(void){
         // fill minimal object
         atrend.Fill(Xvalue,itcalib->second, (int)calib.GetRunNumber(), (double)calib.GetVop());
         // fill with additional information
-        if (expandedList > 0){
-          atrend.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG); 
+        if (expandedList == 1){
+          atrend.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           atrend.FillMPV(Xvalue, hgLMPV, hgLMPV_E, lgLMPV, lgLMPV_E);
           atrend.FillLSigma(Xvalue, hgLSigma, hgLSigma_E, lgLSigma, lgLSigma_E);
           atrend.FillGSigma(Xvalue, hgGSigma, hgGSigma_E, lgGSigma, lgGSigma_E);
           atrend.FillSB(Xvalue, sbSignal, sbNoise);
+        } else if (expandedList == 2){
+          atrend.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
+          atrend.FillSB(Xvalue, sbSignal, sbNoise);
+          atrend.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
         }
         // append TileTrend object to map
         trend[itcalib->first]=atrend;
@@ -425,17 +468,18 @@ bool ComparisonCalib::Process(void){
   else                xaxisTitle = "date";  
   
   for(itrend=trend.begin(); itrend!=trend.end(); ++itrend){    
+    // sort graphs
+    itrend->second.Sort();
     // set x axis title for trending graphs
     itrend->second.SetXAxisTitle(xaxisTitle);
     // write graphs for each cell to output
     itrend->second.Write(RootOutput);
   }
-    
 
   //******************************************************************************
   // plotting overview for each run overlayed
   //******************************************************************************
-  Int_t textSizePixel = 30;
+  Int_t textSizePixel   = 30;
   Float_t textSizeRel   = 0.04;  
   TCanvas* canvas1DRunsOverlay = new TCanvas("canvas1DRunsOverlay","",0,0,1450,1300);  // gives the page size
   DefaultCancasSettings( canvas1DRunsOverlay, 0.075, 0.015, 0.025, 0.09);
@@ -480,12 +524,19 @@ bool ComparisonCalib::Process(void){
   TPad* pad8Panel[8];
   Double_t topRCornerX[8];
   Double_t topRCornerY[8];
-
   Double_t relSize8P[8];
   CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel, 0.045);
-
+  TCanvas* canvas8PanelProf;
+  TPad* pad8PanelProf[8];
+  Double_t topRCornerXProf[8];
+  Double_t topRCornerYProf[8];
+  Double_t relSize8PProf[8];
+  CreateCanvasAndPadsFor8PannelTBPlot(canvas8PanelProf, pad8PanelProf,  topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 0.045, "Prof", false);
+  int layerVerb = 5;
+  if (expandedList == 1)layerVerb = 1;
+  
   for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
-    if (l%5 == 0 && l > 0 && debug > 0)
+    if (l%layerVerb == 0 && l > 0 && debug > 0)
       std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 0, Xmin,Xmax, l, 0,
@@ -511,16 +562,7 @@ bool ComparisonCalib::Process(void){
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 5, Xmin,Xmax, l, 0,
                               Form("%s/SingleLayer/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    if (expandedList > 0){
-      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, 6, Xmin,Xmax, l, 0,
-                                Form("%s/SingleLayer/MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendMuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, 7, Xmin,Xmax, l, 0,
-                                Form("%s/SingleLayer/SBSignal_MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendSBSignal_MuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, 8, Xmin,Xmax, l, 0,
-                                Form("%s/SingleLayer/SBNoise_MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendSBNoise_MuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+    if (expandedList == 1){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 9, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/HG_LandMPV_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLandMPV",OutputNameDirPlots.Data()), it->second,ExtPlot);      
@@ -539,12 +581,34 @@ bool ComparisonCalib::Process(void){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 14, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/LG_GaussSigma_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGGaussSigma",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+    } else if (expandedList == 2){
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 17, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGHG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 18, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGLG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      
+    }
+    if (expandedList > 0){
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 6, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendMuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 7, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/SBSignal_MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendSBSignal_MuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 8, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/SBNoise_MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendSBNoise_MuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
       PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, nRun, 0, -15,850, l, 0,
                                 Form("%s/SingleLayer/MuonTriggers_HGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonHGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
       PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, nRun, 1, -10,210, l, 0,
                                 Form("%s/SingleLayer/MuonTriggers_LGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      PlotRunOverlayProfilePerLayer (canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
+                                     trend, nRun,-20, 340, -20, 3900, l, 0,
+                                     Form("%s/SingleLayer/MuonTriggers_LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);      
     }
   }  
 

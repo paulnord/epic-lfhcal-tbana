@@ -35,6 +35,7 @@ class ComparisonCalib{
   inline TString GetRootOutputName()        const {return RootOutputName;};
   inline TString GetPlotOutputDir()         const {return OutputNameDirPlots;};
   inline short GetExtPlotting(void)         const {return ExtPlot;};
+  inline int GetExpandedList()              const {return expandedList;}
   inline bool CanOverWrite(void)            const {return Overwrite;};
   
   inline TFile* GetRootOutput()                   {return RootOutput;}
@@ -69,7 +70,7 @@ class ComparisonCalib{
   TString RunListInputName;               // file name run list 
   TFile* RootOutput         =nullptr;     // root file output tree
   bool Overwrite              =false;     // Flag to overwrite outputs
-  int expandedList            =0;         // Expanded input list option
+  int expandedList            =0;         // Expanded input list option: 1 - ImprovedScaling histo output, 2 - GetScaling histo output
   int debug                   =0;         // debug level 
   short ExtPlot               =0;         // Enable extended plotting
   int yearData                =-1;        // data taking year externally set
