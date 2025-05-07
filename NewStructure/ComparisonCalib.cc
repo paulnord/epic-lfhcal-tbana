@@ -343,9 +343,11 @@ bool ComparisonCalib::Process(void){
       TF1* fitLGHG          = nullptr;
       TF1* fitHGLG          = nullptr;
       if (expandedList == 1){
-        histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
-        histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));
-        profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCellsTrigg/hCoorspectramipTriggLGHGCellID%i",itcalib->first));
+        if (ExtPlot > 1){
+          histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
+          histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));
+          profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCellsTrigg/hCoorspectramipTriggLGHGCellID%i",itcalib->first));
+        }
         int layer     = setup->GetLayer(itcalib->first);
         int chInLayer = setup->GetChannelInLayer(itcalib->first);
         triggers      = hTrigger2D->GetBinContent(hTrigger2D->FindBin(layer,chInLayer));
@@ -364,9 +366,11 @@ bool ComparisonCalib::Process(void){
         sbNoise       = hSB_Noise2D->GetBinError(hSB_Noise2D->FindBin(layer,chInLayer));
         sbSignal      = hSB_Signal2D->GetBinError(hSB_Signal2D->FindBin(layer,chInLayer));
       } else if (expandedList == 2){
-        profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCells/hCoorspectramip1stLGHGCellID%i",itcalib->first));
-        histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
-        histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));       
+        if (ExtPlot > 1){
+          profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCells/hCoorspectramip1stLGHGCellID%i",itcalib->first));
+          histCellHG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggHGCellID%i",itcalib->first));
+          histCellLG      = (TH1D*)tempFile->Get(Form("IndividualCellsTrigg/hspectramipTriggLGCellID%i",itcalib->first));       
+        }
         fitLGHG         = (TF1*)tempFile->Get(Form("IndividualCells/fcorrmip1stLGHGCellID%i",itcalib->first));
         fitHGLG         = (TF1*)tempFile->Get(Form("IndividualCells/fcorrmip1stHGLGCellID%i",itcalib->first));
         int layer     = setup->GetLayer(itcalib->first);
@@ -600,18 +604,27 @@ bool ComparisonCalib::Process(void){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 8, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/SBNoise_MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendSBNoise_MuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, nRun, 0, -15,850, l, 0,
-                                Form("%s/SingleLayer/MuonTriggers_HGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonHGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, nRun, 1, -10,210, l, 0,
-                                Form("%s/SingleLayer/MuonTriggers_LGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotRunOverlayProfilePerLayer (canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
-                                     trend, nRun,-20, 340, -20, 3900, l, 0,
-                                     Form("%s/SingleLayer/MuonTriggers_LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);      
     }
-  }  
-
+  }
+  
+  if (ExtPlot > 1){
+    std::cout<< "plotting individual distribution per run overlayed" << std::endl;
+    for (Int_t l = 0; l < setup->GetNMaxLayer()+1 && l < maxLayerPlot; l++){    
+      if (l%layerVerb == 0 && l > 0 && debug > 0)
+        std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
+      if (expandedList > 0){
+        PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                  trend, nRun, 0, -15,850, l, 0,
+                                  Form("%s/SingleLayer/MuonTriggers_HGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonHGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+        PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                  trend, nRun, 1, -10,210, l, 0,
+                                  Form("%s/SingleLayer/MuonTriggers_LGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+        PlotRunOverlayProfilePerLayer (canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
+                                      trend, nRun,-20, 340, -20, 3900, l, 0,
+                                      Form("%s/SingleLayer/MuonTriggers_LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      }
+    }  
+  }
   return status;
 }
 
