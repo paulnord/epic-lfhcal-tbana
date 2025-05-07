@@ -1242,7 +1242,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       Int_t nPixelsSinglePlotX    = (Int_t) (realsizeX/nCols);
       Int_t nPixelsSinglePlotY    = (Int_t) (realsizeY/nRows);
       if(verbose > 0){
-          std::cout << "Setup multi panel canvas"
+          std::cout << "Setup multi panel canvas"<< std::endl;
           std::cout << "X: "<< realsizeX << "\t" << nPixelsSinglePlotX << std::endl;
           std::cout << "Y: "<< realsizeY << "\t" << nPixelsSinglePlotY << std::endl;
           std::cout << "columns:"<< nPixelsLeftColumn << "\t" << nPixelsRightColumn  << "\t" << nPixelsLowerColumn << "\t" << nPixelsUpperColumn << std::endl;
