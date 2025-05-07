@@ -1230,7 +1230,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
                                               Double_t* arrayBoundariesY,
                                               Double_t* relativeMarginsX,
                                               Double_t* relativeMarginsY,
-                                              Bool_t verbose = kTRUE){
+                                              int verbose = 1){
       Int_t realsizeX             = sizeX- (Int_t)(sizeX*leftMargin)- (Int_t)(sizeX*rightMargin);
       Int_t realsizeY             = sizeY- (Int_t)(sizeY*upperMargin)- (Int_t)(sizeY*lowerMargin);
 
@@ -1241,13 +1241,14 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
 
       Int_t nPixelsSinglePlotX    = (Int_t) (realsizeX/nCols);
       Int_t nPixelsSinglePlotY    = (Int_t) (realsizeY/nRows);
-      if(verbose){
-          std::cout << realsizeX << "\t" << nPixelsSinglePlotX << std::endl;
-          std::cout << realsizeY << "\t" << nPixelsSinglePlotY << std::endl;
-          std::cout << nPixelsLeftColumn << "\t" << nPixelsRightColumn  << "\t" << nPixelsLowerColumn << "\t" << nPixelsUpperColumn << std::endl;
+      if(verbose > 0){
+          std::cout << "Setup multi panel canvas"
+          std::cout << "X: "<< realsizeX << "\t" << nPixelsSinglePlotX << std::endl;
+          std::cout << "Y: "<< realsizeY << "\t" << nPixelsSinglePlotY << std::endl;
+          std::cout << "columns:"<< nPixelsLeftColumn << "\t" << nPixelsRightColumn  << "\t" << nPixelsLowerColumn << "\t" << nPixelsUpperColumn << std::endl;
       }
       Int_t pixel = 0;
-      if(verbose)std::cout << "boundaries X" << std::endl;
+      if(verbose > 1)std::cout << "boundaries X" << std::endl;
       for (Int_t i = 0; i < nCols+1; i++){
           if (i == 0){
               arrayBoundariesX[i] = 0.;
@@ -1259,10 +1260,10 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
               arrayBoundariesX[i] = (Double_t)pixel/sizeX;
               pixel = pixel+nPixelsSinglePlotX;
           }
-          if(verbose)std::cout << "arrayBoundariesX: " << i << "\t" << arrayBoundariesX[i] << "\t" << pixel<<std::endl;
+          if(verbose > 1)std::cout << "arrayBoundariesX: " << i << "\t" << arrayBoundariesX[i] << "\t" << pixel<<std::endl;
       }
 
-      if(verbose)std::cout << "boundaries Y" << std::endl;
+      if(verbose > 1)std::cout << "boundaries Y" << std::endl;
       pixel = sizeY;
       for (Int_t i = 0; i < nRows+1; i++){
           if (i == 0){
@@ -1275,7 +1276,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
               arrayBoundariesY[i] = (Double_t)pixel/sizeY;
               pixel = pixel-nPixelsSinglePlotY;
           }
-          if(verbose)std::cout << i << "\t" << arrayBoundariesY[i] <<"\t" << pixel<<std::endl;
+          if(verbose > 1)std::cout << i << "\t" << arrayBoundariesY[i] <<"\t" << pixel<<std::endl;
       }
 
       relativeMarginsX[0]         = (Double_t)nPixelsLeftColumn/(nPixelsLeftColumn+nPixelsSinglePlotX);
@@ -1316,12 +1317,12 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
   //********************************************************************************************************************************
   //******** CreateCanvasAndPadsFor8PannelTBPlot ***********************************************************************************
   //********************************************************************************************************************************
-  void CreateCanvasAndPadsFor8PannelTBPlot(TCanvas* &canvas, TPad* pads[8],  Double_t* topRCornerX, Double_t* topRCornerY,  Double_t* relSize8P, Int_t textSizePixel = 30, Double_t marginLeft = 0.03, TString add = "", bool rightCorner = true){
+  void CreateCanvasAndPadsFor8PannelTBPlot(TCanvas* &canvas, TPad* pads[8],  Double_t* topRCornerX, Double_t* topRCornerY,  Double_t* relSize8P, Int_t textSizePixel = 30, Double_t marginLeft = 0.03, TString add = "", bool rightCorner = true, int debug = 0){
     Double_t arrayBoundsXIndMeasRatio[5];
     Double_t arrayBoundsYIndMeasRatio[3];
     Double_t relativeMarginsIndMeasRatioX[3];
     Double_t relativeMarginsIndMeasRatioY[3];
-    ReturnCorrectValuesForCanvasScaling(2200,1200, 4, 2,marginLeft, 0.005, 0.005,0.05,arrayBoundsXIndMeasRatio,arrayBoundsYIndMeasRatio,relativeMarginsIndMeasRatioX,relativeMarginsIndMeasRatioY);
+    ReturnCorrectValuesForCanvasScaling(2200,1200, 4, 2,marginLeft, 0.005, 0.005,0.05,arrayBoundsXIndMeasRatio,arrayBoundsYIndMeasRatio,relativeMarginsIndMeasRatioX,relativeMarginsIndMeasRatioY, debug);
 
     canvas = new TCanvas(Form("canvas8Panel%s", add.Data()),"",0,0,2200,1200);  // gives the page size
     canvas->cd();
@@ -1389,7 +1390,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       } else {
         relSize8P[p]  = (Double_t)textSizePixel/pads[p]->YtoPixel(pads[p]->GetY1());
       }
-      std::cout << p << "\t" << topRCornerX[p]<< "\t" << topRCornerY[p] << "\t" << relSize8P[p] << std::endl;
+      if(debug > 1)std::cout << p << "\t" << topRCornerX[p]<< "\t" << topRCornerY[p] << "\t" << relSize8P[p] << std::endl;
     }
     return;
   }
@@ -2436,7 +2437,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       maxY= maxY*5.;
     } else if (optionTrend == 17 || optionTrend == 18 ){ 
       minY = 1.1*minY;
-      maxY = 1.1*maxY;      
+      maxY = 2*maxY;      
     } else {
       minY = 0.9*minY;
       maxY = 1.1*maxY;      

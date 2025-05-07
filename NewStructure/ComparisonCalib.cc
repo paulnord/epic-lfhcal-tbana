@@ -525,17 +525,17 @@ bool ComparisonCalib::Process(void){
   Double_t topRCornerX[8];
   Double_t topRCornerY[8];
   Double_t relSize8P[8];
-  CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel, 0.045);
+  CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel, 0.045, "", true, debug);
   TCanvas* canvas8PanelProf;
   TPad* pad8PanelProf[8];
   Double_t topRCornerXProf[8];
   Double_t topRCornerYProf[8];
   Double_t relSize8PProf[8];
-  CreateCanvasAndPadsFor8PannelTBPlot(canvas8PanelProf, pad8PanelProf,  topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 0.045, "Prof", false);
+  CreateCanvasAndPadsFor8PannelTBPlot(canvas8PanelProf, pad8PanelProf,  topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 0.045, "Prof", false, debug);
   int layerVerb = 5;
   if (expandedList == 1)layerVerb = 1;
   
-  for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
+  for (Int_t l = 0; l < setup->GetNMaxLayer()+1 && l < maxLayerPlot; l++){    
     if (l%layerVerb == 0 && l > 0 && debug > 0)
       std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 

@@ -54,6 +54,7 @@ class ComparisonCalib{
   inline void SetExtPlotting(short b)            {ExtPlot = b;};
   inline void SetTrendingAxis(int i)             {Xaxis=i;};
   inline void SetRunListInput(TString name)      {RunListInputName=name;};
+  inline void SetMaxPlotLayer(int i)             {maxLayerPlot=i;};
   
   //General methods
   bool CreateOutputRootFile(void);
@@ -75,6 +76,7 @@ class ComparisonCalib{
   short ExtPlot               =0;         // Enable extended plotting
   int yearData                =-1;        // data taking year externally set
   int Xaxis                   =0;         // Trending dependence 0: run nr, 1: Voltage
+  int maxLayerPlot            =100;       // option restrict individual layer plotting
   RootSetupWrapper rsw;                   // Wrapper singleton class for setup
   RootSetupWrapper* rswptr;               // Pointer to wrapper for singleton class for setup
   Setup* setup;                           // geometry setup

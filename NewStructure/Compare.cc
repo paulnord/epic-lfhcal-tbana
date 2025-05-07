@@ -35,6 +35,7 @@ void PrintHelp(char* exe){
   std::cout<<"-F fff   set explicit plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-i uuu   Input file list"<<std::endl;
   std::cout<<"-I uuu   expanded input file list"<<std::endl;
+  std::cout<<"-L [1-63]restrict max layer plotting"<<std::endl;
   std::cout<<"-o vvv   Output file name (mandatory)"<<std::endl;
   std::cout<<"-O kkk   Output directory name for plots (mandatory)"<<std::endl;
   std::cout<<"-r rrr   Name of run list file  2024 PS TB [../configs/DataTakingDB_202409_CAEN.csv] "<<std::endl;
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]){
   }
   ComparisonCalib CompAnalysis;
   int c;
-  while((c=getopt(argc,argv,"d:e:E:fF:i:I:o:O:r:RVth"))!=-1){
+  while((c=getopt(argc,argv,"d:e:E:fF:i:I:L:o:O:r:RVth"))!=-1){
     switch(c){
     case 'd':
       std::cout<<"Compare: enable debug " << optarg <<std::endl;
@@ -115,6 +116,14 @@ int main(int argc, char* argv[]){
         CompAnalysis.ExpandedList(1);
       }
       it=std::find(RootRegexp.begin(),RootRegexp.end(),"-I");
+      RootRegexp.erase(it);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
+      RootRegexp.erase(it);
+      break;
+    case 'L':
+      std::cout<<"Compare: restrict max layer plotting: "<<optarg<<std::endl;
+      CompAnalysis.SetMaxPlotLayer(atoi(optarg));
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-L");
       RootRegexp.erase(it);
       it=std::find(RootRegexp.begin(),RootRegexp.end(),Form("%s",optarg));
       RootRegexp.erase(it);
