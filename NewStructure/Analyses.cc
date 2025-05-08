@@ -508,7 +508,6 @@ bool Analyses::ConvertASCII2Root(void){
           tokens->Clear();
           delete tokens;
         }
-        std::cout << (int)itevent->second.size() << std::endl;
         if((int)itevent->second.size()==setup->GetTotalNbChannels()/*8*64*/){
           //Fill the tree the event is complete and erase from the map
           event.SetTimeStamp(tmpTime[TriggerID]/setup->GetNMaxROUnit());
@@ -914,6 +913,9 @@ bool Analyses::GetPedestal(void){
   TH2D* hspectraLGSigmaVsLayer  = new TH2D( "hspectraLGSigmaVsLayer","Mean Ped Low Gain vs CellID; layer; brd channel; #sigma_{Ped LG} (arb. units)",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, maxChannelPerLayer, -0.5, maxChannelPerLayer-0.5);
   hspectraLGSigmaVsLayer->SetDirectory(0);
+
+  TH2D* hPedMeanHGvsLG          = new TH2D( "hPedMeanHGvsLG","Mean Ped High Gain vs Low Gain; #mu_{noise, HG} (arb. units); #mu_{noise, LG} (arb. units)", 500, 0, 250, 500, 0, 250);
+  hPedMeanHGvsLG->SetDirectory(0);
   
   std::map<int,TileSpectra> hSpectra;
   std::map<int, TileSpectra>::iterator ithSpectra;
@@ -943,7 +945,13 @@ bool Analyses::GetPedestal(void){
   int runNr = -1;
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
-    if (i == 0)runNr = event.GetRunNumber();
+    if (i == 0){
+      runNr = event.GetRunNumber();
+      std::cout<< "original run numbers calib: "<<calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
+      calib.SetRunNumberPed(runNr);
+      calib.SetBeginRunTimePed(event.GetBeginRunTimeAlt());
+      std::cout<< "reset run numbers calib: "<< calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
+    }
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     for(int j=0; j<event.GetNTiles(); j++){
       if (event.GetROtype() == ReadOut::Type::Caen) {
@@ -1017,6 +1025,9 @@ bool Analyses::GetPedestal(void){
     hspectraLGMeanVsLayer->SetBinError(hspectraLGMeanVsLayer->FindBin(layer,chInLayer), parameters[1]);
     hspectraLGSigmaVsLayer->SetBinContent(hspectraLGSigmaVsLayer->FindBin(layer,chInLayer), parameters[2]);
     hspectraLGSigmaVsLayer->SetBinError(hspectraLGSigmaVsLayer->FindBin(layer,chInLayer), parameters[3]);
+    
+    hPedMeanHGvsLG->Fill(parameters[4],parameters[0]);
+    
   }
   
   RootOutput->cd();
@@ -1052,7 +1063,7 @@ bool Analyses::GetPedestal(void){
   hspectraLGMeanVsLayer->Write();
   hspectraHGSigmaVsLayer->Write();
   hspectraLGSigmaVsLayer->Write();
-  
+  hPedMeanHGvsLG->Write();
   // fill calib tree & write it
   // close open root files
   RootOutputHist->Write();
@@ -1095,6 +1106,8 @@ bool Analyses::GetPedestal(void){
   PlotSimple2D( canvas2DCorr, hspectraLGMeanVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseMean.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, Form("#LT#mu_{LG}#GT = %2.2f", averagePedMeanLG));
   PlotSimple2D( canvas2DCorr, hspectraLGSigmaVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_NoiseSigma.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, Form("#LT#sigma_{LG}#GT = %2.2f", averagePedSigLG));
   
+  canvas2DCorr->SetLogz(0);
+  PlotSimple2D( canvas2DCorr, hPedMeanHGvsLG, -10000, -10000, textSizeRel, Form("%s/PedMean_HG_LG.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 5, kFALSE, "colz", true, "");
   
   //***********************************************************************************************************
   //********************************* 8 Panel overview plot  **************************************************
@@ -1159,7 +1172,11 @@ bool Analyses::CorrectPedestal(void){
   for(int i=0; i<evts; i++){
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     TdataIn->GetEntry(i);
-    if (i == 0)runNr = event.GetRunNumber();
+    if (i == 0){
+      runNr = event.GetRunNumber();
+      calib.SetRunNumber(runNr);
+      calib.SetBeginRunTime(event.GetBeginRunTimeAlt());
+    }
    
     if (CalcBadChannel > 0 || ExtPlot > 0){
       for(int j=0; j<event.GetNTiles(); j++){
@@ -2733,7 +2750,7 @@ bool Analyses::Calibrate(void){
         energy=corrLG/calib.GetCalcScaleLow(aTile->GetCellID());
       }
       if (debug > 1 && corrHG >= corrHGADCSwap-100 && corrHG < 4000-calib.GetPedestalMeanH(aTile->GetCellID())){
-          std::cout << "-> Cell ID: " <<  aTile->GetCellID() << "\t HG\t" << corrHG << "\t" << corrHG/calib.GetScaleHigh(aTile->GetCellID()) << "\t LG \t" << corrLG << "\t" <<  corrLG/calib.GetCalcScaleLow(aTile->GetCellID()) << "\t"<< corrLG/calib.GetScaleLow(aTile->GetCellID()) << "\t delta: \t"<< corrHG/calib.GetScaleHigh(aTile->GetCellID())-(corrLG/calib.GetCalcScaleLow(aTile->GetCellID())) << "\tLGHG\t" << calib.GetScaleLGHGCorr(aTile->GetCellID())<< std::endl;
+          std::cout << "-> Cell ID: " <<  aTile->GetCellID() << "\t HG\t" << corrHG << "\t" << corrHG/calib.GetScaleHigh(aTile->GetCellID()) << "\t LG \t" << corrLG << "\t" <<  corrLG/calib.GetCalcScaleLow(aTile->GetCellID()) << "\t"<< corrLG/calib.GetScaleLow(aTile->GetCellID()) << "\t delta: \t"<< corrHG/calib.GetScaleHigh(aTile->GetCellID())-(corrLG/calib.GetCalcScaleLow(aTile->GetCellID())) << "\tLGHG\t" << calib.GetLGHGCorr(aTile->GetCellID())<< std::endl;
       }
       // calculate trigger primitives
       bool localMuonTrigg   = false;

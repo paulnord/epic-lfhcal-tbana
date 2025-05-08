@@ -189,6 +189,8 @@ bool TileSpectra::FitNoise(double* out, int year = -1, bool isNoiseTrigg = false
     out[3]=result->Error(2);
     return true;
   }
+  
+  return false;
 }
 
 void TileSpectra::FitFixedNoise(){
@@ -830,8 +832,8 @@ short TileSpectra::DetermineBadChannel(){
  
   FitFixedNoise();
   
-  double sigL   = calib->PedestalSigL;
-  double sigH   = calib->PedestalSigH;
+  // double sigL   = calib->PedestalSigL;
+  // double sigH   = calib->PedestalSigH;
 
   double sigLN   = BackgroundLG.GetParameter(2);
   double sigHN   = BackgroundHG.GetParameter(2);

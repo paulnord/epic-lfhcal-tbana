@@ -7,6 +7,9 @@ if [ $1 = "fbock" ]; then
 elif [ $1 = "fbockExt" ]; then 
 	dataDir=/media/fbock/T7/CAEN_Sept24_TB_PS
 	dataRaw=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata
+elif [ $1 = "fbockExt2" ]; then 
+	dataDir=/media/fbock/T7/CAEN_Sept24_TB_PS
+	dataRaw=/media/fbock/T7/202408_PST09/CAENData/MuonRuns
 elif [ $1 = "eglimos" ]; then 
 	dataDir=/home/ewa/EIC/test_beam2024/fullScanC
 	dataRaw=/home/ewa/EIC/test_beam2024/fullScanC
@@ -19,11 +22,17 @@ fi
 
 if [ $2 == "single" ]; then 
 #   runs='244'
-#   runs='271'
-  runs='492 505'
+  runs='271'
+#   runs='492 505'
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
+elif [ $2 == "calib45V" ]; then 
+#   runs='271 277 244 250 282 283 460 456 457 454 526 527 528 554 559 552' 
+  runs='277 244 250 282 283 460 456 457 454 526 527 528 554 559 552' 
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;  
 elif [ $2 == "calibA" ]; then 
   runs='271 277 244 250 282 283' 
   for runNr in $runs; do 
