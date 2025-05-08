@@ -943,7 +943,15 @@ bool Analyses::GetPedestal(void){
   
   int evts=TdataIn->GetEntries();
   int runNr = -1;
-  for(int i=0; i<evts; i++){
+  if (maxEvents == -1){
+    maxEvents = evts;
+  } else {
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    std::cout << "ATTENTION: YOU ARE RESETTING THE MAXIMUM NUMBER OF EVENTS TO BE PROCESSED TO: " << maxEvents << ". THIS SHOULD ONLY BE USED FOR TESTING!" << std::endl;
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+  }
+
+  for(int i=0; i<evts && i < maxEvents; i++){
     TdataIn->GetEntry(i);
     if (i == 0){
       runNr = event.GetRunNumber();
@@ -1168,14 +1176,22 @@ bool Analyses::CorrectPedestal(void){
     bcmap = ReadExternalBadChannelMap();
     
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");  
-  
-  for(int i=0; i<evts; i++){
+  if (maxEvents == -1){
+    maxEvents = evts;
+  } else {
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    std::cout << "ATTENTION: YOU ARE RESETTING THE MAXIMUM NUMBER OF EVENTS TO BE PROCESSED TO: " << maxEvents << ". THIS SHOULD ONLY BE USED FOR TESTING!" << std::endl;
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+  }
+  for(int i=0; i<evts && i < maxEvents ; i++){
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     TdataIn->GetEntry(i);
     if (i == 0){
       runNr = event.GetRunNumber();
+      std::cout<< "original run numbers calib: "<<calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
       calib.SetRunNumber(runNr);
       calib.SetBeginRunTime(event.GetBeginRunTimeAlt());
+      std::cout<< "reset run numbers calib: "<< calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
     }
    
     if (CalcBadChannel > 0 || ExtPlot > 0){
@@ -1247,6 +1263,9 @@ bool Analyses::CorrectPedestal(void){
       long cellID   = ithSpectra->second.GetCellID();
       if (CalcBadChannel == 1)
         ithSpectra->second.SetBadChannelInCalib(bc);
+      
+      // initializing pedestal fits from calib file
+      ithSpectra->second.InitializeNoiseFitsFromCalib();
       
       int layer     = setup->GetLayer(cellID);
       int chInLayer = setup->GetChannelInLayer(cellID);

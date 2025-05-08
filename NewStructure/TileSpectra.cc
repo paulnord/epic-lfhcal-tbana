@@ -217,6 +217,31 @@ void TileSpectra::FitFixedNoise(){
   return;
 }
 
+void TileSpectra::InitializeNoiseFitsFromCalib(){
+
+  // estimate LG pedestal per channel
+  BackgroundLG=TF1(Form("fpedLGCellID%d",cellID),"gaus",-20,20);
+  BackgroundLG.SetNpx(400);
+  BackgroundLG.FixParameter(1,0);     
+  BackgroundLG.FixParameter(2,calib->PedestalSigL);     
+  hspectraLG.Fit(&BackgroundLG,"QIRN0"); // initial fit
+  BackgroundLG.FixParameter(1,0);     
+  BackgroundLG.FixParameter(2,calib->PedestalSigL);     
+  bpedLG=true;
+  
+  // estimate HG pedestal per channel
+  BackgroundHG=TF1(Form("fpedHGCellID%d",cellID),"gaus",-30,30);
+  BackgroundHG.SetNpx(400);
+  BackgroundHG.FixParameter(1,0);     
+  BackgroundHG.FixParameter(2,calib->PedestalSigH);       
+  hspectraHG.Fit(&BackgroundHG,"QIRN0"); // initial fit
+  BackgroundHG.FixParameter(1,0);     
+  BackgroundHG.FixParameter(2,calib->PedestalSigH);       
+  bpedHG=true;
+
+  return;
+}
+
 
 bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year, bool impE = false, double vov = -1000, double avmip = -1000){
   
@@ -486,9 +511,10 @@ bool TileSpectra::FitCorr(int verbosity){
       bcorrLGHG= true;
     }  
   }
-  if (bcorrLGHG)
-    calib->LGHGCorr = LGHGcorr.GetParameter(1);
-  
+  if (bcorrLGHG){
+    calib->LGHGCorr     = LGHGcorr.GetParameter(1);
+    calib->LGHGCorrOff  = LGHGcorr.GetParameter(0);
+  }
   funcName = Form("fcorr%sHGLGCellID%d",TileName.Data(),cellID);
   HGLGcorr =  TF1(funcName.Data(),"pol1",fitRangeHG[0],fitRangeHG[1]);
   HGLGcorr.SetParameter(0,0.);
@@ -515,8 +541,10 @@ bool TileSpectra::FitCorr(int verbosity){
       bcorrHGLG= true;
     }
   }
-  if (bcorrHGLG)
-    calib->HGLGCorr = HGLGcorr.GetParameter(1);
+  if (bcorrHGLG){
+    calib->HGLGCorr     = HGLGcorr.GetParameter(1);
+    calib->HGLGCorrOff  = HGLGcorr.GetParameter(0);
+  }
   return true;
 }
 
@@ -552,8 +580,10 @@ bool TileSpectra::FitLGHGCorr(int verbosity, bool resetCalib){
       bcorrLGHG= true;
     }  
   }
-  if (bcorrLGHG && resetCalib)
-    calib->LGHGCorr = LGHGcorr.GetParameter(1);
+  if (bcorrLGHG && resetCalib){
+    calib->LGHGCorr     = LGHGcorr.GetParameter(1);
+    calib->LGHGCorrOff  = LGHGcorr.GetParameter(0);
+  }
   
   return true;
 }

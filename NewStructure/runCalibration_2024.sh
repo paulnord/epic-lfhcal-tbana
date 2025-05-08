@@ -94,8 +94,7 @@ fi
 # pedestal runs 
 # pedestalRuns='303 306 308 311 315 271 277 420 454 528 552 553 332 369 377 404 465 476 492 505 521' # all pedestal runs
 # pedestalRuns='271 277 454 528 552' # pedestal runs 45V
-# pedestalRuns='271 277' # pedestal runs 45V A
-pedestalRuns='271' # pedestal runs 45V A
+pedestalRuns='454 528 552' # pedestal runs 45V
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./DataPrep -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O $PlotBaseDir/PlotsPedestal_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
