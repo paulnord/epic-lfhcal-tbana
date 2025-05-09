@@ -411,7 +411,7 @@ bool ComparisonCalib::Process(void){
         } else if (expandedList == 2){
           itrend->second.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           itrend->second.FillSB(Xvalue, sbSignal, sbNoise);
-          itrend->second.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
+          // itrend->second.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
         }
       // create new TileTrend object if not yet available in map
       } else {
@@ -428,7 +428,7 @@ bool ComparisonCalib::Process(void){
         } else if (expandedList == 2){
           atrend.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           atrend.FillSB(Xvalue, sbSignal, sbNoise);
-          atrend.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
+          // atrend.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
         }
         // append TileTrend object to map
         trend[itcalib->first]=atrend;
@@ -510,6 +510,10 @@ bool ComparisonCalib::Process(void){
                        Form("%s/HGLGCorr_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), it->second, "", debug);
   PlotCalibRunOverlay( canvas1DRunsOverlay, 10, sumCalibs, textSizeRel, 
                        Form("%s/LGScaleCalcSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), it->second,"", debug);  
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 11, sumCalibs, textSizeRel, 
+                       Form("%s/LGHGOffsetCorr_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), it->second, "", debug);
+  PlotCalibRunOverlay( canvas1DRunsOverlay, 12, sumCalibs, textSizeRel, 
+                       Form("%s/HGLGOffsetCorr_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), it->second, "", debug);
 
   //******************************************************************************
   // plotting trending for each layer separately
@@ -566,6 +570,12 @@ bool ComparisonCalib::Process(void){
     PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                               trend, 5, Xmin,Xmax, l, 0,
                               Form("%s/SingleLayer/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                              trend, 17, Xmin,Xmax, l, 0,
+                              Form("%s/SingleLayer/LGHG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                              trend, 18, Xmin,Xmax, l, 0,
+                              Form("%s/SingleLayer/HGLG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
     if (expandedList == 1){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 9, Xmin,Xmax, l, 0,
@@ -585,14 +595,6 @@ bool ComparisonCalib::Process(void){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 14, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/LG_GaussSigma_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGGaussSigma",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-    } else if (expandedList == 2){
-      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, 17, Xmin,Xmax, l, 0,
-                                Form("%s/SingleLayer/LGHG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                                trend, 18, Xmin,Xmax, l, 0,
-                                Form("%s/SingleLayer/HGLG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-      
     }
     if (expandedList > 0){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 

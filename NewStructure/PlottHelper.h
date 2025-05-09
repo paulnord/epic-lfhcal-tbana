@@ -2566,6 +2566,8 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       else if (option==8) tempH = itrun->second.GetLGHGcorr();
       else if (option==9) tempH = itrun->second.GetHGLGcorr();
       else if (option==10) tempH = itrun->second.GetLGScaleCalc();
+      else if (option==11) tempH = itrun->second.GetLGHGOffcorr();
+      else if (option==12) tempH = itrun->second.GetHGLGOffcorr();
       if (maxY < tempH->GetMaximum()) maxY = tempH->GetMaximum();
       if ( maxX < FindLastBinXAboveMin(tempH)) maxX = FindLastBinXAboveMin(tempH);
       if ( minX > FindFirstBinXAboveMin(tempH)) minX = FindFirstBinXAboveMin(tempH);
@@ -2607,7 +2609,9 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         else if (option==7) histos[currRun]  = itrun->second.GetLGScalewidth();
         else if (option==8) histos[currRun]  = itrun->second.GetLGHGcorr();
         else if (option==9) histos[currRun]  = itrun->second.GetHGLGcorr();
-        else if (option==10) histos[currRun]  = itrun->second.GetLGScaleCalc();
+        else if (option==10) histos[currRun] = itrun->second.GetLGScaleCalc();
+        else if (option==11) histos[currRun] = itrun->second.GetLGHGOffcorr();
+        else if (option==12) histos[currRun] = itrun->second.GetHGLGOffcorr();
         SetStyleHistoTH1ForGraphs( histos[currRun], histos[currRun]->GetXaxis()->GetTitle(), histos[currRun]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.95, 1.02);  
         SetLineDefaults(histos[currRun], GetColorLayer(currRun), 4, GetLineStyleLayer(currRun));   
         if(currRun == 0){

@@ -32,7 +32,9 @@ class CalibSummary: public TObject{
     hLGscaleCalc      = TH1D(Form("hLGScaleCalc_%i",id),";Max_{LG,calc} (arb. units) ; counts ", 2000, -0.5*250/2000, 250-(0.5*250/2000));
     hLGscalewidth     = TH1D(Form("hHGScalewidth_%i",id),";Width_{LG} (arb. units) ; counts ", 2000, -0.5*250/2000, 250-(0.5*250/2000));
     hLGHGcorr         = TH1D(Form("hLGHGCorr_%i",id),"; a_{LG-HG} (arb. units) ; counts ", 400, 0, 20);
+    hLGHGOffcorr      = TH1D(Form("hLGHGOffCorr_%i",id),"; b_{LG-HG} (arb. units) ; counts ", 1000, -200, 100);
     hHGLGcorr         = TH1D(Form("hHGLGCorr_%i",id),"; a_{HG-LG} (arb. units) ; counts ", 400, 0., 1.);
+    hHGLGOffcorr      = TH1D(Form("hHGLGOffCorr_%i",id),"; b_{HG-LG} (arb. units) ; counts ", 1000, -100., 100.);
   }
   ~CalibSummary(){}
 
@@ -51,25 +53,29 @@ class CalibSummary: public TObject{
   inline TH1D* GetLGScaleCalc()   {return &hLGscaleCalc;};
   inline TH1D* GetLGScalewidth()  {return &hLGscalewidth;};
   inline TH1D* GetLGHGcorr()      {return &hLGHGcorr;};
+  inline TH1D* GetLGHGOffcorr()   {return &hLGHGOffcorr;};
   inline TH1D* GetHGLGcorr()      {return &hHGLGcorr;};
+  inline TH1D* GetHGLGOffcorr()   {return &hHGLGOffcorr;};
   inline double GetVoltage()      {return Voltage;};
   
  protected:
-  int RunNr;
-  double Voltage;
-  TH1D hLGped             ;
-  TH1D hLGpedwidth        ;
-  TH1D hHGped             ;
-  TH1D hHGpedwidth        ;
+  int RunNr          ;
+  double Voltage     ;
+  TH1D hLGped        ;
+  TH1D hLGpedwidth   ;
+  TH1D hHGped        ;
+  TH1D hHGpedwidth   ;
   TH1D hLGscale      ;
   TH1D hLGscaleCalc  ;
   TH1D hLGscalewidth ;
   TH1D hHGscale      ;
   TH1D hHGscalewidth ;
   TH1D hHGLGcorr     ;
+  TH1D hHGLGOffcorr  ;
   TH1D hLGHGcorr     ;
+  TH1D hLGHGOffcorr  ;
   
-  ClassDef(CalibSummary,1);
+  ClassDef(CalibSummary,2);
 };
 
 #endif

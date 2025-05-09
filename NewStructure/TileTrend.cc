@@ -42,12 +42,22 @@ bool TileTrend::Fill(double x, const TileCalib& tc, int runNr, double volt){
   gTrendHGLGcorr.AddPoint     (x,tc.HGLGCorr     );
   gTrendHGLGcorr.SetPointError(gTrendHGLGcorr.GetN()-1,0.,0.);
   if(tc.HGLGCorr<MinHGLGcorr && tc.HGLGCorr > 0) MinHGLGcorr=tc.HGLGCorr;
-  if(tc.HGLGCorr>MaxHGLGcorr) MaxHGLGcorr=tc.HGLGCorr;
+  if(tc.HGLGCorr>MaxHGLGcorr && tc.HGLGCorr > 0) MaxHGLGcorr=tc.HGLGCorr;
+
+  gTrendHGLGOffset.AddPoint     (x,tc.HGLGCorrOff     );
+  gTrendHGLGOffset.SetPointError(gTrendHGLGOffset.GetN()-1,0.,0.);
+  if(tc.HGLGCorrOff<MinHGLGOff && tc.HGLGCorrOff != -1000.) MinHGLGOff=tc.HGLGCorrOff;
+  if(tc.HGLGCorrOff>MaxHGLGOff && tc.HGLGCorrOff != -1000.) MaxHGLGOff=tc.HGLGCorrOff;
   
   gTrendLGHGcorr.AddPoint     (x,tc.LGHGCorr     );
   gTrendLGHGcorr.SetPointError(gTrendLGHGcorr.GetN()-1,0.,0.);
   if(tc.LGHGCorr<MinLGHGcorr && tc.LGHGCorr > 0) MinLGHGcorr=tc.LGHGCorr;
-  if(tc.LGHGCorr>MaxLGHGcorr) MaxLGHGcorr=tc.LGHGCorr;
+  if(tc.LGHGCorr>MaxLGHGcorr && tc.LGHGCorr > 0) MaxLGHGcorr=tc.LGHGCorr;
+
+  gTrendLGHGOffset.AddPoint     (x,tc.LGHGCorrOff     );
+  gTrendLGHGOffset.SetPointError(gTrendLGHGOffset.GetN()-1,0.,0.);
+  if(tc.LGHGCorrOff<MinLGHGOff && tc.LGHGCorrOff != -1000.) MinLGHGOff=tc.LGHGCorrOff;
+  if(tc.LGHGCorrOff>MaxLGHGOff && tc.LGHGCorrOff != -1000.) MaxLGHGOff=tc.LGHGCorrOff;
   
   voltages.push_back(volt);
   runNrs.push_back(runNr);
@@ -143,6 +153,7 @@ void TileTrend::FillSB(double x, double sbsig, double sbnoise){
   if(sbsig<MinSBSignal) MinSBSignal  = sbsig;
   if(sbsig>MaxSBSignal) MaxSBSignal  = sbsig;  
 }
+
 //===============================================================================
 void TileTrend::FillCorrOffset(double x, double lghgoff, double lghgoff_e, double hglgoff,double hglgoff_e ){
   gTrendLGHGOffset.AddPoint     (x,lghgoff     );
@@ -292,6 +303,8 @@ bool TileTrend::SetLineColor(uint col){
   gTrendHGscale  .SetLineColor(col);
   gTrendHGLGcorr .SetLineColor(col);
   gTrendLGHGcorr .SetLineColor(col);
+  gTrendHGLGOffset .SetLineColor(col);
+  gTrendLGHGOffset .SetLineColor(col);
   if (extended > 0){
     gTrendTrigger .SetLineColor(col);
     gTrendSBNoise .SetLineColor(col);
@@ -304,9 +317,6 @@ bool TileTrend::SetLineColor(uint col){
     gTrendLGLSigma.SetLineColor(col);
     gTrendHGGSigma.SetLineColor(col);
     gTrendLGGSigma.SetLineColor(col);
-  } else if (extended == 2){
-    gTrendHGLGOffset .SetLineColor(col);
-    gTrendLGHGOffset .SetLineColor(col);
   }
   return true;
 }
@@ -318,6 +328,8 @@ bool TileTrend::SetMarkerColor(uint col){
   gTrendHGscale  .SetMarkerColor(col);
   gTrendHGLGcorr .SetMarkerColor(col);
   gTrendLGHGcorr .SetMarkerColor(col);
+  gTrendHGLGOffset .SetMarkerColor(col);
+  gTrendLGHGOffset .SetMarkerColor(col);
   if (extended > 0){
     gTrendTrigger .SetMarkerColor(col);
     gTrendSBNoise .SetMarkerColor(col);
@@ -330,9 +342,6 @@ bool TileTrend::SetMarkerColor(uint col){
     gTrendLGLSigma.SetMarkerColor(col);
     gTrendHGGSigma.SetMarkerColor(col);
     gTrendLGGSigma.SetMarkerColor(col);
-  } else if (extended == 2){
-    gTrendHGLGOffset .SetMarkerColor(col);
-    gTrendLGHGOffset .SetMarkerColor(col);
   }
   return true;
 }
@@ -344,6 +353,8 @@ bool TileTrend::SetMarkerStyle(uint col){
   gTrendHGscale  .SetMarkerStyle(col);
   gTrendHGLGcorr .SetMarkerStyle(col);
   gTrendLGHGcorr .SetMarkerStyle(col);
+  gTrendHGLGOffset .SetMarkerStyle(col);
+  gTrendLGHGOffset .SetMarkerStyle(col);
   if (extended > 0){
     gTrendTrigger .SetMarkerStyle(col);
     gTrendSBNoise .SetMarkerStyle(col);
@@ -356,9 +367,6 @@ bool TileTrend::SetMarkerStyle(uint col){
     gTrendLGLSigma.SetMarkerStyle(col);
     gTrendHGGSigma.SetMarkerStyle(col);
     gTrendLGGSigma.SetMarkerStyle(col);
-  } else if (extended == 2){
-    gTrendHGLGOffset .SetMarkerStyle(col);
-    gTrendLGHGOffset .SetMarkerStyle(col);
   }
   return true;
 }
@@ -370,6 +378,8 @@ bool TileTrend::SetXAxisTitle(TString title){
   gTrendHGscale  .GetXaxis()->SetTitle(title.Data());
   gTrendHGLGcorr .GetXaxis()->SetTitle(title.Data());
   gTrendLGHGcorr .GetXaxis()->SetTitle(title.Data());
+  gTrendHGLGOffset .GetXaxis()->SetTitle(title.Data());
+  gTrendLGHGOffset .GetXaxis()->SetTitle(title.Data());
   if (extended > 0){
     gTrendTrigger .GetXaxis()->SetTitle(title.Data());
     gTrendSBNoise .GetXaxis()->SetTitle(title.Data());
@@ -382,9 +392,6 @@ bool TileTrend::SetXAxisTitle(TString title){
     gTrendLGLSigma.GetXaxis()->SetTitle(title.Data());
     gTrendHGGSigma.GetXaxis()->SetTitle(title.Data());
     gTrendLGGSigma.GetXaxis()->SetTitle(title.Data());
-  } else if (extended == 2){
-    gTrendHGLGOffset .GetXaxis()->SetTitle(title.Data());
-    gTrendLGHGOffset .GetXaxis()->SetTitle(title.Data());
   }
   return true;
 }
@@ -399,6 +406,8 @@ void TileTrend::Sort(){
   gTrendHGscale  .Sort();
   gTrendHGLGcorr .Sort();
   gTrendLGHGcorr .Sort();
+  gTrendHGLGOffset .Sort();
+  gTrendLGHGOffset .Sort();
   if (extended > 0){
     gTrendTrigger .Sort();
     gTrendSBNoise .Sort();
@@ -411,9 +420,6 @@ void TileTrend::Sort(){
     gTrendLGLSigma.Sort();
     gTrendHGGSigma.Sort();
     gTrendLGGSigma.Sort();
-  } else if (extended == 2){
-    gTrendHGLGOffset .Sort();
-    gTrendLGHGOffset .Sort();
   }
   return;  
 }
@@ -429,6 +435,8 @@ bool TileTrend::Write(TFile* f){
   gTrendHGscale  .Write();
   gTrendHGLGcorr .Write();
   gTrendLGHGcorr .Write();
+  gTrendHGLGOffset .Write();
+  gTrendLGHGOffset .Write();
   if (extended > 0){
     gTrendTrigger .Write();
     gTrendSBNoise .Write();
@@ -441,9 +449,6 @@ bool TileTrend::Write(TFile* f){
     gTrendLGLSigma.Write();
     gTrendHGGSigma.Write();
     gTrendLGGSigma.Write();
-  } else if (extended == 2){
-    gTrendHGLGOffset .Write();
-    gTrendLGHGOffset .Write();
   }
   return true;
 }

@@ -16,7 +16,9 @@ bool CalibSummary::Fill(const TileCalib& tc){
   hHGscale      .Fill(tc.ScaleH);
   hHGscalewidth .Fill(tc.ScaleWidthH);
   hHGLGcorr     .Fill(tc.HGLGCorr);
+  hHGLGOffcorr  .Fill(tc.HGLGCorrOff);
   hLGHGcorr     .Fill(tc.LGHGCorr);
+  hLGHGOffcorr  .Fill(tc.LGHGCorrOff);
   return true;
 }
 
@@ -32,7 +34,9 @@ bool CalibSummary::Write(TFile* f){
   hHGscale        .Write();
   hHGscalewidth   .Write();
   hHGLGcorr       .Write();
+  hHGLGOffcorr    .Write();
   hLGHGcorr       .Write();
+  hLGHGOffcorr    .Write();
   return true;
 }
 
@@ -79,9 +83,17 @@ bool CalibSummary::Analyse(){
                     hLGHGcorr.GetMean(), hLGHGcorr.GetRMS(), 
                     hLGHGcorr.GetBinContent(0)+hLGHGcorr.GetBinContent(hLGHGcorr.GetNbinsX()+1)  )
             << std::endl;
+  std::cout << Form("\t --> LG-HG corr offset:\t mean:\t%3.3f\t\tRMS:\t%3.3f\t\t%.0f\t out of bounds", 
+                    hLGHGOffcorr.GetMean(), hLGHGcorr.GetRMS(), 
+                    hLGHGOffcorr.GetBinContent(0)+hLGHGOffcorr.GetBinContent(hLGHGOffcorr.GetNbinsX()+1)  )
+            << std::endl;
   std::cout << Form("\t --> HG-LG corr:\t mean:\t%3.3f\t\tRMS:\t%3.3f\t\t%.0f\t out of bounds", 
                     hHGLGcorr.GetMean(), hHGLGcorr.GetRMS(), 
                     hHGLGcorr.GetBinContent(0)+hHGLGcorr.GetBinContent(hHGLGcorr.GetNbinsX()+1)  )
+            << std::endl;
+  std::cout << Form("\t --> HG-LG corr offset:\t mean:\t%3.3f\t\tRMS:\t%3.3f\t\t%.0f\t out of bounds", 
+                    hHGLGOffcorr.GetMean(), hHGLGOffcorr.GetRMS(), 
+                    hHGLGOffcorr.GetBinContent(0)+hHGLGOffcorr.GetBinContent(hHGLGOffcorr.GetNbinsX()+1)  )
             << std::endl;
   std::cout << "***********************************************************************************************************************" << std::endl;
   return true;
