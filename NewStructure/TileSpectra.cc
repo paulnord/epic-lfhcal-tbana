@@ -305,6 +305,7 @@ bool TileSpectra::FitMipHG(double* out, double* outErr, int verbosity, int year,
     }
   }  
   SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);
+  SignalHG.SetNpx(1000);
   SignalHG.SetParameters(startvalues);
   SignalHG.SetParNames("Width","MP","Area","GSigma");
 
@@ -409,6 +410,7 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
   double parlimitshi[4]   = {calib->PedestalSigL*10, 600, intArea*5, calib->PedestalSigL*10};
   
   SignalLG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);
+  SignalLG.SetNpx(1000);
   SignalLG.SetParameters(startvalues);
   SignalLG.SetParNames("Width","MP","Area","GSigma");
 

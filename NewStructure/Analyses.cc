@@ -1393,9 +1393,23 @@ bool Analyses::GetScaling(void){
   
   int evts=TdataIn->GetEntries();
   int runNr = -1;
-  for(int i=0; i<evts; i++){
+    if (maxEvents == -1){
+    maxEvents = evts;
+  } else {
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    std::cout << "ATTENTION: YOU ARE RESETTING THE MAXIMUM NUMBER OF EVENTS TO BE PROCESSED TO: " << maxEvents << ". THIS SHOULD ONLY BE USED FOR TESTING!" << std::endl;
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+  }
+  
+  for(int i=0; i<evts && i < maxEvents; i++){
     TdataIn->GetEntry(i);
-    if (i == 0)runNr = event.GetRunNumber();
+    if (i == 0){
+      runNr = event.GetRunNumber();
+      std::cout<< "original run numbers calib: "<<calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
+      calib.SetRunNumberMip(runNr);
+      calib.SetBeginRunTimeMip(event.GetBeginRunTimeAlt());
+      std::cout<< "reset run numbers calib: "<< calib.GetRunNumber() << "\t" << calib.GetRunNumberPed() << "\t" << calib.GetRunNumberMip() << std::endl;
+    }
     if (i%5000 == 0 && i > 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
     if (i == 0 && debug > 2) std::cout << "decoding cell IDs" << std::endl ;
     for(int j=0; j<event.GetNTiles(); j++){
@@ -1477,6 +1491,12 @@ bool Analyses::GetScaling(void){
   TH2D* hHGLGCorrVsLayer = new TH2D( "hHGLGCorrVsLayer","HG-LG corr; layer; brd channel; a_{HG-LG} (arb. units) ",
                                             setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, maxChannelPerLayer, -0.5, maxChannelPerLayer-0.5);
   hHGLGCorrVsLayer->SetDirectory(0);
+  TH2D* hLGHGCorrOffsetVsLayer = new TH2D( "hLGHGCorrOffsetVsLayer","LG-HG corr offset; layer; brd channel; b_{LG-HG} (arb. units) ",
+                                            setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, maxChannelPerLayer, -0.5, maxChannelPerLayer-0.5);
+  hLGHGCorrOffsetVsLayer->SetDirectory(0);
+  TH2D* hHGLGCorrOffsetVsLayer = new TH2D( "hHGLGCorrVsLayer","HG-LG corr offset; layer; brd channel; b_{HG-LG} (arb. units) ",
+                                            setup->GetNMaxLayer()+1, -0.5, setup->GetNMaxLayer()+1-0.5, maxChannelPerLayer, -0.5, maxChannelPerLayer-0.5);
+  hHGLGCorrOffsetVsLayer->SetDirectory(0);
   
   TH1D* hMaxHG1st             = new TH1D( "hMaxHG1st","Max High Gain ;Max_{HG, 1^{st}} (arb. units) ; counts ",
                                             2000, -0.5, 2000-0.5);
@@ -1539,11 +1559,15 @@ bool Analyses::GetScaling(void){
     if (ithSpectra->second.GetCorrModel(0)){
       hLGHGCorrVsLayer->SetBinContent(bin2D,ithSpectra->second.GetCorrModel(0)->GetParameter(1));
       hLGHGCorrVsLayer->SetBinError(bin2D,ithSpectra->second.GetCorrModel(0)->GetParError(1));
+      hLGHGCorrOffsetVsLayer->SetBinContent(bin2D,ithSpectra->second.GetCorrModel(0)->GetParameter(0));
+      hLGHGCorrOffsetVsLayer->SetBinError(bin2D,ithSpectra->second.GetCorrModel(0)->GetParError(0));
       hLGHGCorr->Fill(ithSpectra->second.GetCorrModel(0)->GetParameter(1));
     } 
     if (ithSpectra->second.GetCorrModel(1)){
       hHGLGCorrVsLayer->SetBinContent(bin2D,ithSpectra->second.GetCorrModel(1)->GetParameter(1));
       hHGLGCorrVsLayer->SetBinError(bin2D,ithSpectra->second.GetCorrModel(1)->GetParError(1));    
+      hHGLGCorrOffsetVsLayer->SetBinContent(bin2D,ithSpectra->second.GetCorrModel(1)->GetParameter(0));
+      hHGLGCorrOffsetVsLayer->SetBinError(bin2D,ithSpectra->second.GetCorrModel(1)->GetParError(0));    
       hHGLGCorr->Fill(ithSpectra->second.GetCorrModel(1)->GetParameter(1));
     }
   }
@@ -1575,9 +1599,11 @@ bool Analyses::GetScaling(void){
   double averageScale = calib.GetAverageScaleHigh(actCh1st);
   double meanFWHMHG   = calib.GetAverageScaleWidthHigh();
   double avHGLGCorr   = calib.GetAverageHGLGCorr();
+  double avHGLGOffCorr= calib.GetAverageHGLGCorrOff();
   double avLGHGCorr   = calib.GetAverageLGHGCorr();
+  double avLGHGOffCorr= calib.GetAverageLGHGCorrOff();
   std::cout << "average HG mip: " << averageScale << "\t active ch: "<< actCh1st<< std::endl;
-  for(int i=0; i<evts; i++){
+  for(int i=0; i<evts && i < maxEvents; i++){
     TdataIn->GetEntry(i);
     if (i%5000 == 0 && i > 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
     for(int j=0; j<event.GetNTiles(); j++){
@@ -1787,7 +1813,9 @@ bool Analyses::GetScaling(void){
     hMaxHG1st->Write();
     
     hLGHGCorrVsLayer->Write();
+    hLGHGCorrOffsetVsLayer->Write();
     hHGLGCorrVsLayer->Write();
+    hHGLGCorrOffsetVsLayer->Write();
     hLGHGCorr->Write();
     hHGLGCorr->Write();
     
@@ -1865,7 +1893,9 @@ bool Analyses::GetScaling(void){
   PlotSimple2D( canvas2DCorr, hspectraLGGSigmaVsLayer2nd, -10000, -10000, textSizeRel, Form("%s/LG_GaussSigMip_2nd.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
 
   PlotSimple2D( canvas2DCorr, hLGHGCorrVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_HG_Corr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kTRUE, "colz", true, Form( "#LT a_{LGHG} #GT = %.1f", avLGHGCorr));
+  PlotSimple2D( canvas2DCorr, hLGHGCorrOffsetVsLayer, -10000, -10000, textSizeRel, Form("%s/LG_HG_CorrOffset.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kTRUE, "colz", true, Form( "#LT b_{LGHG} #GT = %.1f", avLGHGOffCorr));
   PlotSimple2D( canvas2DCorr, hHGLGCorrVsLayer, -10000, -10000, textSizeRel, Form("%s/HG_LG_Corr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kTRUE, "colz", true, Form( "#LT a_{HGLG} #GT = %.1f", avHGLGCorr));
+  PlotSimple2D( canvas2DCorr, hHGLGCorrOffsetVsLayer, -10000, -10000, textSizeRel, Form("%s/HG_LG_CorrOffset.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kTRUE, "colz", true, Form( "#LT b_{HGLG} #GT = %.1f", avHGLGOffCorr));
   
   if (ExtPlot > 0){
     //***********************************************************************************************************

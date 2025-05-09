@@ -164,12 +164,12 @@ fi
 
 muonScanA_45V='244 250 282 283'
 pedScanA_45V='271 277'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA1" ] || [ $2 == "muoncalib45V" ]; then
 	# 192K events
 	echo "running muon calib for 45V runs, campaing A1"
 	MuonCalib $3 271 muonScanA1_45V $dataDirRaw $dataDirOut muonScanA1_45V $badChannelMap
 fi
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA2" ]; then	
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibA2" ] || [ $2 == "muoncalib45V" ]; then	
 	# 201.6K events
 	echo "running muon calib for 45V runs, campaing A2"
 	MuonCalib $3 277 muonScanA2_45V $dataDirRaw $dataDirOut muonScanA2_45V $badChannelMap
@@ -188,7 +188,7 @@ pedScanD1_45V='420'
 # 29.3K events
 muonScanD2_45V='460 456 457'
 pedScanD2_45V='454'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibD2" ] || [ $2 == "muoncalib45V" ]; then
 	echo "running muon calib for 45V runs, campaing D2"
 	MuonCalib $3 $pedScanD2_45V muonScanD2_45V $dataDirRaw $dataDirOut muonScanD2_45V $badChannelMap
 fi
@@ -196,7 +196,7 @@ fi
 # 50.6K events 2nd column underrespresented
 muonScanH1_45V='526 527'
 pedScanH1_45V='528'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH1" ] || [ $2 == "muoncalib45V" ]; then
 	echo "running muon calib for 45V runs, campaing H1"
 	MuonCalib $3 $pedScanH1_45V muonScanH1_45V $dataDirRaw $dataDirOut muonScanH1_45V $badChannelMap
 fi
@@ -205,7 +205,7 @@ fi
 muonScanH2_45V='554 559'
 # pedScanH2_45V='552 553'
 pedScanH2_45V='552'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibH2" ] || [ $2 == "muoncalib45V" ]; then
 	echo "running muon calib for 45V runs, campaing H2"
 	MuonCalib $3 $pedScanH2_45V muonScanH2_45V $dataDirRaw $dataDirOut muonScanH2_45V $badChannelMap
 fi
