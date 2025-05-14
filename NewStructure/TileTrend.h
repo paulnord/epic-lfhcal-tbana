@@ -92,7 +92,7 @@ class TileTrend: public TObject{
     gTrendLGHGOffset .SetMarkerColor(kRed);
     gTrendLGHGOffset .SetMarkerStyle(kFullCircle);
     
-    if (ext > 0){
+    if (ext == 1 || ext == 2){
       // std::cout << "entering expanded option" << std::endl;
       gTrendTrigger = TGraphErrors();
       gTrendTrigger .SetName(Form("TrendTriggerCellID%d",CellID));

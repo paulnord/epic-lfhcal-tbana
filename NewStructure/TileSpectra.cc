@@ -22,14 +22,21 @@ bool TileSpectra::FillSpectra(double l, double h){
   return true;
 }
 
-bool TileSpectra::FillExt(double l, double h, double e){
+bool TileSpectra::FillExt(double l, double h, double e, double lheq){
   hspectraLG.Fill(l);
   hspectraHG.Fill(h);
-  hcombined.Fill(e);
-  if (h < 3500)
-    hspectraLGHG.Fill(l,e);
+  if (extend ==  1){
+    hcombined.Fill(e);
+    if (h < 3500)
+      hspectraLGHG.Fill(l,e);
+    hspectraHGLG.Fill(l,lheq-h);
+  } else if (extend ==  2){
+    hspectraLGHG.Fill(l,h);
+    hcorr.Fill(l,h);
+  }
   return true;
 }
+
 
 
 bool TileSpectra::FillTrigger(double t){
@@ -617,6 +624,10 @@ TProfile* TileSpectra::GetHGLGcorr(){
   return &hspectraHGLG;
 }
 
+TH2D* TileSpectra::GetCorr(){
+  return &hcorr;
+}
+
 TF1* TileSpectra::GetBackModel(int lh){
   if(lh==0 && bpedLG){
     return &BackgroundLG;
@@ -670,8 +681,13 @@ void TileSpectra::Write( bool wFits = true){
 void TileSpectra::WriteExt( bool wFits = true){
   hspectraHG.Write(hspectraHG.GetName(), kOverwrite);
   hspectraLG.Write(hspectraLG.GetName(), kOverwrite);
-  hcombined.Write(hcombined.GetName(), kOverwrite);
   hspectraLGHG.Write(hspectraLGHG.GetName(), kOverwrite);  
+  if (extend == 1){
+    hcombined.Write(hcombined.GetName(), kOverwrite);
+    hspectraHGLG.Write(hspectraHGLG.GetName(), kOverwrite);  
+  } else if (extend == 2){
+    hcorr.Write(hcorr.GetName(), kOverwrite);  
+  }
   if ( wFits ){
     if(bpedHG)BackgroundHG.Write(BackgroundHG.GetName(), kOverwrite);
     if(bmipHG)SignalHG.Write(SignalHG.GetName(), kOverwrite);

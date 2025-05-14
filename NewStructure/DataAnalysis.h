@@ -46,6 +46,7 @@ class DataAnalysis{
   inline void SetExtPlotting(short b)            {ExtPlot = b;};
   inline void EnableDebug(int i)                 {debug=i;};
   inline void IsToRunQA(bool b)                  {RunQA=b;};
+  inline void IsToSimpleRunQA(bool b)            {RunSimpleQA=b;};
   
   inline void SetYear(int year)                  {yearData=year;};
   inline void SetRunListInput(TString name)      {RunListInputName=name;};
@@ -72,6 +73,7 @@ class DataAnalysis{
   TFile* RootOutputHist     =nullptr;     // root file output histos
   TFile* RootInput          =nullptr;     // root file input 
   bool RunQA                  = false;    // Flag to run QA routine
+  bool RunSimpleQA            = false;    // Flag to run QA routine
   bool SaveCalibToFile        =false;     // Flag to save calib objects to text file
   short ExtPlot               =0;         // Enable extended plotting
   bool Overwrite              =false;     // Flag to overwrite outputs
@@ -97,6 +99,7 @@ class DataAnalysis{
 
  private:
   bool QAData(void);
+  bool SimpleQAData(void);
  };
 
 

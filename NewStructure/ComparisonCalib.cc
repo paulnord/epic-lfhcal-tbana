@@ -386,6 +386,10 @@ bool ComparisonCalib::Process(void){
           hglgOff     = fitHGLG->GetParameter(0);
           hglgOff_E   = fitHGLG->GetParError(0);
         }
+      } else if (expandedList == 3){
+        if (ExtPlot > 1){
+          profCellLGHG    = (TProfile*)tempFile->Get(Form("IndividualCells/hCoorspectraAllTriggersLGHGCellID%i",itcalib->first));
+        }
       }
       
       // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -411,6 +415,8 @@ bool ComparisonCalib::Process(void){
         } else if (expandedList == 2){
           itrend->second.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           itrend->second.FillSB(Xvalue, sbSignal, sbNoise);
+        } else if (expandedList == 3){
+          itrend->second.FillExtended(Xvalue,1, (int)calib.GetRunNumber(), nullptr, nullptr, profCellLGHG); 
           // itrend->second.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
         }
       // create new TileTrend object if not yet available in map
@@ -429,6 +435,8 @@ bool ComparisonCalib::Process(void){
           atrend.FillExtended(Xvalue,triggers, (int)calib.GetRunNumber(), histCellHG, histCellLG, profCellLGHG); 
           atrend.FillSB(Xvalue, sbSignal, sbNoise);
           // atrend.FillCorrOffset(Xvalue, lghgOff, lghgOff_E, hglgOff, hglgOff_E);
+        } else if (expandedList == 3){
+          atrend.FillExtended(Xvalue,1, (int)calib.GetRunNumber(), nullptr, nullptr, profCellLGHG); 
         }
         // append TileTrend object to map
         trend[itcalib->first]=atrend;
@@ -546,36 +554,38 @@ bool ComparisonCalib::Process(void){
   for (Int_t l = 0; l < setup->GetNMaxLayer()+1 && l < maxLayerPlot; l++){    
     if (l%layerVerb == 0 && l > 0 && debug > 0)
       std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 0, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/HGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestal",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 15, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/HGpedwidth_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestalWidth",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 1, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/LGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestal",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 16, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/LGpedwidth_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestalWidth",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 2, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/HGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGScale",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 3, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/LGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGScale",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 4, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 5, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 17, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/LGHG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
-    PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
-                              trend, 18, Xmin,Xmax, l, 0,
-                              Form("%s/SingleLayer/HGLG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+    if (expandedList != 3 ){
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 0, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestal",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 15, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGpedwidth_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGPedestalWidth",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 1, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGped_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestal",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 16, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGpedwidth_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGPedestalWidth",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 2, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGScale",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 3, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGScale_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGScale",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 4, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 5, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGLGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);        
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 17, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/LGHG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGHGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                trend, 18, Xmin,Xmax, l, 0,
+                                Form("%s/SingleLayer/HGLG_Offset_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendHGLGOffet",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+    }
     if (expandedList == 1){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 9, Xmin,Xmax, l, 0,
@@ -596,7 +606,7 @@ bool ComparisonCalib::Process(void){
                                 trend, 14, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/LG_GaussSigma_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendLGGaussSigma",OutputNameDirPlots.Data()), it->second,ExtPlot);      
     }
-    if (expandedList > 0){
+    if (expandedList == 1 || expandedList == 2 ){
       PlotTrendingPerLayer(     canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                 trend, 6, Xmin,Xmax, l, 0,
                                 Form("%s/SingleLayer/MuonTriggers_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/TrendMuonTriggers",OutputNameDirPlots.Data()), it->second,ExtPlot);      
@@ -614,13 +624,15 @@ bool ComparisonCalib::Process(void){
     for (Int_t l = 0; l < setup->GetNMaxLayer()+1 && l < maxLayerPlot; l++){    
       if (l%layerVerb == 0 && l > 0 && debug > 0)
         std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
-      if (expandedList > 0){
+      if (expandedList == 1 || expandedList == 2 ){
         PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                   trend, nRun, 0, -15,850, l, 0,
                                   Form("%s/SingleLayer/MuonTriggers_HGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonHGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
         PlotRunOverlayPerLayer (  canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                   trend, nRun, 1, -10,210, l, 0,
                                   Form("%s/SingleLayer/MuonTriggers_LGDist_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGDist",OutputNameDirPlots.Data()), it->second,ExtPlot);      
+      }
+      if (expandedList > 0 ){
         PlotRunOverlayProfilePerLayer (canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
                                       trend, nRun,-20, 340, -20, 3900, l, 0,
                                       Form("%s/SingleLayer/MuonTriggers_LGHGCorr_Layer%02d.%s" ,OutputNameDirPlots.Data(), l, plotSuffix.Data()),Form("%s/OverlayMuonLGHGCorr",OutputNameDirPlots.Data()), it->second,ExtPlot);      

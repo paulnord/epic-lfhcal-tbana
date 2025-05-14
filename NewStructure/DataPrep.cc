@@ -156,9 +156,9 @@ int main(int argc, char* argv[]){
       AnAnalysis.IsToExtractPedestal(true);
       break;
     case 'P':
-      std::cout<<"DataPrep: Apply pedestal correction from: "<<optarg<<std::endl;
+      std::cout<<"DataPrep: transfer calib object from: "<<optarg<<std::endl;
       AnAnalysis.SetRootPedestalInput(Form("%s",optarg));
-      AnAnalysis.IsToApplyPedestalCorrection(true);
+      AnAnalysis.IsToTransferCalib(true);
       break;
     case 'r':
       std::cout<<"DataPrep: run list file from: "<<optarg<<std::endl;

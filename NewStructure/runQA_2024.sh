@@ -1,5 +1,25 @@
 #! /bin/bash
+
+function QARun()
+{
+	runNrFile='../configs/DataTakingDB_202409_CAEN.csv'
+	echo "============================ QA running =========================================="
+	echo "option $1"
+	echo "DataDir: $2"
+	echo "input file: $5"
+	echo "run Nr: $3"
+	echo "PlotDir: $4"
+	echo "=================================================================================="
+	if [ $1 == "SimpleQA" ]; then 
+		time ./DataAna -e 1 -d 1 -q -i $2/calibrated_Run_$3.root -O $2/SimpleQAHists_Run_$3.root -a -f -r $runNrFile -P $4/SimpleQAPlots/Run_$3	
+		elif [ $1 == "QA" ]; then 
+		time ./DataAna -d 1 -Q -i $2/calibrated_Run_$3.root -O $2/QAHists_Run_$3.root -a -f -r $runNrFile -P $4/QAPlots/Run_$3
+	fi
+}
+
+
 dataDirOut=""
+PlotBaseDir=..
 if [ $1 = "fbock" ]; then 
 	dataDirOut=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/MuonRuns
 	dataDirOutE=/home/fbock/EIC/Analysis/LFHCalTB2024/CAENdata/ElectronRuns
@@ -8,6 +28,11 @@ elif [ $1 = "fbockExt" ]; then
 	dataDirOut=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/MuonRuns
 	dataDirOutE=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/ElectronRuns
 	dataDirOutH=/media/fbock/Samsung_T5/LFHCAL_TB/202408_PST09/CAENdata/HadronRuns
+elif [ $1 = "fbockExt2" ]; then 
+	dataDirOut=/media/fbock/T7/202408_PST09/CAENdata/MuonRuns
+	dataDirOutE=/media/fbock/T7/202408_PST09/CAENdata/ElectronRuns
+	dataDirOutH=/media/fbock/T7/202408_PST09/CAENdata/HadronRuns
+	PlotBaseDir=/media/fbock/T7/202408_PST09
 elif [ $1 = "eglimos" ]; then 
 	dataDirOut=/home/ewa/EIC/test_beam2024/fullScanC/Output/MuonRuns
 	dataDirOutE=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
@@ -23,18 +48,16 @@ pedScanA_45V='271 277'
 if [ $2 == "ScanA" ]; then
 	# 192K events
 	echo "running calibrate for 45V runs, campaing A1"
-# 	runs='251 252 254 257 258 ' 
-  runs='258 ' #5GeV
+	runs='251 252 254 257 258 ' 
 	for runNr in $runs; do 
-    time ./DataAna -d 1 -Q -i $dataDirOutE/calibrated_Run_$runNr.root -O $dataDirOutE/QAHists_Run_$runNr.root -a -f -r $runNrFile -P ../QAPlots/Run_$runNr
+		QARun $3 $dataDirOutE $runNr $PlotBaseDir $dataDirOutE/calibrated_Run_$runNr.root
 	done;
-# 	runs='261 264 265 269 270 272 274 275 ' 
-	runs='264 270 ' #5GeV
+	runs='261 264 265 269 270 272 274 275 ' 
 	for runNr in $runs; do 
-    time ./DataAna -d 1 -Q -i $dataDirOutH/calibrated_Run_$runNr.root -O $dataDirOutH/QAHists_Run_$runNr.root -a -f -r $runNrFile -P ../QAPlots/Run_$runNr
+		QARun $3 $dataDirOutH $runNr $PlotBaseDir $dataDirOutH/calibrated_Run_$runNr.root
 	done;
-  time ./DataAna -d 1 -Q -i $dataDirOut/calibratedMuon_muonScanA1_45V.root -O $dataDirOut/QAHists_Run_muonScanA1_45V.root -a -f -r $runNrFile -P ../QAPlots/muonScanA1_45V
-  time ./DataAna -d 1 -Q -i $dataDirOut/calibratedMuon_muonScanA2_45V.root -O $dataDirOut/QAHists_Run_muonScanA2_45V.root -a -f -r $runNrFile -P ../QAPlots/muonScanA2_45V
+	QARun $3 $dataDirOut muonScanA1_45V $PlotBaseDir $dataDirOut/calibratedMuon_muonScanA1_45V.root
+	QARun $3 $dataDirOut muonScanA2_45V $PlotBaseDir $dataDirOut/calibratedMuon_muonScanA2_45V.root	
 fi
 
 if [ $2 == "ScanC" ]; then
@@ -44,13 +67,13 @@ if [ $2 == "ScanC" ]; then
 	# runs='379 380 381 384 387' 
 	runs='380' 
 	for runNr in $runs; do 
-    	time ./DataAna -d 1 -Q -i $dataDirOutE/calibrated_Run_$runNr.root -O $dataDirOutE/QAHists_Run_$runNr.root -a -f -r $runNrFile -P ../QAPlots/Run_$runNr
+		QARun $3 $dataDirOutE $runNr $PlotBaseDir $dataDirOutE/calibrated_Run_$runNr.root
 	done;
 # 	
 # 	#hadron runs
 	# runs='397 398 399 401' 
 	# for runNr in $runs; do 
-	# 	Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr ../PlotsHadronCalibrated_2024/Run_
+	# 	Calib $3 $calibFile1 $dataDirRawH $dataDirOutH $runNr $PlotBaseDir/PlotsHadronCalibrated_2024/Run_
 	# done;
 fi
 

@@ -66,31 +66,34 @@ bool TileTrend::Fill(double x, const TileCalib& tc, int runNr, double volt){
 
 //===============================================================================
 bool TileTrend::FillExtended(double x, int triggers, int runNr, TH1D* histHG, TH1D* histLG, TProfile* profLGHG ){
-  gTrendTrigger.AddPoint     (x,triggers     );
-  gTrendTrigger.SetPointError(gTrendTrigger.GetN()-1,0.,0.);
-  if(triggers<MinTrigg) MinTrigg  = triggers;
-  if(triggers>MaxTrigg) MaxTrigg  = triggers;
   
-  if (histHG){
-    TH1D temp = *histHG;
-    temp.SetName(Form("%s_Run%i",histHG->GetName(),runNr));
-    temp.SetDirectory(0);
-    temp.Scale(1./triggers);
-    temp.GetYaxis()->SetTitle("Counts/ local mip trigger");
-    temp.Rebin(2);
-    if (MinHGSpec > 1./triggers) MinHGSpec = (double)1./triggers;
-    if (MaxHGSpec < temp.GetMaximum()) MaxHGSpec = temp.GetMaximum();
-    HGTriggRuns[runNr] = temp;
-  }
-  if (histLG){
-    TH1D temp2 = *histLG;
-    temp2.SetName(Form("%s_Run%i",histLG->GetName(),runNr));
-    temp2.SetDirectory(0);
-    temp2.Scale(1./triggers);
-    temp2.GetYaxis()->SetTitle("Counts/ local mip trigger");
-    if (MinLGSpec > 1./triggers) MinLGSpec = (double)1./triggers;
-    if (MaxLGSpec < temp2.GetMaximum()) MaxLGSpec = temp2.GetMaximum();
-    LGTriggRuns[runNr] = temp2;
+  if (extended == 1 || extended == 2){
+    gTrendTrigger.AddPoint     (x,triggers     );
+    gTrendTrigger.SetPointError(gTrendTrigger.GetN()-1,0.,0.);
+    if(triggers<MinTrigg) MinTrigg  = triggers;
+    if(triggers>MaxTrigg) MaxTrigg  = triggers;
+    
+    if (histHG){
+      TH1D temp = *histHG;
+      temp.SetName(Form("%s_Run%i",histHG->GetName(),runNr));
+      temp.SetDirectory(0);
+      temp.Scale(1./triggers);
+      temp.GetYaxis()->SetTitle("Counts/ local mip trigger");
+      temp.Rebin(2);
+      if (MinHGSpec > 1./triggers) MinHGSpec = (double)1./triggers;
+      if (MaxHGSpec < temp.GetMaximum()) MaxHGSpec = temp.GetMaximum();
+      HGTriggRuns[runNr] = temp;
+    }
+    if (histLG){
+      TH1D temp2 = *histLG;
+      temp2.SetName(Form("%s_Run%i",histLG->GetName(),runNr));
+      temp2.SetDirectory(0);
+      temp2.Scale(1./triggers);
+      temp2.GetYaxis()->SetTitle("Counts/ local mip trigger");
+      if (MinLGSpec > 1./triggers) MinLGSpec = (double)1./triggers;
+      if (MaxLGSpec < temp2.GetMaximum()) MaxLGSpec = temp2.GetMaximum();
+      LGTriggRuns[runNr] = temp2;
+    }
   }
   if (profLGHG){
     TProfile temp3 = *profLGHG;
@@ -305,7 +308,7 @@ bool TileTrend::SetLineColor(uint col){
   gTrendLGHGcorr .SetLineColor(col);
   gTrendHGLGOffset .SetLineColor(col);
   gTrendLGHGOffset .SetLineColor(col);
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .SetLineColor(col);
     gTrendSBNoise .SetLineColor(col);
     gTrendSBSignal.SetLineColor(col);
@@ -330,7 +333,7 @@ bool TileTrend::SetMarkerColor(uint col){
   gTrendLGHGcorr .SetMarkerColor(col);
   gTrendHGLGOffset .SetMarkerColor(col);
   gTrendLGHGOffset .SetMarkerColor(col);
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .SetMarkerColor(col);
     gTrendSBNoise .SetMarkerColor(col);
     gTrendSBSignal.SetMarkerColor(col);
@@ -355,7 +358,7 @@ bool TileTrend::SetMarkerStyle(uint col){
   gTrendLGHGcorr .SetMarkerStyle(col);
   gTrendHGLGOffset .SetMarkerStyle(col);
   gTrendLGHGOffset .SetMarkerStyle(col);
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .SetMarkerStyle(col);
     gTrendSBNoise .SetMarkerStyle(col);
     gTrendSBSignal.SetMarkerStyle(col);
@@ -380,7 +383,7 @@ bool TileTrend::SetXAxisTitle(TString title){
   gTrendLGHGcorr .GetXaxis()->SetTitle(title.Data());
   gTrendHGLGOffset .GetXaxis()->SetTitle(title.Data());
   gTrendLGHGOffset .GetXaxis()->SetTitle(title.Data());
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .GetXaxis()->SetTitle(title.Data());
     gTrendSBNoise .GetXaxis()->SetTitle(title.Data());
     gTrendSBSignal.GetXaxis()->SetTitle(title.Data());
@@ -408,7 +411,7 @@ void TileTrend::Sort(){
   gTrendLGHGcorr .Sort();
   gTrendHGLGOffset .Sort();
   gTrendLGHGOffset .Sort();
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .Sort();
     gTrendSBNoise .Sort();
     gTrendSBSignal.Sort();
@@ -437,7 +440,7 @@ bool TileTrend::Write(TFile* f){
   gTrendLGHGcorr .Write();
   gTrendHGLGOffset .Write();
   gTrendLGHGOffset .Write();
-  if (extended > 0){
+  if (extended == 1 || extended == 2 ){
     gTrendTrigger .Write();
     gTrendSBNoise .Write();
     gTrendSBSignal.Write();

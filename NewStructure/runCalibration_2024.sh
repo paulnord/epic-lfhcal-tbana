@@ -40,6 +40,8 @@ function MuonCalib()
 		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp3rd_$3.root -o $5/rawPedAndMuonWBCImp4th_$3.root -O $PlotBaseDir/PlotsCalibMuonImprovedBC_2024/$6_4thIte -r $runNrFile
 	elif [ $1 == "improvedWBC5th" ]; then 
 		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp4th_$3.root -o $5/rawPedAndMuonWBCImp5th_$3.root -O $PlotBaseDir/PlotsCalibMuonImprovedBC_2024/$6_5thIte -r $runNrFile
+	elif [ $1 == "improvedWBC6th" ]; then 
+		time ./DataPrep -f -d 1 -a -S -i $5/rawPedAndMuonWBCImp5th_$3.root -o $5/rawPedAndMuonWBCImp6th_$3.root -O $PlotBaseDir/PlotsCalibMuonImprovedBC_2024/$6_6thIte -r $runNrFile
 	elif [ $1 == "noise" ]; then 
 		./DataPrep -f -d 1  -n -i $5/rawPedAndMuon_$3.root -o $5/rawPedAndMuonNoise_$2.root -O $PlotBaseDir/PlotsCalibNoiseRe_2024/$6 -r $runNrFile
 	elif [ $1 == "transferAlt" ]; then 
@@ -92,9 +94,9 @@ else
 fi
 
 # pedestal runs 
-# pedestalRuns='303 306 308 311 315 271 277 420 454 528 552 553 332 369 377 404 465 476 492 505 521' # all pedestal runs
+# pedestalRuns='271 277 303 306 308 311 315 332 369 377 404 420 454 465 476 492 505 521 528 552 553 ' # all pedestal runs
+pedestalRuns='303 306 308 311 315 420 553 332 369 377 404 465 476 492 505 521' # all pedestal runs
 # pedestalRuns='271 277 454 528 552' # pedestal runs 45V
-pedestalRuns='454 528 552' # pedestal runs 45V
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./DataPrep -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O $PlotBaseDir/PlotsPedestal_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -102,21 +104,21 @@ if [ $2 = "pedestal" ]; then
 fi
 
 if [ $2 == "mergemuons" ]; then
-	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
-	hadd -f $dataDirRaw/raw_muonScanA2_45V.root $dataDirRaw/raw_283.root $dataDirRaw/raw_282.root
+# 	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
+# 	hadd -f $dataDirRaw/raw_muonScanA2_45V.root $dataDirRaw/raw_283.root $dataDirRaw/raw_282.root
 	# hadd -f $dataDirRaw/raw_muonScanD1_45V.root $dataDirRaw/raw_412.root $dataDirRaw/raw_417.root
-	hadd -f $dataDirRaw/raw_muonScanD2_45V.root $dataDirRaw/raw_460.root $dataDirRaw/raw_456.root $dataDirRaw/raw_457.root
-	hadd -f $dataDirRaw/raw_muonScanH1_45V.root $dataDirRaw/raw_526.root $dataDirRaw/raw_527.root
-	hadd -f $dataDirRaw/raw_muonScanH2_45V.root $dataDirRaw/raw_554.root $dataDirRaw/raw_559.root
-# 	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
-# 	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
-# 	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
-# 	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_410.root $dataDirRaw/raw_408.root
-# 	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
-# 	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
-# 	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
-# 	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
-# 	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
+# 	hadd -f $dataDirRaw/raw_muonScanD2_45V.root $dataDirRaw/raw_460.root $dataDirRaw/raw_456.root $dataDirRaw/raw_457.root
+# 	hadd -f $dataDirRaw/raw_muonScanH1_45V.root $dataDirRaw/raw_526.root $dataDirRaw/raw_527.root
+# 	hadd -f $dataDirRaw/raw_muonScanH2_45V.root $dataDirRaw/raw_554.root $dataDirRaw/raw_559.root
+	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
+	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
+	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
+	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_410.root $dataDirRaw/raw_408.root
+	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
+	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
+	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
+	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
+	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
 fi
 
 
@@ -213,7 +215,7 @@ fi
 # 202.6K events
 muonScanB1_42V='331 322'
 pedScanB1_42V='332'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB1" ] || [ $2 == "muoncalib42V" ]; then
 	echo "running muon calib for 42V runs, campaing B1"
 	MuonCalib $3 $pedScanB1_42V muonScanB1_42V $dataDirRaw $dataDirOut muonScanB1_42V $badChannelMap
 fi
@@ -221,7 +223,7 @@ fi
 # 214.8k events
 muonScanB2_42V='370 371 374'
 pedScanB2_42V='369'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibB2" ] || [ $2 == "muoncalib42V" ]; then
 	echo "running muon calib for 42V runs, campaing B2"
 	MuonCalib $3 $pedScanB2_42V muonScanB2_42V $dataDirRaw $dataDirOut muonScanB2_42V $badChannelMap
 fi
@@ -243,21 +245,21 @@ fi
 # 40.7K events
 muonScanE1_40V='463 464'
 pedScanE1_40V='465'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE1" ] || [ $2 == "muoncalib40V" ] ; then
 	echo "running muon calib for 40V runs, campaing E1"
 	MuonCalib $3 $pedScanE1_40V muonScanE1_40V $dataDirRaw $dataDirOut muonScanE1_40V $badChannelMap
 fi
 
 muonScanE2_40V='481 478'
 pedScanE2_40V='476'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibE2" ]  || [ $2 == "muoncalib40V" ]; then
 	MuonCalib $3 $pedScanE2_40V muonScanE2_40V $dataDirRaw $dataDirOut muonScanE2_40V $badChannelMap
 fi
 
 # 22.6K events
 muonScanF1_41V='486 489'
 pedScanF1_41V='492'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF1" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF1" ] || [ $2 == "muoncalib41V" ]; then
 	echo "running muon calib for 41V runs, campaing F1"
 	MuonCalib $3 $pedScanF1_41V muonScanF1_41V $dataDirRaw $dataDirOut muonScanF1_41V $badChannelMap
 fi
@@ -265,7 +267,7 @@ fi
 # 42.8K events
 muonScanF2_41V='507 506'
 pedScanF2_41V='505'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF2" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibF2" ] || [ $2 == "muoncalib41V" ]; then
 	echo "running muon calib for 41V runs, campaing F2"
 	MuonCalib $3 $pedScanF2_41V muonScanF2_41V $dataDirRaw $dataDirOut muonScanF2_41V $badChannelMap
 fi
@@ -273,7 +275,7 @@ fi
 # 101.7K events
 muonScanG_46V='508 510 511 525'
 pedScanG_46V='521'
-if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibG" ]; then
+if [ $2 == "muoncalibAll" ] || [ $2 == "muoncalibG" ] || [ $2 == "muoncalib46V" ]; then
 	echo "running muon calib for 46V runs, campaing G"
 	MuonCalib $3 $pedScanG_46V muonScanG_46V $dataDirRaw $dataDirOut muonScanG_46V $badChannelMap
 fi

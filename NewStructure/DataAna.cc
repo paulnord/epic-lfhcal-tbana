@@ -48,7 +48,7 @@ int main(int argc, char* argv[]){
   }
   DataAnalysis AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"afF:P:o:O:e:r:d:i:y:hQ"))!=-1){
+  while((c=getopt(argc,argv,"ad:e:fF:hi:o:O:P:qQr:y:"))!=-1){
     switch(c){
     case 'a':
       std::cout<<"printing calib object to file"<<std::endl;
@@ -57,6 +57,10 @@ int main(int argc, char* argv[]){
     case 'd':
       std::cout<<"enable debug " << optarg <<std::endl;
       AnAnalysis.EnableDebug(atoi(optarg));
+      break;
+    case 'e':
+      std::cout<<"enabling extended plotting: "<< optarg<<std::endl;
+      AnAnalysis.SetExtPlotting(atoi(optarg));
       break;
     case 'f':
       std::cout<<"If output already exists it will be overwritten"<<std::endl;
@@ -82,9 +86,9 @@ int main(int argc, char* argv[]){
       std::cout<<"Outputdir plots to be saved in: "<<optarg<<std::endl;
       AnAnalysis.SetPlotOutputDir(Form("%s",optarg));
       break;
-    case 'e':
-      std::cout<<"enabling extended plotting: "<< optarg<<std::endl;
-      AnAnalysis.SetExtPlotting(atoi(optarg));
+    case 'q':
+      std::cout<<"running very simple QA"<<std::endl;
+      AnAnalysis.IsToSimpleRunQA(true);
       break;
     case 'Q':
       std::cout<<"running QA"<<std::endl;

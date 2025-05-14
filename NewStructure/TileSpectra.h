@@ -41,7 +41,7 @@ class TileSpectra: public TObject{
     hspectraHGLG  = TProfile(Form("hCoorspectra%sHGLGCellID%d",name.Data(),id),Form("ADC High  Gain/Low Gain correlation CellID %d; HG ADC (arb. units); LG ADC (arb. units)",id),4100,-100,4000);
     hspectraHGLG.SetDirectory(0);
   }
-  TileSpectra(TString name, int ext, int id, TileCalib* cal, int deb=0):TObject()
+  TileSpectra(TString name, int ext, int id, TileCalib* cal, ReadOut::Type type, int deb=0):TObject()
   {
     TileName      = name;
     extend        = ext;
@@ -63,13 +63,23 @@ class TileSpectra: public TObject{
       hcombined.SetDirectory(0);
       hspectraLGHG  = TProfile(Form("hCoorspectra%sLGHGCellID%d",name.Data(),id),Form("ADC Low  Gain/High Gain correlation CellID %d; Corr LG  (arb. units); HG E (mip eq./tile)",id),800,0,800);
       hspectraLGHG.SetDirectory(0);
+      hspectraHGLG  = TProfile(Form("hCoorspectra%sHGLGCellID%d",name.Data(),id),Form("ADC Low Gain converted CellID %d; LG (arb. units); LG ( HG eq.)- HG",id),700,-100,600);
+      hspectraHGLG.SetDirectory(0);
+    } else if (extend == 2){
+      hspectraHG    = TH1D(Form("hspectra%sHGCellID%d",name.Data(),id),Form("ADC spectrum High Gain CellID %d; Corr HG ADC (arb. units); counts ",id),1050,-200,4000);
+      hspectraHG.SetDirectory(0);
+      hspectraLG    = TH1D(Form("hspectra%sLGCellID%d",name.Data(),id),Form("ADC spectrum Low  Gain CellID %d; Corr LG ADC (arb. units); counts",id),1050,-200,4000);
+      hspectraLG.SetDirectory(0);
+      hspectraLGHG  = TProfile(Form("hCoorspectra%sLGHGCellID%d",name.Data(),id),Form("ADC Low  Gain/High Gain correlation CellID %d; Corr LG  (arb. units); HG E (mip eq./tile)",id),400,0,400);
+      hspectraLGHG.SetDirectory(0);
+      hcorr         = TH2D(Form("hCoor2D%sLGHGCellID%d",name.Data(),id),Form("2D ADC Low  Gain/High Gain correlation CellID %d; Corr LG  (arb. units); HG E (mip eq./tile)",id),400,0,400, 525, -200, 4000 );
     }
   }
   ~TileSpectra(){}
 
   bool Fill(double, double);
   bool FillSpectra(double, double);
-  bool FillExt(double, double, double);
+  bool FillExt(double, double, double, double);
   bool FillCorr(double, double);
   bool FillTrigger(double);
   
@@ -95,7 +105,8 @@ class TileSpectra: public TObject{
   TH1D* GetTriggPrim();
   TProfile* GetLGHGcorr();
   TProfile* GetHGLGcorr();
-
+  TH2D* GetCorr();
+  
   TF1* GetBackModel(int);
   TF1* GetSignalModel(int);
   TF1* GetCorrModel(int);
@@ -130,6 +141,7 @@ class TileSpectra: public TObject{
   TH1D hcombined;
   TProfile hspectraLGHG;
   TProfile hspectraHGLG;
+  TH2D hcorr;
   static double langaufun(double */*x*/, double */*par*/);
   static int langaupro(double */*params*/, double &/*maxx*/, double &/*FWHM*/);
 
