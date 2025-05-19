@@ -106,8 +106,22 @@ elif [ $2 == "fullScanC" ]; then
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;
+elif [ $2 == "fullElectrons" ]; then  
+  runs='251 252 254 257 258 333 334 336 337 338 379 380 381 384 387 421 422 429 430 432 466 467 468 471 472 494 495 497 502 504 513 514 516 517 520 529 530 533 535 538 541 '
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/ElectronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;
+  
+elif [ $2 == "fullHadrons" ]; then
+  runs='261 264 265 269 270 272 274 275 340 349 346 350 357 360 362 367 368 390 392 393 394 397 398 399 401 434 437 439 441 444 445 449 452 542 543 544 545 548 549 550 551' 
+  for runNr in $runs; do 
+    ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/HadronRuns/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
+  done;
+
 else 
-  runs='244	250	271	277	282	283	303	305	306	307	308	309	311	312	315	316	322	331	332	369	370	371	374	375	376	377	404	405	408	410	412	417	420	454	456	457	460	463	464	465	476	478	481	486	489	492	505	506	507	508	510	511	521	524	525	526	527	528	552	553	554	559' 
+#   runs='244	250	271	277	282	283	303	305	306	307	308	309	311	312	315	316	322	331	332	369	370	371	374	375	376	377	404	405	408	410	412	417	420	454	456	457	460	463	464	465	476	478	481	486	489	492	505	506	507	508	510	511	521	524	525	526	527	528	552	553	554	559' 
+  runs='417	420	454	456	457	460	463	464	465	476	478	481	486	489	492	505	506	507	508	510	511	521	524	525	526	527	528	552	553	554	559' 
+  #412
   for runNr in $runs; do 
     ./Convert -c $dataDir/Run$runNr\_list.txt -o $dataRaw/raw_$runNr.root -d 1 -f -m ../configs/mappingFile_202409_CAEN.txt -r ../configs/DataTakingDB_202409_CAEN.csv
   done;

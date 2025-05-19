@@ -65,78 +65,78 @@ bool TileSpectra::FitNoise(double* out, int year = -1, bool isNoiseTrigg = false
       BackgroundLG.SetParLimits(2,0,100);     // might need to make these values settable      
     }
     double maxLG = 0;
-  if (isNoiseTrigg){
-    maxLG = GetMaxXInRangeLG(0,300);
-    BackgroundLG.SetParameter(1,maxLG);
-    BackgroundLG.SetParLimits(1,maxLG-5,maxLG+5);
-    if (debug > 1) std::cout << "reset LG: " << maxLG << std::endl;
-  }
-  
-  if (!isNoiseTrigg){
-    BackgroundLG.SetParLimits(0,0,hspectraLG.GetEntries());
-    BackgroundLG.SetParameter(0,hspectraLG.GetEntries()/5);
-    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S"); // initial fit
-    double minLGFit = result->Parameter(1)-2*result->Parameter(2);
-    double maxLGFit = result->Parameter(1)+1*result->Parameter(2);
-    if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
-    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", minLGFit, maxLGFit);  // limit to 2sigma
-  } else {
-    result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", maxLG-20, maxLG+30);  // limit to 2sigma
-    if (debug > 1) std::cout <<"LG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
-  }
-  bpedLG=true;
-  calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-  calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-  out[0]=result->Parameter(1);
-  out[1]=result->Error(1);
-  out[2]=result->Parameter(2);
-  out[3]=result->Error(2);
-  
-  // estimate HG pedestal per channel
-  BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
-  BackgroundHG.SetNpx(400);
-  if (year == 2023){
-    BackgroundHG.SetParameter(1,60);
-    BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
-    BackgroundHG.SetRange(0,200);
-  } else {
-    BackgroundHG.SetParameter(1,hspectraHG.GetMean());
-    BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
-  }
-  BackgroundHG.SetParameter(2,10);  
-  BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
-  
-  double maxHG = 0;
-  if (isNoiseTrigg){
-    maxHG = GetMaxXInRangeHG(0,300);
-    BackgroundHG.SetParameter(2,20);  
-    BackgroundHG.SetParameter(1,maxHG);
-    BackgroundHG.SetParLimits(1,maxHG-5,maxHG+5);
-    if (debug > 1) std::cout << "reset HG: " << maxHG << std::endl;
-  }
-  
-  if (!isNoiseTrigg){
-    BackgroundHG.SetParLimits(0,0,hspectraHG.GetEntries());
-    BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/10);
-    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S");      // initial fit
-    double minHGFit = result->Parameter(1)-2*result->Parameter(2);
-    double maxHGFit = result->Parameter(1)+1*result->Parameter(2);
-    if (debug > 1) std::cout <<"HG: " << minHGFit << "\t" << maxHGFit << "\t" << hspectraHG.GetEntries() << "\t" << hspectraHG.GetMean()<< std::endl;
-    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",minHGFit, maxHGFit);  // limit to 2sigma range of previous fit
-  } else {
-    result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",maxHG-40, maxHG+60);
-    if (debug > 1) std::cout <<"HG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
-  }
-  bpedHG=true;
-  
-  calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
-  calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
-  out[4]=result->Parameter(1);
-  out[5]=result->Error(1);
-  out[6]=result->Parameter(2);
-  out[7]=result->Error(2);
-  
-  return true;
+    if (isNoiseTrigg){
+      maxLG = GetMaxXInRangeLG(0,300);
+      BackgroundLG.SetParameter(1,maxLG);
+      BackgroundLG.SetParLimits(1,maxLG-5,maxLG+5);
+      if (debug > 1) std::cout << "reset LG: " << maxLG << std::endl;
+    }
+    
+    if (!isNoiseTrigg){
+      BackgroundLG.SetParLimits(0,0,hspectraLG.GetEntries());
+      BackgroundLG.SetParameter(0,hspectraLG.GetEntries()/5);
+      result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S"); // initial fit
+      double minLGFit = result->Parameter(1)-2*result->Parameter(2);
+      double maxLGFit = result->Parameter(1)+1*result->Parameter(2);
+      if (debug > 1) std::cout << "LG: " << minLGFit << "\t" << maxLGFit << "\t" << hspectraLG.GetEntries() << "\t" << hspectraLG.GetMean()<< std::endl;
+      result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", minLGFit, maxLGFit);  // limit to 2sigma
+    } else {
+      result=hspectraLG.Fit(&BackgroundLG,"QRMEN0S","", maxLG-20, maxLG+30);  // limit to 2sigma
+      if (debug > 1) std::cout <<"LG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
+    }
+    bpedLG=true;
+    calib->PedestalMeanL=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+    calib->PedestalSigL =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+    out[0]=result->Parameter(1);
+    out[1]=result->Error(1);
+    out[2]=result->Parameter(2);
+    out[3]=result->Error(2);
+    
+    // estimate HG pedestal per channel
+    BackgroundHG=TF1(Form("fped%sHGCellID%d",TileName.Data(),cellID),"gaus",0,400);
+    BackgroundHG.SetNpx(400);
+    if (year == 2023){
+      BackgroundHG.SetParameter(1,60);
+      BackgroundHG.SetParLimits(1,0,100);     // might need to make these values settable
+      BackgroundHG.SetRange(0,200);
+    } else {
+      BackgroundHG.SetParameter(1,hspectraHG.GetMean());
+      BackgroundHG.SetParLimits(1,0,hspectraHG.GetMean()+100);     // might need to make these values settable
+    }
+    BackgroundHG.SetParameter(2,10);  
+    BackgroundHG.SetParLimits(2,0,100);     // might need to make these values settable    
+    
+    double maxHG = 0;
+    if (isNoiseTrigg){
+      maxHG = GetMaxXInRangeHG(0,300);
+      BackgroundHG.SetParameter(2,20);  
+      BackgroundHG.SetParameter(1,maxHG);
+      BackgroundHG.SetParLimits(1,maxHG-5,maxHG+5);
+      if (debug > 1) std::cout << "reset HG: " << maxHG << std::endl;
+    }
+    
+    if (!isNoiseTrigg){
+      BackgroundHG.SetParLimits(0,0,hspectraHG.GetEntries());
+      BackgroundHG.SetParameter(0,hspectraHG.GetEntries()/10);
+      result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S");      // initial fit
+      double minHGFit = result->Parameter(1)-2*result->Parameter(2);
+      double maxHGFit = result->Parameter(1)+1*result->Parameter(2);
+      if (debug > 1) std::cout <<"HG: " << minHGFit << "\t" << maxHGFit << "\t" << hspectraHG.GetEntries() << "\t" << hspectraHG.GetMean()<< std::endl;
+      result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",minHGFit, maxHGFit);  // limit to 2sigma range of previous fit
+    } else {
+      result=hspectraHG.Fit(&BackgroundHG,"QRMEN0S","",maxHG-40, maxHG+60);
+      if (debug > 1) std::cout <<"HG: " << result->Parameter(0) << "\t"<< result->Parameter(1) << "\t" << result->Parameter(2) << std::endl;
+    }
+    bpedHG=true;
+    
+    calib->PedestalMeanH=result->Parameter(1);//Or maybe we do not want to do it automatically, only if =0?
+    calib->PedestalSigH =result->Parameter(2);//Or maybe we do not want to do it automatically, only if =0?
+    out[4]=result->Parameter(1);
+    out[5]=result->Error(1);
+    out[6]=result->Parameter(2);
+    out[7]=result->Error(2);
+    
+    return true;
   } else if (ROType == ReadOut::Type::Hgcroc) {
     /*
     QRMEN0S

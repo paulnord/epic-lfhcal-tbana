@@ -1,0 +1,7 @@
+year 2024
+month 12
+readout CAEN
+facility ORNL
+beam-line cosmics
+#Run #,beam species,pdg,beam energy (GeV),Voltage,Vbr,HG gain,LG HG,Xpos,Ypos
+1566,cosmics,-13,5,43,38.3,50,50,-2.5,2.5
