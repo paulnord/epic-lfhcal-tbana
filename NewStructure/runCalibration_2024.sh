@@ -88,6 +88,14 @@ elif [ $1 = "eglimos" ]; then
 	dataDirOutE=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
 	dataDirOutH=/home/ewa/EIC/test_beam2024/fullScanC/Output/HadronRuns
 	PlotBaseDir=..
+elif [ $1 = "kmaret" ]; then
+	dataDirRaw=/mnt/d/202408_PST9_converted/MuonRuns
+	dataDirRawE=/mnt/d/202408_PST9_converted
+	dataDirRawH=/mnt/d/202408_PST9_converted
+	dataDirOut=/mnt/d/202408_PST9_converted/MuonRuns
+	dataDirOutE=/mnt/d/202408_PST9_converted
+	dataDirOutH=/mnt/d/202408_PST9_converted
+	PlotBaseDir=/mnt/d/202408_PST9_converted/MuonRuns
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit
@@ -95,8 +103,8 @@ fi
 
 # pedestal runs 
 # pedestalRuns='271 277 303 306 308 311 315 332 369 377 404 420 454 465 476 492 505 521 528 552 553 ' # all pedestal runs
-pedestalRuns='303 306 308 311 315 420 553 332 369 377 404 465 476 492 505 521' # all pedestal runs
-# pedestalRuns='271 277 454 528 552' # pedestal runs 45V
+#pedestalRuns='303 306 308 311 315 420 553 332 369 377 404 465 476 492 505 521' # all pedestal runs
+ pedestalRuns='271 277 454 528 552' # pedestal runs 45V
 if [ $2 = "pedestal" ]; then
 	for runNr in $pedestalRuns; do
 		./DataPrep -d 1 -p -i $dataDirRaw/raw_$runNr.root -f -o $dataDirOut/PedestalCalib_$runNr.root -O $PlotBaseDir/PlotsPedestal_2024/Run$runNr -r ../configs/DataTakingDB_202409_CAEN.csv
@@ -104,21 +112,21 @@ if [ $2 = "pedestal" ]; then
 fi
 
 if [ $2 == "mergemuons" ]; then
-# 	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
+ 	hadd -f $dataDirRaw/raw_muonScanA1_45V.root $dataDirRaw/raw_244.root $dataDirRaw/raw_250.root
 # 	hadd -f $dataDirRaw/raw_muonScanA2_45V.root $dataDirRaw/raw_283.root $dataDirRaw/raw_282.root
 	# hadd -f $dataDirRaw/raw_muonScanD1_45V.root $dataDirRaw/raw_412.root $dataDirRaw/raw_417.root
 # 	hadd -f $dataDirRaw/raw_muonScanD2_45V.root $dataDirRaw/raw_460.root $dataDirRaw/raw_456.root $dataDirRaw/raw_457.root
 # 	hadd -f $dataDirRaw/raw_muonScanH1_45V.root $dataDirRaw/raw_526.root $dataDirRaw/raw_527.root
 # 	hadd -f $dataDirRaw/raw_muonScanH2_45V.root $dataDirRaw/raw_554.root $dataDirRaw/raw_559.root
-	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
-	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
-	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
-	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_410.root $dataDirRaw/raw_408.root
-	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
-	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
-	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
-	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
-	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
+#	hadd -f $dataDirRaw/raw_muonScanB1_42V.root $dataDirRaw/raw_331.root $dataDirRaw/raw_322.root
+#	hadd -f $dataDirRaw/raw_muonScanB2_42V.root $dataDirRaw/raw_370.root $dataDirRaw/raw_371.root $dataDirRaw/raw_374.root
+#	hadd -f $dataDirRaw/raw_muonScanC1_43_5V.root $dataDirRaw/raw_376.root $dataDirRaw/raw_375.root
+#	hadd -f $dataDirRaw/raw_muonScanC2_43_5V.root $dataDirRaw/raw_405.root $dataDirRaw/raw_410.root $dataDirRaw/raw_408.root
+#	hadd -f $dataDirRaw/raw_muonScanE1_40V.root $dataDirRaw/raw_464.root $dataDirRaw/raw_463.root
+#	hadd -f $dataDirRaw/raw_muonScanE2_40V.root $dataDirRaw/raw_481.root $dataDirRaw/raw_478.root
+#	hadd -f $dataDirRaw/raw_muonScanF1_41V.root $dataDirRaw/raw_486.root $dataDirRaw/raw_489.root
+#	hadd -f $dataDirRaw/raw_muonScanF2_41V.root $dataDirRaw/raw_507.root $dataDirRaw/raw_506.root
+#	hadd -f $dataDirRaw/raw_muonScanG_46V.root $dataDirRaw/raw_508.root $dataDirRaw/raw_510.root $dataDirRaw/raw_511.root $dataDirRaw/raw_525.root
 fi
 
 

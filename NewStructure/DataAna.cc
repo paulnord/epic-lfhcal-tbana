@@ -30,6 +30,7 @@ void PrintHelp(char* exe){
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
   std::cout<<"-F fff   set plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-i uuu   Input file in root format"<<std::endl;
+  std::cout<<"-n nnn Input the maximum number of events you would like to run"<<std::endl;
   std::cout<<"-o vvv   Output file name "<<std::endl;
   std::cout<<"-O kkk   Output Histos saved in"<<std::endl;
   std::cout<<"-P zzz   Plots directory path"<<std::endl;
@@ -48,7 +49,7 @@ int main(int argc, char* argv[]){
   }
   DataAnalysis AnAnalysis;
   int c;
-  while((c=getopt(argc,argv,"ad:e:fF:hi:o:O:P:qQr:y:"))!=-1){
+  while((c=getopt(argc,argv,"ad:e:fF:hi:n:o:O:P:qQr:y:"))!=-1){
     switch(c){
     case 'a':
       std::cout<<"printing calib object to file"<<std::endl;
@@ -73,6 +74,10 @@ int main(int argc, char* argv[]){
     case 'i':
       std::cout<<"Root input file is: "<<optarg<<std::endl;
       AnAnalysis.SetRootInput(Form("%s",optarg));
+      break;
+    case 'n':
+      std::cout<<"Maximum number of events is changed to "<<optarg<<std::endl;
+      AnAnalysis.SetMaximumEvents(atoi(optarg));
       break;
     case 'o':
       std::cout<<"Output to be saved in: "<<optarg<<std::endl;
