@@ -62,6 +62,16 @@ elif [ $1 = "eglimos" ]; then
 	dataDirOutE=/home/ewa/EIC/test_beam2024/fullScanC/Output/ElectronRuns
 	dataDirOutH=/home/ewa/EIC/test_beam2024/fullScanC/Output/HadronRuns
 	PlotBaseDir=..
+elif [ $1 = "kmaret" ]; then
+	dataDirCal=/mnt/d/202408_PST9_converted/MuonRuns
+	dataDirIn=/mnt/d/202408_PST9_converted/MuonRuns
+	dataDirInE=/mnt/d/202408_PST9_converted
+	dataDirInH=/mnt/d/202408_PST9_converted
+	dataDirOut=/mnt/d/202408_PST9_converted/MuonRuns
+	dataDirOutE=/mnt/d/202408_PST9_converted
+	dataDirOutH=/mnt/d/202408_PST9_converted
+	PlotBaseDir=/mnt/d/202408_PST9_converted/MuonRuns
+
 else
 	echo "Please select a known user name, otherwise I don't know where the data is"
 	exit
