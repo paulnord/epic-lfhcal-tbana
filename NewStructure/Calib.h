@@ -15,9 +15,11 @@ struct TileCalib{
   double ScaleWidthH    = -1000.;
   double ScaleL         = -1000.;
   double ScaleWidthL    = -1000.;
-  double LGHGCorr   = -64;
-  double HGLGCorr   = -64;
-  short BadChannel  = -64;
+  double LGHGCorr       = -64;
+  double LGHGCorrOff    = -1000.;
+  double HGLGCorr       = -64;
+  double HGLGCorrOff    = -1000.;
+  short BadChannel      = -64;
 } ;
 
 class Calib{
@@ -44,10 +46,15 @@ class Calib{
   double GetScaleLow (int /**/, int /**/, int /**/, int /**/) const;
   double GetScaleWidthLow (int /**/) const;
   double GetScaleWidthLow (int /**/, int /**/, int /**/, int /**/) const;
-  double GetScaleLGHGCorr (int /**/) const;
-  double GetScaleLGHGCorr (int /**/, int /**/, int /**/, int /**/) const;
-  double GetScaleHGLGCorr (int /**/) const;
-  double GetScaleHGLGCorr (int /**/, int /**/, int /**/, int /**/) const;
+  double GetLGHGCorr (int /**/) const;
+  double GetLGHGCorr (int /**/, int /**/, int /**/, int /**/) const;
+  double GetLGHGCorrOff (int /**/) const;
+  double GetLGHGCorrOff (int /**/, int /**/, int /**/, int /**/) const;
+  double GetHGLGCorr (int /**/) const;
+  double GetHGLGCorr (int /**/, int /**/, int /**/, int /**/) const;
+  double GetHGLGCorrOff (int /**/) const;
+  double GetHGLGCorrOff (int /**/, int /**/, int /**/, int /**/) const;
+  
   double GetAveragePedestalMeanHigh() const;
   double GetAveragePedestalSigHigh() const;
   double GetAveragePedestalMeanLow() const;
@@ -58,7 +65,10 @@ class Calib{
   double GetAverageScaleLow() const;
   double GetAverageScaleWidthLow() const;
   double GetAverageHGLGCorr() const;
+  double GetAverageHGLGCorrOff() const;
   double GetAverageLGHGCorr() const;
+  double GetAverageLGHGCorrOff() const;
+  
   int GetNumberOfChannelsWithBCflag (short ) const;
   short GetBadChannel(int /**/) const;
   short GetBadChannel(int /**/, int /**/, int /**/, int /**/) const;
@@ -82,23 +92,35 @@ class Calib{
   void   SetScaleLow (double, int, int, int, int);
   void   SetScaleWidthLow (double, int);
   void   SetScaleWidthLow (double, int, int, int, int);
-  void   SetScaleLGHGCorr (double, int);
-  void   SetScaleLGHGCorr (double, int, int, int, int);
-  void   SetScaleHGLGCorr (double, int);
-  void   SetScaleHGLGCorr (double, int, int, int, int);
+  void   SetLGHGCorr (double, int);
+  void   SetLGHGCorr (double, int, int, int, int);
+  void   SetLGHGCorrOff (double, int);
+  void   SetLGHGCorrOff (double, int, int, int, int);
+  void   SetHGLGCorr (double, int);
+  void   SetHGLGCorr (double, int, int, int, int);
+  void   SetHGLGCorrOff (double, int);
+  void   SetHGLGCorrOff (double, int, int, int, int);
   void   SetBadChannel (short, int);
   void   SetBadChannel (short, int, int, int, int);
   
   int GetRunNumber(void);
+  int GetRunNumberPed(void);
+  int GetRunNumberMip(void);
   const TTimeStamp* GetBeginRunTime(void) const;
+  const TTimeStamp* GetBeginRunTimePed(void) const;
+  const TTimeStamp* GetBeginRunTimeMip(void) const;
   double GetVov(void);
   double GetVop(void);
   bool GetBCCalib(void);            // is bad channel map calculated
 
-  void SetRunNumber(int);           // How to handle pedestal and mip which may come from different runs?
-  void SetBeginRunTime(TTimeStamp); // How to handle pedestal and mip which may come from different runs?
-  void SetVop(double);              // This should anyway be the same for ped/mip/data
-  void SetVov(double);              // This should anyway be the same for ped/mip/data
+  void SetRunNumber(int);           // 
+  void SetRunNumberPed(int);           // 
+  void SetRunNumberMip(int);           // 
+  void SetBeginRunTime(TTimeStamp); // 
+  void SetBeginRunTimePed(TTimeStamp); // 
+  void SetBeginRunTimeMip(TTimeStamp); // 
+  void SetVop(double);              // 
+  void SetVov(double);              // 
   void SetBCCalib(bool);            // Bad channel map calculated
 
   void PrintGlobalInfo();
@@ -111,12 +133,16 @@ class Calib{
  private:
    
   std::map<int, TileCalib> CaloCalib;
-  int RunNumber;
+  int RunNumber    = -1 ;
+  int RunNumberPed = -1;
+  int RunNumberMip = -1;
   TTimeStamp BeginRunTime;
+  TTimeStamp BeginRunTimePed;
+  TTimeStamp BeginRunTimeMip;
   double Vop;
   double Vov;
   bool BCcalc;
-  ClassDef(Calib,4)
+  ClassDef(Calib,5)
 };
 
 

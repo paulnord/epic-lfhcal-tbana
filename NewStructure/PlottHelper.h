@@ -1467,6 +1467,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
           else if (bctemp == 0)
             boxCol = kGray+2;
           TBox* badChannelArea =  CreateBox(boxCol, xPMin, 0.7, xPMax,scaleYMax*maxY, 1001 );
+          badChannelArea->SetFillColorAlpha(boxCol, 0.35);
           badChannelArea->Draw();
           tempHist->Draw("same,axis");
           tempHist->Draw("same,pe");
@@ -1498,6 +1499,8 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         } else {
           labelChannel->Draw();  
         }
+      
+        if (xPMin < -5) DrawLines(0, 0,0.7, scaleYMax*maxY, 2, kGray+1, 10);  
       
         if (p ==7 ){
           DrawLatex(topRCornerX[p]-0.04, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), true, 0.85*relSize8P[p], 42);
@@ -1924,7 +1927,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
   // Plot Corr with Fits for Full layer
   //__________________________________________________________________________________________________________
   void PlotCorrWithFitsFullLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
-                                  std::map<int,TileSpectra> spectra, bool isHG, 
+                                  std::map<int,TileSpectra> spectra, int option, 
                                   Double_t xPMin, Double_t xPMax, Double_t maxY, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
                                   
     Setup* setupT = Setup::GetInstance();
@@ -1956,7 +1959,7 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         continue;
         } 
         TProfile* tempProfile = nullptr;
-        if (isHG){
+        if (option == 1 || option == 2){
             tempProfile = ithSpectra->second.GetHGLGcorr();
         } else {
             tempProfile = ithSpectra->second.GetLGHGcorr();
@@ -1969,10 +1972,17 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         // SetStyleTProfile( tempProfile, tempProfile->GetXaxis()->GetTitle(), tempProfile->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.1, 510, 510, 43, 63);  
         SetMarkerDefaultsProfile(tempProfile, 20, 1, kBlue+1, kBlue+1);   
         Int_t maxX = 3900;        
-        if (!isHG)
+        if (option == 0 || option == 2 )
           maxX = 340;
-        dummyhist->GetXaxis()->SetRangeUser(0,maxX);
-        dummyhist->GetYaxis()->SetRangeUser(0,maxY);
+        if (option == 2){
+          dummyhist->GetYaxis()->SetRangeUser(-maxY,maxY);
+          dummyhist->GetXaxis()->SetRangeUser(xPMin,maxX);
+        } else {
+          dummyhist->GetYaxis()->SetRangeUser(0,maxY);
+          dummyhist->GetXaxis()->SetRangeUser(0,maxX);
+        }
+        
+        
         dummyhist->Draw("axis");
 
         short bctemp = ithSpectra->second.GetCalib()->BadChannel;
@@ -1998,11 +2008,107 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
 
         
         TF1* fit            = nullptr;
-        if (isHG){
+        if (option == 1 ){
           fit = ithSpectra->second.GetCorrModel(1);
-        } else {
+        } else if (option == 0 ){
           fit = ithSpectra->second.GetCorrModel(0);
         }
+        if (fit){
+          Double_t rangeFit[2] = {0,0};
+          fit->GetRange(rangeFit[0], rangeFit[1]);
+          SetStyleFit(fit , rangeFit[0], rangeFit[1], 7, 3, kRed+3);
+          fit->Draw("same");
+          TLegend* legend = GetAndSetLegend2( topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-0.4*relSize8P[p], topRCornerX[p]+6*relSize8P[p], topRCornerY[p]-0.6*relSize8P[p],0.85*textSizePixel, 1, label, 43,0.1);
+          legend->AddEntry(fit, "linear fit, trigg.", "l");
+          legend->AddEntry((TObject*)0, Form("#scale[0.8]{b = %2.3f #pm %2.4f}",fit->GetParameter(0), fit->GetParError(0) ) , " ");
+          legend->AddEntry((TObject*)0, Form("#scale[0.8]{a = %2.3f #pm %2.4f}",fit->GetParameter(1), fit->GetParError(1) ) , " ");
+          legend->Draw();
+        } else {
+          labelChannel->Draw();  
+        }
+      
+        if (option == 2){
+         DrawLines(xPMin,maxX,0, 0, 2, kGray+1, 10);   
+        }
+        if (p ==7 ){
+          DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+          DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+        }
+      }
+    }
+    if (skipped < 6)
+      canvas8Panel->SaveAs(nameOutput.Data());
+  }
+
+  
+  //__________________________________________________________________________________________________________
+  // Plot Corr with Fits for Full layer 2D
+  //__________________________________________________________________________________________________________
+  void PlotCorr2DFullLayer (TCanvas* canvas8Panel, TPad* pads[8], Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
+                                  std::map<int,TileSpectra> spectra, 
+                                  Double_t xPMin, Double_t xPMax, Double_t maxY, int layer, int mod,  TString nameOutput, RunInfo currRunInfo){
+                                  
+    Setup* setupT = Setup::GetInstance();
+    
+    std::map<int, TileSpectra>::iterator ithSpectra;    
+    int nRow = setupT->GetNMaxRow()+1;
+    int nCol = setupT->GetNMaxColumn()+1;
+    int skipped = 0;
+    
+    for (int r = 0; r < nRow; r++){
+      for (int c = 0; c < nCol; c++){
+        canvas8Panel->cd();
+        int tempCellID = setupT->GetCellID(r,c, layer, mod);
+        int p = setupT->GetChannelInLayer(tempCellID);
+        pads[p]->Draw();
+        pads[p]->SetLogy(0);
+        pads[p]->SetLogz(1);
+        pads[p]->cd();
+        
+        ithSpectra=spectra.find(tempCellID);
+        if(ithSpectra==spectra.end()){
+          skipped++;
+          std::cout << "WARNING: skipping cell ID: " << tempCellID << "\t row " << r << "\t column " << c << "\t layer " << layer << "\t module " << mod << std::endl;
+          pads[p]->Clear();
+          pads[p]->Draw();
+          if (p ==7 ){
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-1.4*relSize8P[p], GetStringFromRunInfo(currRunInfo, 2), false, 0.85*relSize8P[p], 42);
+            DrawLatex(topRCornerX[p]+0.045, topRCornerY[p]-4*0.85*relSize8P[p]-2.2*relSize8P[p], GetStringFromRunInfo(currRunInfo, 3), false, 0.85*relSize8P[p], 42);
+          }
+        continue;
+        } 
+        TProfile* tempProfile = ithSpectra->second.GetLGHGcorr();
+        TH2D* temp2D          = ithSpectra->second.GetCorr();
+        if (!tempProfile) continue;
+        SetStyleHistoTH2ForGraphs( temp2D, tempProfile->GetXaxis()->GetTitle(), tempProfile->GetYaxis()->GetTitle(), 0.85*textSizePixel, textSizePixel, 0.85*textSizePixel, textSizePixel,0.9, 1.5, 510, 510, 43, 63);  
+        SetMarkerDefaultsProfile(tempProfile, 24, 0.7, kRed+2, kRed+2);   
+        
+        temp2D->GetYaxis()->SetRangeUser(0,maxY);
+        temp2D->GetXaxis()->SetRangeUser(0,xPMax);
+        temp2D->Draw("colz");
+
+        short bctemp = ithSpectra->second.GetCalib()->BadChannel;
+        if (bctemp != -64 && bctemp < 3){
+          Color_t boxCol = kGray;
+          if (bctemp == 1)
+            boxCol = kGray+1;
+          else if (bctemp == 0)
+            boxCol = kGray+2;
+          TBox* badChannelArea =  CreateBox(boxCol, 0, 0, xPMax,maxY, 1001 );
+          badChannelArea->Draw();
+          temp2D->Draw("axis,same");
+        }
+
+        tempProfile->Draw("pe, same");
+                
+        TString label           = Form("row %d col %d", r, c);
+        if (p == 7){
+          label = Form("row %d col %d layer %d", r, c, layer);
+        }
+        TLatex *labelChannel    = new TLatex(topRCornerX[p]+0.045,topRCornerY[p]-1.2*relSize8P[p],label);
+        SetStyleTLatex( labelChannel, 0.85*textSizePixel,4,1,43,kTRUE,11);
+
+        TF1* fit            = ithSpectra->second.GetCorrModel(0);
         if (fit){
           Double_t rangeFit[2] = {0,0};
           fit->GetRange(rangeFit[0], rangeFit[1]);
@@ -2026,7 +2132,8 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
     if (skipped < 6)
       canvas8Panel->SaveAs(nameOutput.Data());
   }
-
+  
+  
   
   //__________________________________________________________________________________________________________
   // Plot Trigger Primitive with Fits for Full layer
@@ -2564,6 +2671,8 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
       else if (option==8) tempH = itrun->second.GetLGHGcorr();
       else if (option==9) tempH = itrun->second.GetHGLGcorr();
       else if (option==10) tempH = itrun->second.GetLGScaleCalc();
+      else if (option==11) tempH = itrun->second.GetLGHGOffcorr();
+      else if (option==12) tempH = itrun->second.GetHGLGOffcorr();
       if (maxY < tempH->GetMaximum()) maxY = tempH->GetMaximum();
       if ( maxX < FindLastBinXAboveMin(tempH)) maxX = FindLastBinXAboveMin(tempH);
       if ( minX > FindFirstBinXAboveMin(tempH)) minX = FindFirstBinXAboveMin(tempH);
@@ -2605,7 +2714,9 @@ void SetStyleHistoTH3ForGraphs( TH3* histo,
         else if (option==7) histos[currRun]  = itrun->second.GetLGScalewidth();
         else if (option==8) histos[currRun]  = itrun->second.GetLGHGcorr();
         else if (option==9) histos[currRun]  = itrun->second.GetHGLGcorr();
-        else if (option==10) histos[currRun]  = itrun->second.GetLGScaleCalc();
+        else if (option==10) histos[currRun] = itrun->second.GetLGScaleCalc();
+        else if (option==11) histos[currRun] = itrun->second.GetLGHGOffcorr();
+        else if (option==12) histos[currRun] = itrun->second.GetHGLGOffcorr();
         SetStyleHistoTH1ForGraphs( histos[currRun], histos[currRun]->GetXaxis()->GetTitle(), histos[currRun]->GetYaxis()->GetTitle(), 0.85*textSizeRel, textSizeRel, 0.85*textSizeRel, textSizeRel,0.95, 1.02);  
         SetLineDefaults(histos[currRun], GetColorLayer(currRun), 4, GetLineStyleLayer(currRun));   
         if(currRun == 0){

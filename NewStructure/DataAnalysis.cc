@@ -120,9 +120,12 @@ bool DataAnalysis::Process(void){
   bool status;
   ROOT::EnableImplicitMT();
   
-  // copy full calibration to different file and calculate energy
   if(RunQA){
     status=QAData();
+  }  
+  
+  if(RunSimpleQA){
+    status=SimpleQAData();
   }  
   return status;
 }
@@ -130,7 +133,7 @@ bool DataAnalysis::Process(void){
 
 
 //***********************************************************************************************
-//*********************** Calibration routine ***************************************************
+//*********************** Advanced QA routine ***************************************************
 //***********************************************************************************************
 bool DataAnalysis::QAData(void){
   std::cout<<"QA data"<<std::endl;
@@ -257,6 +260,12 @@ bool DataAnalysis::QAData(void){
 
   
   int evts=TdataIn->GetEntries();
+
+  if ((eventNumber > -1) && (eventNumber <= evts)){
+    evts = eventNumber;
+    std::cout<<"restricting number of events in QA to " << evts << std::endl;
+  }
+
   int evtsMuon= 0;
   for(int i=0; i<evts; i++){
     TdataIn->GetEntry(i);
@@ -373,8 +382,6 @@ bool DataAnalysis::QAData(void){
         }
       }
 
-      
-      
       for(int j=0; j<event.GetNTiles(); j++){
         Caen* aTile=(Caen*)event.GetTile(j);
         // remove bad channels from output
@@ -727,7 +734,7 @@ bool DataAnalysis::QAData(void){
                                         0, 6000, 1.2, l, 0, Form("%s/detailed/All_TriggPrimitive_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       if (ExtPlot > 1){
         PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
-                                      hSpectra, false, -20, 800, 1.2, l, 0,
+                                      hSpectra, 0, -20, 800, 1.2, l, 0,
                                       Form("%s/detailed/LGHG_Corr_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
         PlotMipWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
                                   hSpectra, hSpectraTrigg, setup, false, -20, maxLG, 1.2, l, 0,
@@ -736,6 +743,176 @@ bool DataAnalysis::QAData(void){
                                           hSpectraTrigg, setup, averageScale, 0.8, 2.,
                                           0, maxHG*2, 1.2, l, 0, Form("%s/detailed/LocalMuon_TriggPrimitive_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
       }
+    }
+    std::cout << "done plotting" << std::endl;
+  }
+  RootOutputHist->Close();
+  return true;
+}
+
+
+//***********************************************************************************************
+//*********************** Advanced QA routine ***************************************************
+//***********************************************************************************************
+bool DataAnalysis::SimpleQAData(void){
+  std::cout<<"QA data"<<std::endl;
+
+  std::map<int,RunInfo> ri=readRunInfosFromFile(RunListInputName.Data(),debug,0);
+  TdataIn->GetEntry(0);
+  Int_t runNr = event.GetRunNumber();
+  // Get run info object
+  std::map<int,RunInfo>::iterator it=ri.find(runNr);
+
+  int species = -1;
+  species = GetSpeciesIntFromRunInfo(it->second);
+  float beamE = it->second.energy;
+  std::cout << "Beam energy:" << beamE << std::endl;
+  if (species == -1){
+      std::cout << "WARNING: species unknown: " << it->second.species.Data() << "  aborting"<< std::endl;
+      return false;
+  }
+  
+  // create HG and LG histo's per channel
+  TH2D* hspectraHGCorrvsCellID      = new TH2D( "hspectraHGCorr_vsCellID","ADC spectrum High Gain corrected vs CellID; cell ID; ADC_{HG} (arb. units)  ; counts ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraHGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraLGCorrvsCellID      = new TH2D( "hspectraLGCorr_vsCellID","ADC spectrum Low Gain corrected vs CellID; cell ID; ADC_{LG} (arb. units)  ; counts  ",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 4000,-200,3800);
+  hspectraLGCorrvsCellID->SetDirectory(0);
+  TH2D* hspectraEnergyvsCellID  = new TH2D( "hspectraEnergy_vsCellID","Energy vs CellID; cell ID; E (mip eq./tile)    ; counts",
+                                            setup->GetMaxCellID()+1, -0.5, setup->GetMaxCellID()+1-0.5, 8000,0,250);
+  hspectraEnergyvsCellID->SetDirectory(0);
+  
+  std::map<int,TileSpectra> hSpectra;
+  std::map<int, TileSpectra>::iterator ithSpectra;
+
+  RootOutputHist->mkdir("IndividualCells");
+  
+  std::cout << "starting to run QA"<< std::endl;
+  TcalibIn->GetEntry(0);
+  int actCh1st = 0;
+  double averageScale = calib.GetAverageScaleHigh(actCh1st);
+  std::cout << "average HG mip: " << averageScale << "\t active ch: "<< actCh1st<< std::endl;
+  
+  int evts=TdataIn->GetEntries();
+  for(int i=0; i<evts; i++){
+    TdataIn->GetEntry(i);
+    if (i%5000 == 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
+    for(int j=0; j<event.GetNTiles(); j++){
+      Caen* aTile=(Caen*)event.GetTile(j);
+      double corrHG = aTile->GetADCHigh()-calib.GetPedestalMeanH(aTile->GetCellID());
+      double corrLG = aTile->GetADCLow()-calib.GetPedestalMeanL(aTile->GetCellID());
+      hspectraHGCorrvsCellID->Fill(aTile->GetCellID(), corrHG);
+      hspectraLGCorrvsCellID->Fill(aTile->GetCellID(), corrLG);
+      if(aTile->GetE()!=0 ){ 
+        hspectraEnergyvsCellID->Fill(aTile->GetCellID(), aTile->GetE());
+      }      
+      ithSpectra=hSpectra.find(aTile->GetCellID());
+      if (ithSpectra!=hSpectra.end()){
+        ithSpectra->second.FillSpectra(corrLG,corrHG);
+        ithSpectra->second.FillTrigger(aTile->GetLocalTriggerPrimitive());;
+        ithSpectra->second.FillCorr(corrLG,corrHG);
+      } else {
+        RootOutputHist->cd("IndividualCells");
+        hSpectra[aTile->GetCellID()]=TileSpectra("AllTriggers",aTile->GetCellID(),calib.GetTileCalib(aTile->GetCellID()),event.GetROtype(),debug);
+        hSpectra[aTile->GetCellID()].FillSpectra(corrLG,corrHG);;
+        hSpectra[aTile->GetCellID()].FillTrigger(aTile->GetLocalTriggerPrimitive());;
+        hSpectra[aTile->GetCellID()].FillCorr(corrLG,corrHG);
+      }
+    }
+  }
+  
+  if (IsCalibSaveToFile()){
+    TString fileCalibPrint = RootOutputName;
+    fileCalibPrint         = fileCalibPrint.ReplaceAll(".root","_calib.txt");
+    calib.PrintCalibToFile(fileCalibPrint);
+  }
+  
+  RootInput->Close();      
+  
+  RootOutputHist->cd();
+
+  hspectraHGCorrvsCellID->Write();
+  hspectraLGCorrvsCellID->Write();
+  hspectraEnergyvsCellID->Write();
+
+  RootOutputHist->cd("IndividualCells");
+  for(ithSpectra=hSpectra.begin(); ithSpectra!=hSpectra.end(); ++ithSpectra){
+    ithSpectra->second.Write(false);
+  }
+  
+  //**********************************************************************
+  //********************* Plotting ***************************************
+  //**********************************************************************  
+  TString outputDirPlots = GetPlotOutputDir();
+  gSystem->Exec("mkdir -p "+outputDirPlots);
+  
+  //**********************************************************************
+  // Create canvases for channel overview plotting
+  //**********************************************************************
+  Double_t textSizeRel = 0.035;
+  StyleSettingsBasics("pdf");
+  SetPlotStyle();
+  
+  TCanvas* canvas2DCorr = new TCanvas("canvasCorrPlots","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas2DCorr, 0.08, 0.13, 0.045, 0.07);
+  canvas2DCorr->SetLogz(1);
+  TCanvas* canvas2DCorrWOLine = new TCanvas("canvasCorrPlotsWoLine","",0,0,1450,1300);  // gives the page size
+  DefaultCancasSettings( canvas2DCorrWOLine, 0.08, 0.13, 0.01, 0.07);
+  canvas2DCorrWOLine->SetLogz(1);
+  PlotSimple2D( canvas2DCorr, hspectraHGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/HGCorr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraLGCorrvsCellID, -10000, -10000, textSizeRel, Form("%s/LGCorr.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+  PlotSimple2D( canvas2DCorr, hspectraEnergyvsCellID, -10000, -10000, textSizeRel, Form("%s/EnergyVsCellID.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1, kFALSE, "colz", true);
+
+  if (ExtPlot > 0){
+    gSystem->Exec("mkdir -p "+outputDirPlots+"/detailed");
+    //***********************************************************************************************************
+    //********************************* 8 Panel overview plot  **************************************************
+    //***********************************************************************************************************
+    //*****************************************************************
+      // Test beam geometry (beam coming from viewer)
+      //===========================================================
+      //||    8 (4)    ||    7 (5)   ||    6 (6)   ||    5 (7)   ||  row 0
+      //===========================================================
+      //||    1 (0)    ||    2 (1)   ||    3 (2)   ||    4 (3)   ||  row 1
+      //===========================================================
+      //    col 0     col 1       col 2     col  3
+      // rebuild pad geom in similar way (numbering -1)
+    //*****************************************************************
+    TCanvas* canvas8Panel;
+    TPad* pad8Panel[8];
+    Double_t topRCornerX[8];
+    Double_t topRCornerY[8];
+    Int_t textSizePixel = 30;
+    Double_t relSize8P[8];
+    CreateCanvasAndPadsFor8PannelTBPlot(canvas8Panel, pad8Panel,  topRCornerX, topRCornerY, relSize8P, textSizePixel);
+  
+    TCanvas* canvas8PanelProf;
+    TPad* pad8PanelProf[8];
+    Double_t topRCornerXProf[8];
+    Double_t topRCornerYProf[8];
+    Double_t relSize8PProf[8];
+    CreateCanvasAndPadsFor8PannelTBPlot(canvas8PanelProf, pad8PanelProf,  topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 0.045, "Prof", false);
+
+    
+    calib.PrintGlobalInfo();  
+    Double_t maxHG = ReturnMipPlotRangeDepVov(calib.GetVov(),true);
+    Double_t maxLG = 3800;
+    std::cout << "plotting single layers" << std::endl;
+    for (Int_t l = 0; l < setup->GetNMaxLayer()+1; l++){    
+      if (l%10 == 0 && l > 0 && debug > 0){
+        std::cout << "============================== layer " <<  l << " / " << setup->GetNMaxLayer() << " layers" << std::endl;
+      }
+      PlotNoiseWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                hSpectra, setup, true, 0, maxHG, 1.2, l, 0,
+                                Form("%s/detailed/Spectra_HG_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
+      PlotNoiseWithFitsFullLayer (canvas8Panel,pad8Panel, topRCornerX, topRCornerY, relSize8P, textSizePixel, 
+                                hSpectra, setup, false, 0, maxLG, 1.2, l, 0,
+                                Form("%s/detailed/Spectra_LG_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
+      
+      PlotCorrWithFitsFullLayer(canvas8PanelProf,pad8PanelProf, topRCornerXProf, topRCornerYProf, relSize8PProf, textSizePixel, 
+                                    hSpectra, 0, -20, 340, 3800, l, 0,
+                                    Form("%s/detailed/LGHG_Corr_Layer%02d.%s" ,outputDirPlots.Data(), l, plotSuffix.Data()), it->second);
     }
     std::cout << "done plotting" << std::endl;
   }

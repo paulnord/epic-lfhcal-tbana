@@ -34,6 +34,7 @@ class Event{
   double    GetBeamPosX(void);
   double    GetBeamPosY(void);
   const TTimeStamp* GetBeginRunTime(void) const;
+  TTimeStamp GetBeginRunTimeAlt(void);
   
   void    SetBeamEnergy(double);
   void    SetBeamID    (int);

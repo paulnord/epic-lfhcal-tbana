@@ -89,15 +89,27 @@ double Calib::GetScaleWidthLow(int cellID) const {
   else return -1.;
 }
 
-double Calib::GetScaleLGHGCorr(int cellID) const {
+double Calib::GetLGHGCorr(int cellID) const {
   std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
   if(it!=CaloCalib.end()) return it->second.LGHGCorr;
   else return -1.;
 }
 
-double Calib::GetScaleHGLGCorr(int cellID) const {
+double Calib::GetLGHGCorrOff(int cellID) const {
+  std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
+  if(it!=CaloCalib.end()) return it->second.LGHGCorrOff;
+  else return -1.;
+}
+
+double Calib::GetHGLGCorr(int cellID) const {
   std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
   if(it!=CaloCalib.end()) return it->second.HGLGCorr;
+  else return -1.;
+}
+
+double Calib::GetHGLGCorrOff(int cellID) const {
+  std::map<int, TileCalib>::const_iterator it= CaloCalib.find(cellID);
+  if(it!=CaloCalib.end()) return it->second.HGLGCorrOff;
   else return -1.;
 }
 
@@ -164,16 +176,28 @@ double Calib::GetScaleWidthLow(int row, int col, int lay, int mod=0)const{
   return GetScaleWidthLow(key);
 }
 
-double Calib::GetScaleLGHGCorr(int row, int col, int lay, int mod=0)const{
+double Calib::GetLGHGCorr(int row, int col, int lay, int mod=0)const{
   Setup* setup = Setup::GetInstance();
   int key=setup->GetCellID(row, col, lay, mod);
-  return GetScaleLGHGCorr(key);
+  return GetLGHGCorr(key);
 }
 
-double Calib::GetScaleHGLGCorr(int row, int col, int lay, int mod=0)const{
+double Calib::GetLGHGCorrOff(int row, int col, int lay, int mod=0)const{
   Setup* setup = Setup::GetInstance();
   int key=setup->GetCellID(row, col, lay, mod);
-  return GetScaleHGLGCorr(key);
+  return GetLGHGCorrOff(key);
+}
+
+double Calib::GetHGLGCorr(int row, int col, int lay, int mod=0)const{
+  Setup* setup = Setup::GetInstance();
+  int key=setup->GetCellID(row, col, lay, mod);
+  return GetHGLGCorr(key);
+}
+
+double Calib::GetHGLGCorrOff(int row, int col, int lay, int mod=0)const{
+  Setup* setup = Setup::GetInstance();
+  int key=setup->GetCellID(row, col, lay, mod);
+  return GetHGLGCorrOff(key);
 }
 
 short Calib::GetBadChannel(int row, int col, int lay, int mod=0)const{
@@ -307,6 +331,20 @@ double Calib::GetAverageLGHGCorr()const{
   return avSc/(CaloCalib.size()-notCalib);
 }
 
+double Calib::GetAverageLGHGCorrOff()const{
+  double avSc = 0;
+  int notCalib  = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    if (it->second.LGHGCorrOff == -1000. || (BCcalc && it->second.BadChannel < 2) ){
+      notCalib++;
+    } else {
+      avSc += it->second.LGHGCorrOff;
+    }
+  }
+  return avSc/(CaloCalib.size()-notCalib);
+}
+
 double Calib::GetAverageHGLGCorr()const{
   double avSc = 0;
   int notCalib  = 0;
@@ -316,6 +354,20 @@ double Calib::GetAverageHGLGCorr()const{
       notCalib++;
     } else {
       avSc += it->second.HGLGCorr;
+    }
+  }
+  return avSc/(CaloCalib.size()-notCalib);
+}
+
+double Calib::GetAverageHGLGCorrOff()const{
+  double avSc = 0;
+  int notCalib  = 0;
+  std::map<int, TileCalib>::const_iterator it;
+  for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
+    if (it->second.HGLGCorrOff == -1000. || (BCcalc && it->second.BadChannel < 2) ){
+      notCalib++;
+    } else {
+      avSc += it->second.HGLGCorrOff;
     }
   }
   return avSc/(CaloCalib.size()-notCalib);
@@ -437,7 +489,7 @@ void Calib::SetScaleWidthLow(double s, int cellID){
   else it->second.ScaleWidthL=s;
 }
 
-void Calib::SetScaleLGHGCorr(double s, int cellID){
+void Calib::SetLGHGCorr(double s, int cellID){
   std::map<int, TileCalib>::iterator it= CaloCalib.find(cellID);
   if(it!=CaloCalib.end()){
     TileCalib acal;
@@ -447,7 +499,17 @@ void Calib::SetScaleLGHGCorr(double s, int cellID){
   else it->second.LGHGCorr=s;
 }
 
-void Calib::SetScaleHGLGCorr(double s, int cellID){
+void Calib::SetLGHGCorrOff(double s, int cellID){
+  std::map<int, TileCalib>::iterator it= CaloCalib.find(cellID);
+  if(it!=CaloCalib.end()){
+    TileCalib acal;
+    acal.LGHGCorrOff=s;
+    CaloCalib[cellID]=acal;
+  }
+  else it->second.LGHGCorrOff=s;
+}
+
+void Calib::SetHGLGCorr(double s, int cellID){
   std::map<int, TileCalib>::iterator it= CaloCalib.find(cellID);
   if(it!=CaloCalib.end()){
     TileCalib acal;
@@ -455,6 +517,16 @@ void Calib::SetScaleHGLGCorr(double s, int cellID){
     CaloCalib[cellID]=acal;
   }
   else it->second.HGLGCorr=s;
+}
+
+void Calib::SetHGLGCorrOff(double s, int cellID){
+  std::map<int, TileCalib>::iterator it= CaloCalib.find(cellID);
+  if(it!=CaloCalib.end()){
+    TileCalib acal;
+    acal.HGLGCorrOff=s;
+    CaloCalib[cellID]=acal;
+  }
+  else it->second.HGLGCorrOff=s;
 }
 
 void Calib::SetBadChannel(short s, int cellID){
@@ -516,16 +588,28 @@ void Calib::SetScaleWidthLow(double s, int row, int col, int lay, int mod=0){
   SetScaleWidthLow(s,key);
 }
 
-void Calib::SetScaleLGHGCorr(double s, int row, int col, int lay, int mod=0){
+void Calib::SetLGHGCorr(double s, int row, int col, int lay, int mod=0){
   Setup* setup = Setup::GetInstance();
   int key=setup->GetCellID(row,col,lay,mod);
-  SetScaleLGHGCorr(s,key);
+  SetLGHGCorr(s,key);
 }
 
-void Calib::SetScaleHGLGCorr(double s, int row, int col, int lay, int mod=0){
+void Calib::SetLGHGCorrOff(double s, int row, int col, int lay, int mod=0){
   Setup* setup = Setup::GetInstance();
   int key=setup->GetCellID(row,col,lay,mod);
-  SetScaleHGLGCorr(s,key);
+  SetLGHGCorrOff(s,key);
+}
+
+void Calib::SetHGLGCorr(double s, int row, int col, int lay, int mod=0){
+  Setup* setup = Setup::GetInstance();
+  int key=setup->GetCellID(row,col,lay,mod);
+  SetHGLGCorr(s,key);
+}
+
+void Calib::SetHGLGCorrOff(double s, int row, int col, int lay, int mod=0){
+  Setup* setup = Setup::GetInstance();
+  int key=setup->GetCellID(row,col,lay,mod);
+  SetHGLGCorrOff(s,key);
 }
 
 void Calib::SetBadChannel(short s, int row, int col, int lay, int mod=0){
@@ -542,8 +626,24 @@ int Calib::GetRunNumber(void){
   return RunNumber;
 }
 
+int Calib::GetRunNumberPed(void){
+  return RunNumberPed;
+}
+
+int Calib::GetRunNumberMip(void){
+  return RunNumberMip;
+}
+
 const TTimeStamp* Calib::GetBeginRunTime(void) const{
   return &BeginRunTime;
+}
+
+const TTimeStamp* Calib::GetBeginRunTimePed(void) const{
+  return &BeginRunTimePed;
+}
+
+const TTimeStamp* Calib::GetBeginRunTimeMip(void) const{
+  return &BeginRunTimeMip;
 }
 
 double Calib::GetVop(void){
@@ -565,8 +665,24 @@ void Calib::SetRunNumber(int r){
   RunNumber=r;
 }
 
+void Calib::SetRunNumberPed(int r){
+  RunNumberPed=r;
+}
+
+void Calib::SetRunNumberMip(int r){
+  RunNumberMip=r;
+}
+
 void Calib::SetBeginRunTime(TTimeStamp t){
   BeginRunTime=t;
+}
+
+void Calib::SetBeginRunTimePed(TTimeStamp t){
+  BeginRunTimePed=t;
+}
+
+void Calib::SetBeginRunTimeMip(TTimeStamp t){
+  BeginRunTimeMip=t;
 }
 
 void Calib::SetVop(double v){
@@ -584,7 +700,10 @@ void Calib::SetBCCalib(bool b){
 
 void Calib::PrintGlobalInfo(){
   std::cout << "********************************************************************************************************" << std::endl;
-  std::cout << "Calib info:\n \t RunNr: " << GetRunNumber() << "\t start time:" << GetBeginRunTime() << "\t Vop: " << GetVop() << "\t Vov: "<< GetVov() << "\t BC calib set: " << GetBCCalib() << std::endl;  
+  std::cout << "Calib info:\n \t RunNr: " << GetRunNumber() << "\t start time:" << GetBeginRunTime() 
+            << "\n\t RunNr ped: " << GetRunNumberPed() << "\t start time:" << GetBeginRunTimePed() 
+            << "\n\t RunNr mip: " << GetRunNumberMip() << "\t start time:" << GetBeginRunTimeMip() 
+            << "\n\t Vop: " << GetVop() << "\t Vov: "<< GetVov() << "\t BC calib set: " << GetBCCalib() << std::endl;  
   std::cout << "********************************************************************************************************" << std::endl;
 }
 
@@ -596,7 +715,7 @@ void Calib::PrintCalibToFile(TString filename){
   std::cout << "********************************************************************************************************" << std::endl;
   fFileCalibOut.open(filename.Data(), std::ios::out);
   fFileCalibOut << "#****************************************************************************************************************************************************************************************************************" << std::endl;
-  fFileCalibOut << "#Calib info:\n \t RunNr: " << GetRunNumber() << "\t start time:" << GetBeginRunTime() << "\t Vop: " << GetVop() << "\t Vov: "<< GetVov() << "\t BC calib set: " << GetBCCalib() << std::endl;  
+  fFileCalibOut << "#Calib info:\n \t RunNr: " << GetRunNumber() << "\t start time:" << GetBeginRunTime() << "\t RunNrPed: " << GetRunNumberPed() << "\t start time:" << GetBeginRunTimePed()<< "\t RunNrMip: " << GetRunNumberMip() << "\t start time:" << GetBeginRunTimeMip()<< "\t Vop: " << GetVop() << "\t Vov: "<< GetVov() << "\t BC calib set: " << GetBCCalib() << std::endl;  
   fFileCalibOut << "#****************************************************************************************************************************************************************************************************************" << std::endl;
   Setup* setup = Setup::GetInstance();
 
@@ -606,13 +725,13 @@ void Calib::PrintCalibToFile(TString filename){
   std::map<int, TileCalib>::const_iterator it;
   for(it=CaloCalib.begin(); it!=CaloCalib.end(); ++it){
       TString outSt = "";
-      outSt = Form("%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%d",  
+      outSt = Form("%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%d",  
                    it->first, setup->GetLayer(it->first), setup->GetRow(it->first), setup->GetColumn(it->first), setup->GetModule(it->first), 
                    it->second.PedestalMeanH, it->second.PedestalSigH,
                    it->second.PedestalMeanL, it->second.PedestalSigL, 
                    it->second.ScaleH, it->second.ScaleWidthH,
                    it->second.ScaleL, it->second.ScaleWidthL,
-                   it->second.LGHGCorr, it->second.HGLGCorr, 
+                   it->second.LGHGCorr, it->second.LGHGCorrOff, it->second.HGLGCorr, it->second.HGLGCorrOff, 
                    it->second.BadChannel);
     fFileCalibOut << outSt.Data() << std::endl;
   }
@@ -657,7 +776,7 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
             continue;
         }
     }
-    if (tempArr->GetEntries() == 5){
+    if (tempArr->GetEntries() == 9){
      std::cout << tempLine.Data() << std::endl;
      TString part = ((TObjString*)tempArr->At(0))->GetString();
      TObjArray *tempArr2  = part.Tokenize(" ");
@@ -670,6 +789,26 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
      delete tempArr2;
      
      part = ((TObjString*)tempArr->At(2))->GetString();
+     TObjArray *tempArr6  = part.Tokenize(" ");
+     int runNrPed = ((TString)((TObjString*)tempArr6->At(1))->GetString()).Atoi();
+     if (GetRunNumberPed() != runNrPed){
+       if (debug > 0) std::cout << "Resetting run number pedestal: " << runNrPed << std::endl;
+       SetRunNumberPed(runNrPed);
+       nMod++;
+     }
+     delete tempArr6;
+
+     part = ((TObjString*)tempArr->At(4))->GetString();
+     TObjArray *tempArr5  = part.Tokenize(" ");
+     int runNrMip = ((TString)((TObjString*)tempArr5->At(1))->GetString()).Atoi();
+     if (GetRunNumberMip() != runNrMip){
+       if (debug > 0) std::cout << "Resetting run number mip: " << runNrMip << std::endl;
+       SetRunNumberMip(runNrMip);
+       nMod++;
+     }
+     delete tempArr5;
+     
+     part = ((TObjString*)tempArr->At(6))->GetString();
      TObjArray *tempArr3  = part.Tokenize(" ");
      double vop = ((TString)((TObjString*)tempArr3->At(1))->GetString()).Atof();
      if (TMath::Abs(GetVop() - vop) > 1e-2){
@@ -679,7 +818,7 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
      }
      delete tempArr3;
 
-     part = ((TObjString*)tempArr->At(3))->GetString();
+     part = ((TObjString*)tempArr->At(7))->GetString();
      TObjArray *tempArr4  = part.Tokenize(" ");
      double vov = ((TString)((TObjString*)tempArr4->At(1))->GetString()).Atof();
      if (TMath::Abs(GetVov() - vov) > 1e-2){
@@ -690,7 +829,7 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
      delete tempArr4;
      
      continue;
-    } else if (tempArr->GetEntries() != 16){
+    } else if (tempArr->GetEntries() != 18){
       std::cout << "Temp array has " << tempArr->GetEntries() << " entries"<< std::endl;
       std::cout << tempLine.Data() << std::endl;
       std::cout << "line has wrong format, should be" << std::endl;
@@ -713,8 +852,10 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
     double ScaleL   = ((TString)((TObjString*)tempArr->At(11))->GetString()).Atof();                       
     double ScaleLW  = ((TString)((TObjString*)tempArr->At(12))->GetString()).Atof();                       
     double LGHG     = ((TString)((TObjString*)tempArr->At(13))->GetString()).Atof();                       
-    double HGLG     = ((TString)((TObjString*)tempArr->At(14))->GetString()).Atof();                       
-    short bc        = ((TString)((TObjString*)tempArr->At(15))->GetString()).Atoi();
+    double LGHGOff  = ((TString)((TObjString*)tempArr->At(14))->GetString()).Atof();                       
+    double HGLG     = ((TString)((TObjString*)tempArr->At(15))->GetString()).Atof();                       
+    double HGLGOff  = ((TString)((TObjString*)tempArr->At(16))->GetString()).Atof();                       
+    short bc        = ((TString)((TObjString*)tempArr->At(17))->GetString()).Atoi();
       
     if (debug > 0) std::cout << "checking need for reset for CellID:  " << cellID << "\t" << layer << "\t" << row << "\t" << column << "\t" << moduleNr << std::endl;
     TileCalib* tileCal = GetTileCalib(cellID);
@@ -763,9 +904,19 @@ void Calib::ReadCalibFromTextFile(TString filename, int debug){
       tileCal->LGHGCorr = LGHG;
       nMod++;
     }
+    if (TMath::Abs(LGHGOff - tileCal->LGHGCorrOff)  > 1e-4){
+      if (debug > 1) std::cout << "resetting LG-HG corr offset" << tileCal->LGHGCorrOff << "\t" << LGHGOff << std::endl;
+      tileCal->LGHGCorrOff = LGHGOff;
+      nMod++;
+    }
     if (TMath::Abs(HGLG - tileCal->HGLGCorr)  > 1e-5){
       if (debug > 1) std::cout << "resetting HG-LG corr" << tileCal->HGLGCorr << "\t" << HGLG << std::endl;
       tileCal->HGLGCorr = HGLG;
+      nMod++;
+    }
+    if (TMath::Abs(HGLGOff - tileCal->HGLGCorrOff)  > 1e-5){
+      if (debug > 1) std::cout << "resetting HG-LG corr offset" << tileCal->HGLGCorrOff << "\t" << HGLGOff << std::endl;
+      tileCal->HGLGCorrOff = HGLGOff;
       nMod++;
     }
     if (bc != tileCal->BadChannel){

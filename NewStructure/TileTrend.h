@@ -77,8 +77,22 @@ class TileTrend: public TObject{
     gTrendLGHGcorr .SetLineColor(kRed);
     gTrendLGHGcorr .SetMarkerColor(kRed);
     gTrendLGHGcorr .SetMarkerStyle(kFullCircle);    
+
+    gTrendHGLGOffset = TGraphErrors();
+    gTrendHGLGOffset .SetName(Form("TrendHGLGOffsetCellID%d",CellID));
+    gTrendHGLGOffset .GetYaxis()->SetTitle("b_{HG,LG} (arb. units)");
+    gTrendHGLGOffset .SetLineColor(kRed);
+    gTrendHGLGOffset .SetMarkerColor(kRed);
+    gTrendHGLGOffset .SetMarkerStyle(kFullCircle);
+
+    gTrendLGHGOffset = TGraphErrors();
+    gTrendLGHGOffset .SetName(Form("TrendLGHGOffsetCellID%d",CellID));
+    gTrendLGHGOffset .GetYaxis()->SetTitle("b_{LG,HG} (arb. units)");
+    gTrendLGHGOffset .SetLineColor(kRed);
+    gTrendLGHGOffset .SetMarkerColor(kRed);
+    gTrendLGHGOffset .SetMarkerStyle(kFullCircle);
     
-    if (ext > 0){
+    if (ext == 1 || ext == 2){
       // std::cout << "entering expanded option" << std::endl;
       gTrendTrigger = TGraphErrors();
       gTrendTrigger .SetName(Form("TrendTriggerCellID%d",CellID));
@@ -143,22 +157,7 @@ class TileTrend: public TObject{
       gTrendLGGSigma .SetLineColor(kRed);
       gTrendLGGSigma .SetMarkerColor(kRed);
       gTrendLGGSigma .SetMarkerStyle(kFullCircle);
-    } else if (ext == 2){
-      gTrendHGLGOffset = TGraphErrors();
-      gTrendHGLGOffset .SetName(Form("TrendHGLGOffsetCellID%d",CellID));
-      gTrendHGLGOffset .GetYaxis()->SetTitle("b_{HG,LG} (arb. units)");
-      gTrendHGLGOffset .SetLineColor(kRed);
-      gTrendHGLGOffset .SetMarkerColor(kRed);
-      gTrendHGLGOffset .SetMarkerStyle(kFullCircle);
-
-      gTrendLGHGOffset = TGraphErrors();
-      gTrendLGHGOffset .SetName(Form("TrendLGHGOffsetCellID%d",CellID));
-      gTrendLGHGOffset .GetYaxis()->SetTitle("b_{LG,HG} (arb. units)");
-      gTrendLGHGOffset .SetLineColor(kRed);
-      gTrendLGHGOffset .SetMarkerColor(kRed);
-      gTrendLGHGOffset .SetMarkerStyle(kFullCircle);
-      
-    }
+    } 
   }
   ~TileTrend(){}
 
