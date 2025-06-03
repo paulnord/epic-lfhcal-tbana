@@ -128,6 +128,10 @@ const TTimeStamp* Event::GetBeginRunTime(void) const{
   return &BeginRun;
 }
 
+TTimeStamp Event::GetBeginRunTimeAlt(void){
+  return BeginRun;
+}
+
 void Event::SetVov(double v){
   Vov=v;
 }
@@ -293,7 +297,7 @@ double Event::CalculateLocalMuonTrigg(  Calib calib,
       }
     }
     double tmpGain  = 0;
-    double scale    = (calib.GetScaleLGHGCorr(ids[t]) == -64.) ? avLGHG : calib.GetScaleLGHGCorr(ids[t]);     // only use LG-HG corr factor if fit succeeded, otherwise use average
+    double scale    = (calib.GetLGHGCorr(ids[t]) == -64.) ? avLGHG : calib.GetLGHGCorr(ids[t]);     // only use LG-HG corr factor if fit succeeded, otherwise use average
     // calculating combined gain
     if (((Caen*)GetTileFromID(ids[t]))->GetADCHigh() < 3800)
       tmpGain = ((Caen*)GetTileFromID(ids[t]))->GetADCHigh()-calib.GetPedestalMeanH(ids[t]); 

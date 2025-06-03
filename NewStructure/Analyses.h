@@ -47,7 +47,7 @@ class Analyses{
   inline TFile* GetRootOutput()        {return RootOutput;}
 
   inline bool CanOverWrite(void)                const {return Overwrite;};
-  inline bool IsToApplyPedestalCorrection(void) const {return ApplyPedestalCorrection;};
+  inline bool IsToTransferCalib(void)           const {return ApplyTransferCalib;};
   inline bool IsToApplyCalibration(void)        const {return ApplyCalibration;};
   inline bool IsToConvert(void)                 const {return Convert;};
   inline bool IsToExtractPedestal(void)         const {return ExtractPedestal;};
@@ -71,7 +71,7 @@ class Analyses{
   //Overload method for boolean...or is it too dangerous?
   inline void CanOverWrite(bool b)               {Overwrite=b;};
   inline void IsCalibSaveToFile(bool b)          {SaveCalibToFile=b;};
-  inline void IsToApplyPedestalCorrection(bool b){ApplyPedestalCorrection=b;};
+  inline void IsToTransferCalib(bool b)          {ApplyTransferCalib=b;};
   inline void IsToApplyCalibration(bool b)       {ApplyCalibration=b;};
   inline void IsToConvert(bool b)                {Convert=b;};
   inline void IsToExtractPedestal(bool b)        {ExtractPedestal=b;};
@@ -138,7 +138,7 @@ class Analyses{
   bool ExtractScaling         =false;     // Flag for mip scaling extraction
   bool ExtractScalingImproved =false;     // Flag for mip scaling extraction 2nd pass
   bool ReextractNoise         =false;     // Flag to enable noise trigger extraction and alternative pass for pedestals
-  bool ApplyPedestalCorrection=false;     // Flag for application of pedestals
+  bool ApplyTransferCalib     =false;     // Flag for application of pedestals
   bool ApplyCalibration       =false;     // Flag for aplication of calibration
   bool SaveNoiseOnly          =false;     // Flag to reduce file to noise/pedestal only
   bool SaveMipsOnly           =false;     // Flag to reduce file to mips only
@@ -175,7 +175,7 @@ class Analyses{
   bool ConvertASCII2Root(void);
   bool ConvertOldRootFile2Root(void);
   bool GetPedestal(void);
-  bool CorrectPedestal(void);
+  bool TransferCalib(void);
   bool GetScaling(void);
   bool GetImprovedScaling(void);
   bool GetNoiseSampleAndRefitPedestal(void);
