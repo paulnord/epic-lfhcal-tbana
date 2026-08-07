@@ -42,9 +42,8 @@ elif [ $1 = "ehagen" ]; then
   dataDir=/Volumes/UWU/25_TB_Data
 
 elif [ $1 = "yale" ]; then
-  dataRaw=/media/lfhcal/LFHCal_Backup_11/Test_Beams/202511_PST09/raw/TBMain2025
-  dataDir=/media/lfhcal/LFHCal_Backup_11/Test_Beams/202511_PST09/rawroot_new
-
+	dataRaw=/mnt/wwn-0x5000c500d93c8d2c-part2/Test_Beams/202511_PST09/raw/TBMain2025 
+  dataDir=/mnt/wwn-0x5000c500d93c8d2c-part2/Test_Beams/202511_PST09/rawroot
 fi
   
 # global run list for 2025 TB
@@ -494,29 +493,29 @@ elif [ $2 = "ElectronScan" ]; then
 # Muon HV scans
 elif [ $2 = "MuonHVScans" ]; then
   if [ $3 = "convert" ]; then	  
-  	runs='33 28 29 30 31 32 267 266 265 264 263 268 262 260 261 270'
+  	runs='033 028 029 030 031 032 267 266 265 264 263 268 262 260 261 270'
   	for runNr in $runs; do 
     	./Convert -d 0 -f -w -c $dataRaw/Run$runNr.h2g -o $dataDir/rawHGCROC_$runNr.root -m $mapConDef -r $runList
   	done
 
 	elif [ $3 = "merge" ]; then
 		# Muon scan 1
-    runs='33' 
+    runs='033' 
     echo $runs > runList.txt
     MergeMuonsFileList $dataDir runList.txt Muon_41V_MuonScan1
-		runs='28'
+		runs='028'
 		echo $runs > runList.txt
 		MergeMuonsFileList $dataDir runList.txt Muon_42V_MuonScan1
-    runs='29' 
+    runs='029' 
     echo $runs > runList.txt
     MergeMuonsFileList $dataDir runList.txt Muon_43V_MuonScan1
-		runs='30'
+		runs='030'
 		echo $runs > runList.txt
 		MergeMuonsFileList $dataDir runList.txt Muon_44V_MuonScan1
-    runs='31' 
+    runs='031' 
     echo $runs > runList.txt
     MergeMuonsFileList $dataDir runList.txt Muon_45V_MuonScan1
-		runs='32'
+		runs='032'
 		echo $runs > runList.txt
 		MergeMuonsFileList $dataDir runList.txt Muon_46V_MuonScan1
 
