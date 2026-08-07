@@ -306,6 +306,8 @@ elif [ $2 = "FullSetA" ]; then
     MergeMuonsFileList $dataDir runList.txt h+_15GeV_FullSetA
   fi
 
+elif [ $2 = "FullSetB" ]; then
+
 
   # Hadron set 1 
 #   runs='277 278 279 280 281 282 283 284 285 286 287 288'
