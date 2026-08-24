@@ -156,7 +156,7 @@ int main(int argc, char* argv[]){
     return -1;
   }
 
-  AnAnalysis.Process();
+  bool ok = AnAnalysis.Process();
   std::cout<<"Exiting"<<std::endl;
-  return 0;
+  return ok ? 0 : 1;
 }

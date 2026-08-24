@@ -161,8 +161,12 @@ bool HGCROC_Waveform_Analysis::Process(void){
     status=InvestigateCrossTalk();
   }
   
+  // Shut down ROOT's worker pool before file and analysis-object teardown.
+  ROOT::DisableImplicitMT();
+
   return status;
 }
+
 
 // ****************************************************************************
 // Analyse waveform
@@ -664,6 +668,14 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
       ithSpectraTrigg->second.WriteExt(true);
     }
   }
+
+  // Finish the histogram file while everything is still valid.
+  RootOutputHist->cd();
+  RootOutputHist->Write();
+  RootOutputHist->Close();
+
+  delete waveform_builder;
+  waveform_builder = nullptr;
 
   RootInput->Close();
   return true;
