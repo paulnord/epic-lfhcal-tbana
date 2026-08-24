@@ -73,7 +73,7 @@ else()
   endif()
 endif()
 
-# Generate ROOT dictionary
+# Define ROOT dictionary inputs
 set(LINKDEF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/LinkDef.h)
 set(ROOT_HEADERS
   Setup.h
@@ -89,9 +89,6 @@ set(ROOT_HEADERS
   AnaSummary.h
   MultiCanvas.h
 )
-
-# Generate ROOT dictionary
-root_generate_dictionary(Cint ${ROOT_HEADERS} LINKDEF ${LINKDEF_FILE})
 
 # Common library source files
 set(LIB_SOURCES
@@ -110,13 +107,17 @@ set(LIB_SOURCES
 )
 
 # Create the LFHCAL shared library
-add_library(LFHCAL SHARED 
-  ${LIB_SOURCES}
-  Cint.cxx
-)
+add_library(LFHCAL SHARED ${LIB_SOURCES})
 
 # Link against ROOT libraries
-target_link_libraries(LFHCAL ${ROOT_LIBRARIES})
+target_link_libraries(LFHCAL PUBLIC ${ROOT_LIBRARIES})
+
+# Attach the ROOT dictionary to the library that contains it. This makes
+# ROOT autoload libLFHCAL.so rather than the nonexistent libCint.so.
+root_generate_dictionary(Cint ${ROOT_HEADERS}
+  MODULE LFHCAL
+  LINKDEF ${LINKDEF_FILE}
+)
 
 # Waveform fitting library
 add_library(WaveformFitting STATIC
