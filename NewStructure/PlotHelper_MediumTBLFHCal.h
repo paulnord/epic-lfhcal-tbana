@@ -296,6 +296,18 @@
             continue;
           } 
           ithSpectraTrigg=spectraTrigg.find(tempCellID);
+          // A cell can have an inclusive noise spectrum but no
+          // trigger-selected entries. Guard the end iterator before using
+          // the triggered histogram or fit in the extended noise plots.
+          if (ithSpectraTrigg == spectraTrigg.end()){
+            skipped++;
+            std::cout << "WARNING: skipping cell ID: " << tempCellID
+                      << " because no triggered noise spectrum is available"
+                      << std::endl;
+            pads[p]->Clear();
+            pads[p]->Draw();
+            continue;
+          }
           TH1D* tempHist = nullptr;
           if (opt == 1){ // HG
               tempHist = ithSpectra->second.GetHG();
@@ -460,21 +472,28 @@
           tempHist->Draw("same,axis");
           tempHist->Draw("same,pe");
           
+          // Trigger- and noise-selected spectra are populated independently.
+          // Draw whichever overlays exist without dereferencing an end iterator.
           TH1D* tempHistT = nullptr;
-          if (opt == 1){ // HG
+          if (ithSpectraTrigg != spectraTrigg.end()){
+            if (opt == 1){ // HG
               tempHistT = ithSpectraTrigg->second.GetHG();
-          } else {
+            } else {
               tempHistT = ithSpectraTrigg->second.GetLG();
+            }
           }
           if (tempHistT){
             SetMarkerDefaults(tempHistT, 20, 1, kRed+1, kRed+1, kFALSE);   
             tempHistT->Draw("same,pe");
           }
+
           TH1D* tempHistN = nullptr;
-          if (opt == 1){ // HG
+          if (ithSpectraNoise != spectraNoise.end()){
+            if (opt == 1){ // HG
               tempHistN = ithSpectraNoise->second.GetHG();
-          } else {
+            } else {
               tempHistN = ithSpectraNoise->second.GetLG();
+            }
           }
           if (tempHistN){
             SetMarkerDefaults(tempHistN, 24, 1, kBlue+1, kBlue+1, kFALSE);   
