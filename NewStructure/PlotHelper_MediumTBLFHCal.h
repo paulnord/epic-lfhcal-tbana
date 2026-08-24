@@ -1379,6 +1379,19 @@
             continue;
           } 
           ithSpectraTrigg=spectraTrigg.find(tempCellID);
+
+          // A cell can have an inclusive spectrum but no trigger-selected entries.
+          // Do not dereference the end iterator when extended MIP plotting is enabled.
+          if (ithSpectraTrigg == spectraTrigg.end()){
+            skipped++;
+            std::cout << "WARNING: skipping cell ID: " << tempCellID
+                      << " because no triggered spectrum is available"
+                      << std::endl;
+            pads[p]->Clear();
+            pads[p]->Draw();
+            continue;
+          }
+
           TH1D* tempHist = nullptr;
           double noiseWidth = 0;
           if (opt == 1){
