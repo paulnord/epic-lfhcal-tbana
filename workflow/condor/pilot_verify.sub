@@ -1,0 +1,20 @@
+universe = vanilla
+
+executable = /star/u/pnord/eic-2026/epic-lfhcal-tbana/workflow/condor/run_in_eic_container.sh
+arguments = /star/u/pnord/eic-2026/epic-lfhcal-tbana/workflow/condor/pilot_verify.sh
+
+initialdir = /star/u/pnord/eic-2026/epic-lfhcal-tbana
+should_transfer_files = NO
+getenv = False
+
+request_cpus   = 1
+request_memory = 2GB
+request_disk   = 1GB
+
+notification = Never
+
+output = /star/u/pnord/eic-2026/logs_condor/analysis_pilot.$(Cluster).out
+error  = /star/u/pnord/eic-2026/logs_condor/analysis_pilot.$(Cluster).err
+log    = /tmp/pnord/lfhcal-condor/analysis_pilot.$(Cluster).log
+
+queue
