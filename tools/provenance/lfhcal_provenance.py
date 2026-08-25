@@ -16,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import warnings
 
 SCHEMA_VERSION = 1
 ENV_KEYS = [
@@ -456,6 +457,16 @@ def main():
     except Exception as exc:
         print(f"ERROR: PyROOT required; run in EIC analysis environment: {exc}",file=sys.stderr); return 2
     ROOT.gROOT.SetBatch(True)
+
+    # LFHCal files contain custom C++ classes.  The provenance process does
+    # not need those objects, but ROOT otherwise emits a large amount of
+    # dictionary/autoload chatter merely while opening the file.
+    ROOT.gErrorIgnoreLevel = ROOT.kError
+    warnings.filterwarnings(
+        "ignore",
+        message=r".*no dictionary for class.*",
+        category=RuntimeWarning,
+    )
     try:
         if args.cmd=="run": return cmd_run(ROOT,args)
         if args.cmd=="stamp-existing": return cmd_stamp(ROOT,args)
