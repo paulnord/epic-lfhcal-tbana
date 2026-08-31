@@ -45,18 +45,23 @@ if [ $2 = "pedestal" ]; then
   if [ $3 = "Test" ]; then
     runs='72'  
   elif [ $3 = "FullSetA" ]; then
-    runs='48' #pedestals
+    runs='048 065 066 067 068 069' #pedestals
   # Full Scan B
   elif [ $3 = "FullSetB" ]; then
 #     runs='71' #pedestals
     runs='126' #pedestals
   elif [ $3 = "FullSetC" ]; then
-#     runs='134 135 137' #pedestals
-    runs='135' #pedestals
-    # runs='71' #pedestals
+    runs='134 135 137 188 278' #pedestals
+  elif [ $3 = "FullSetD" ]; then
+    runs='206 263 264 265 275 276 277' #pedestals
   elif [ $3 = "FullSetE" ]; then
-    runs='372' #pedestals
- elif [ $3 = "HVScan" ]; then
+#     runs='372' #pedestals
+    runs='420' #pedestals
+  elif [ $3 = "FullSetF" ]; then
+    runs='431 471' #pedestals
+  elif [ $3 = "FullSetG" ]; then
+    runs='485 529' #pedestals
+  elif [ $3 = "HVScan" ]; then
     runs='188' #pedestals
   elif [ $3 = "HadronScan" ]; then
     runs='207' #pedestals
@@ -72,17 +77,57 @@ if [ $2 = "pedestal" ]; then
 fi
 
 if [ $2 = "toaPhase" ]; then   
-  if [ $3 = "FullSetB" ]; then
+  if [ $3 = "FullSetA" ]; then
+    runNrPed='048'
+    if [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetA_1' # 1st 0,0
+    fi
+  elif [ $3 = "FullSetB" ]; then
     runNrPed='071'
     if [ $4 = "Hadron" ]; then 
-      runs=''
+      runs='121' #100 GeV pi FullSet B
     elif [ $4 = "Muon" ]; then 
       runs='072' # 1st 0,0
+    fi
+  elif [ $3 = "FullSetC" ]; then
+    runNrPed='137'
+    if [ $4 = "Hadron" ]; then 
+      runs='170' #100 GeV pi FullSet C
+    elif [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetC_1' #
+    fi
+  elif [ $3 = "FullSetD" ]; then
+    runNrPed='206'
+    if [ $4 = "Hadron" ]; then 
+      runs='246' #100 GeV pi FullSet D
+    elif [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetD_1' #
+    fi
+  elif [ $3 = "FullSetE" ]; then
+    runNrPed='372'
+    if [ $4 = "Hadron" ]; then 
+      runs='401' #100 GeV pi FullSet E
+    elif [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetE_1' # 1st 0,0
+    fi
+  elif [ $3 = "FullSetF" ]; then
+    runNrPed='431'
+    if [ $4 = "Hadron" ]; then 
+      runs='452' #100 GeV pi FullSet F
+    elif [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetF_1' # 1st 0,0
+    fi
+  elif [ $3 = "FullSetG" ]; then
+    runNrPed='485'
+    if [ $4 = "Hadron" ]; then 
+      runs='498' #100 GeV pi FullSet G
+    elif [ $4 = "Muon" ]; then 
+      runs='Muon_FullSetG_1' # 1st 0,0
     fi
   elif [ $3 = "HVScan" ]; then
     runNrPed='188'
     if [ $4 = "Muon" ]; then
-      runs='202' # 1st 0,0
+      runs='194 202' # 1st 0,0
     fi
   fi
   if [ $4 = "Hadron" ]; then 
@@ -92,8 +137,9 @@ if [ $2 = "toaPhase" ]; then
   elif [ $4 = "Muon" ]; then 
     for runNr in $runs; do 
       echo $runNr
-      ./DataPrep -d 1 -f -i $dataDirRaw/rawHGCROC_wPed_$runNr.root -o $dataDirOut/rawHGCROC_toaPhase_$runNr.root -O $PlotBaseDir/ToAPhaseExtraction/Run$runNr -r $runList -g $dataDirRaw/rawHGCROC_wPed_$runNrPed.root
-      #./DataPrep -d 1 -f -i $dataDirRaw/rawHGCROC_miptrigg_wPedwMuon_wBC_$runNr.root -o $dataDirOut/rawHGCROC_toaPhase_$runNr.root -O $PlotBaseDir/ToAPhaseExtraction/Run$runNr -r $runList -g $dataDirRaw/rawHGCROC_miptrigg_wPedwMuon_wBC_$runNr.root #-F png
+      ./DataPrep -d 1 -f -i $dataDirRaw/rawHGCROC_$runNr.root -o $dataDirOut/rawHGCROC_toaPhase_$runNr.root -O $PlotBaseDir/ToAPhaseExtraction/Run$runNr -r $runList -g $dataDirOut/rawHGCROC_wPed_$runNrPed.root
+#       ./DataPrep -d 1 -f -i $dataDirRaw/rawHGCROC_wPed_$runNr.root -o $dataDirOut/rawHGCROC_toaPhase_$runNr.root -O $PlotBaseDir/ToAPhaseExtraction/Run$runNr -r $runList -g $dataDirRaw/rawHGCROC_wPed_$runNrPed.root
+#       ./DataPrep -d 1 -f -i $dataDirRaw/rawHGCROC_miptrigg_wPedwMuon_wBC_$runNr.root -o $dataDirOut/rawHGCROC_toaPhase_$runNr.root -O $PlotBaseDir/ToAPhaseExtraction/Run$runNr -r $runList -g $dataDirRaw/rawHGCROC_miptrigg_wPedwMuon_wBC_$runNr.root #-F png
     done
   fi
 
@@ -127,26 +173,33 @@ if [ $2 == "calibMuon" ]; then
   elif [ $4 = "FullSetE_1" ]; then
     runPed='372'
     runs='Muon_FullSetE_1'
-    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetB.csv'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetE.csv'
+  elif [ $4 = "FullSetE_2" ]; then
+    runPed='420'
+    runs='Muon_FullSetE_2'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetE.csv'
+  elif [ $4 = "FullSetE_3" ]; then
+    runPed='471'
+    runs='Muon_FullSetE_3'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetF.csv'
+  elif [ $4 = "FullSetF_1" ]; then
+    runPed='431'
+    runs='Muon_FullSetF_1'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetF.csv'
+  elif [ $4 = "FullSetF_2" ]; then
+    runPed='471'
+    runs='Muon_FullSetF_2'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetF.csv'
   elif [ $4 = "HVScan" ]; then
     runPed='188'
     runs='194 195 196 197 198 199 200 201 202'
-    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_FullSetB.csv'
-  elif [ $4 = "ParamScan" ]; then
-    runPed='294'
-    runs='295'
+    toaPhaseOffset='../configs/TB2026/ToAOffsets_TBSPS2026_HVScan.csv'
   else 
     echo "No run selected, exiting..."
     exit
   fi
 
-  badChannelMap=../configs/TB2026/badChannel_HGCROC_SPSTB2026_dummy.txt
-
-  if [ $4 = "ParamScan" ]; then
-#     badChannelMap=../configs/TB2026/badChannel_HGCROC_SPSTB2026_OnlyCenter4x6.txt
-    badChannelMap=../configs/TB2026/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
-  fi
-  
+  badChannelMap=../configs/TB2026/badChannel_HGCROC_SPSTB2026_dummy.txt  
   for runNr in $runs; do
     echo "$runNr   $runPed"
     MuonCalibHGCROC $3 $runPed $runNr $dataDirRaw $dataDirOut Run_$runNr $badChannelMap $toaPhaseOffset 	
