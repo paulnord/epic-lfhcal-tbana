@@ -27,6 +27,35 @@ def load_tool():
 
 
 class LFHCalRunTests(unittest.TestCase):
+    def test_campaign_notes_are_recorded_separately_from_inputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(TOOL),
+                    "--dry-run",
+                    "--note",
+                    "First note",
+                    "--note",
+                    "Second note",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "print('notes')",
+                ],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            campaign_path = next((work / "lfhcal-runs").glob("*/campaign.json"))
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["notes"], ["First note", "Second note"])
+            self.assertEqual(campaign["jobs"][0]["inputs"], [])
+
     def test_named_and_unnamed_file_refs(self):
         tool = load_tool()
         named = tool.parse_file_ref("pedestal=/data/ped.root")

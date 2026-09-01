@@ -34,6 +34,17 @@ python3 tools/lfhcal-run \
 The paths declared to the runner do not replace the corresponding program
 arguments. They tell the provenance layer what scientific role each file has.
 
+Free-form campaign notes are separate from file lineage and may be repeated:
+
+```console
+python3 tools/lfhcal-run \
+  --note "Testing a new calibration choice" \
+  --note "Use only for comparison" \
+  -- ./NewStructure/DataPrep [DataPrep options ...]
+```
+
+Notes are stored in the campaign JSON in the order supplied.
+
 ## Several local jobs
 
 A job file contains one shell-quoted argument list per line. Blank lines and

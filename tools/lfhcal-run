@@ -143,6 +143,13 @@ def main_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", action="append", default=[], type=parse_file_ref)
     parser.add_argument("--output", action="append", default=[], type=parse_file_ref)
     parser.add_argument(
+        "--note",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help="free-form campaign note; repeat as needed",
+    )
+    parser.add_argument(
         "--provenance-dir",
         default="lfhcal-runs",
         help="campaign record directory (default: lfhcal-runs)",
@@ -637,6 +644,8 @@ def create_campaign(
         "jobs": [job.to_dict() for job in jobs],
         "status": "planned" if args.dry_run else "created",
     }
+    if args.note:
+        campaign["notes"] = list(args.note)
     environment: dict[str, Any] = {}
     if args.container_image:
         image = container_path_record(args.container_image, invocation_cwd)
