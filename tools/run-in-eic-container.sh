@@ -15,4 +15,26 @@ else
     exit 127
 fi
 
+# Mirror the standard host paths discovered by the generated EIC shell.  A
+# caller can replace this detection with a comma-separated explicit list.
+bind_path=${LFHCAL_CONTAINER_BINDPATH:-}
+if [[ -z "$bind_path" ]]; then
+    for candidate in /media /cvmfs /gpfs /gpfs01 /gpfs02 /direct; do
+        if [[ -e "$candidate" ]]; then
+            if [[ -n "$bind_path" ]]; then
+                bind_path+=,
+            fi
+            bind_path+=$candidate
+        fi
+    done
+fi
+
+if [[ -n "$bind_path" ]]; then
+    if [[ "$(basename "$runtime")" == apptainer ]]; then
+        export APPTAINER_BINDPATH="${APPTAINER_BINDPATH:+${APPTAINER_BINDPATH},}${bind_path}"
+    else
+        export SINGULARITY_BINDPATH="${SINGULARITY_BINDPATH:+${SINGULARITY_BINDPATH},}${bind_path}"
+    fi
+fi
+
 exec "$runtime" exec "$LFHCAL_CONTAINER_IMAGE" "$@"

@@ -160,6 +160,7 @@ class LFHCalRunTests(unittest.TestCase):
             runtime.write_text(
                 "#!/bin/sh\n"
                 "test \"$1\" = exec || exit 90\n"
+                "test \"$APPTAINER_BINDPATH\" = /already-bound,/custom/data || exit 92\n"
                 "shift\n"
                 "test \"$1\" = \"$LFHCAL_CONTAINER_IMAGE\" || exit 91\n"
                 "shift\n"
@@ -170,6 +171,8 @@ class LFHCalRunTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["PATH"] = f"{binary_dir}{os.pathsep}{environment['PATH']}"
             environment["LFHCAL_CONTAINER_IMAGE"] = str(image)
+            environment["LFHCAL_CONTAINER_BINDPATH"] = "/custom/data"
+            environment["APPTAINER_BINDPATH"] = "/already-bound"
             result = subprocess.run(
                 [
                     str(CONTAINER_WRAPPER),

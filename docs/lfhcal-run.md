@@ -206,8 +206,12 @@ reserved words such as `PARENT` and `CHILD`; the original job name remains in
 use `condor_submit` and a single `queue N` submit description.
 
 The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
-and preserves the payload argument vector exactly. The Condor wrapper is copied
-into the campaign before submission, hashed, and used from that archived
+and preserves the payload argument vector exactly. It also binds standard EIC
+host paths that exist on the execute node (`/media`, `/cvmfs`, `/gpfs`,
+`/gpfs01`, `/gpfs02`, and `/direct`), matching the paths discovered by the
+generated `eic-shell`. Set the comma-separated `LFHCAL_CONTAINER_BINDPATH`
+environment variable to replace that automatic list. The Condor wrapper is
+copied into the campaign before submission, hashed, and used from that archived
 location. `--environment-file` similarly preserves
 small environment-defining files such as the generated outer `eic-shell`;
 repeat it when more than one file matters. A wrapped worker invokes `python3`
