@@ -341,6 +341,15 @@ def is_dag_campaign(jobs: Sequence[JobSpec]) -> bool:
     return any(job.parents or job.retries for job in jobs)
 
 
+def condor_dag_node_names(jobs: Sequence[JobSpec]) -> dict[str, str]:
+    """Return safe internal DAGMan names without constraining user job names."""
+    return {
+        job.name: f"lfhcal_{index:04d}_{job.name}"
+        for index, job in enumerate(jobs)
+        if job.name
+    }
+
+
 def split_invocation(argv: Sequence[str]) -> tuple[list[str], list[str] | None]:
     values = list(argv)
     if "--" not in values:
@@ -1013,22 +1022,25 @@ def submit_condor(
     dag_path: pathlib.Path | None = None
     if dag_campaign:
         dag_lines = []
+        dag_node_names = condor_dag_node_names(jobs)
         for index, job in enumerate(jobs):
             assert job.name is not None
+            node_name = dag_node_names[job.name]
             dag_lines.extend(
                 [
-                    f"JOB {job.name} {submit_path}",
-                    f'VARS {job.name} lfhcal_job_index="{index}" '
+                    f"JOB {node_name} {submit_path}",
+                    f'VARS {node_name} lfhcal_job_index="{index}" '
                     f'lfhcal_node="{job.name}"',
                 ]
             )
             if job.retries:
-                dag_lines.append(f"RETRY {job.name} {job.retries}")
+                dag_lines.append(f"RETRY {node_name} {job.retries}")
         for job in jobs:
             assert job.name is not None
             if job.parents:
                 dag_lines.append(
-                    f"PARENT {' '.join(job.parents)} CHILD {job.name}"
+                    f"PARENT {' '.join(dag_node_names[parent] for parent in job.parents)} "
+                    f"CHILD {dag_node_names[job.name]}"
                 )
         dag_path = campaign_dir / "campaign.dag"
         dag_path.write_text("\n".join(dag_lines) + "\n", encoding="utf-8")

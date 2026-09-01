@@ -157,21 +157,23 @@ For a dependent campaign, the Condor backend compiles the same manifest into
 a real DAGMan description, sharing one generated `condor.sub` among the nodes:
 
 ```text
-JOB pedestal /.../condor.sub
-VARS pedestal lfhcal_job_index="0" lfhcal_node="pedestal"
-RETRY pedestal 2
+JOB lfhcal_0000_pedestal /.../condor.sub
+VARS lfhcal_0000_pedestal lfhcal_job_index="0" lfhcal_node="pedestal"
+RETRY lfhcal_0000_pedestal 2
 
-JOB calibration /.../condor.sub
-VARS calibration lfhcal_job_index="2" lfhcal_node="calibration"
+JOB lfhcal_0002_calibration /.../condor.sub
+VARS lfhcal_0002_calibration lfhcal_job_index="2" lfhcal_node="calibration"
 
-PARENT pedestal muon CHILD calibration
+PARENT lfhcal_0000_pedestal lfhcal_0001_muon CHILD lfhcal_0002_calibration
 ```
 
 It submits that file with `condor_submit_dag`. DAGMan controls release,
 failure blocking, and retries; each retry still calls the common provenance
 worker and therefore creates a distinct attempt record for the same campaign
-job. Flat campaigns continue to use `condor_submit` and a single `queue N`
-submit description.
+job. The generated `lfhcal_...` node names prevent collisions with DAGMan
+reserved words such as `PARENT` and `CHILD`; the original job name remains in
+`campaign.json`, output filenames, and provenance. Flat campaigns continue to
+use `condor_submit` and a single `queue N` submit description.
 
 The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
 and preserves the payload argument vector exactly. The Condor wrapper is copied

@@ -341,10 +341,10 @@ class LFHCalRunTests(unittest.TestCase):
             work = pathlib.Path(temporary)
             manifest = work / "campaign.txt"
             manifest.write_text(
-                "JOB first -- python3 first.py\n"
-                "JOB second -- python3 second.py\n"
-                "PARENT first CHILD second\n"
-                "RETRY first 2\n",
+                "JOB parent -- python3 first.py\n"
+                "JOB child -- python3 second.py\n"
+                "PARENT parent CHILD child\n"
+                "RETRY parent 2\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -364,10 +364,16 @@ class LFHCalRunTests(unittest.TestCase):
             self.assertIn("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)", submit)
             self.assertIn("output = " + str(campaign_dir / "condor") + "/$(lfhcal_node).out", submit)
             self.assertIn("queue 1", submit)
-            self.assertIn(f"JOB first {campaign_dir / 'condor.sub'}", dag)
-            self.assertIn('VARS second lfhcal_job_index="1" lfhcal_node="second"', dag)
-            self.assertIn("RETRY first 2", dag)
-            self.assertIn("PARENT first CHILD second", dag)
+            self.assertIn(f"JOB lfhcal_0000_parent {campaign_dir / 'condor.sub'}", dag)
+            self.assertIn(
+                'VARS lfhcal_0001_child lfhcal_job_index="1" lfhcal_node="child"',
+                dag,
+            )
+            self.assertIn("RETRY lfhcal_0000_parent 2", dag)
+            self.assertIn(
+                "PARENT lfhcal_0000_parent CHILD lfhcal_0001_child",
+                dag,
+            )
             campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
             self.assertEqual(campaign["condor_dag_file"], str(campaign_dir / "campaign.dag"))
 
