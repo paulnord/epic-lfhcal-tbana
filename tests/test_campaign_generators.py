@@ -93,6 +93,8 @@ class CampaignGeneratorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)
             calibration = work / "calibration.root"
+            bad_channels = work / "bad-channels.txt"
+            toa_offsets = work / "toa-offsets.csv"
             jobs = self.generate(
                 ANALYSIS,
                 [
@@ -104,6 +106,10 @@ class CampaignGeneratorTests(unittest.TestCase):
                     str(work / "analysis"),
                     "--calibration",
                     str(calibration),
+                    "--bad-channels",
+                    str(bad_channels),
+                    "--toa-offsets",
+                    str(toa_offsets),
                     "137",
                     "153",
                 ],
@@ -124,6 +130,7 @@ class CampaignGeneratorTests(unittest.TestCase):
             str(calibration),
         )
         self.assertTrue(by_name["waveform-153"].command[0].endswith("/HGCROCStudy"))
+        self.assertNotIn("-l", by_name["waveform-153"].command)
 
     def test_analysis_campaign_rejects_descending_range(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -138,6 +145,10 @@ class CampaignGeneratorTests(unittest.TestCase):
                     str(work / "out"),
                     "--calibration",
                     str(work / "calibration.root"),
+                    "--bad-channels",
+                    str(work / "bad-channels.txt"),
+                    "--toa-offsets",
+                    str(work / "toa-offsets.csv"),
                     "--manifest",
                     str(work / "campaign.txt"),
                     "149-138",

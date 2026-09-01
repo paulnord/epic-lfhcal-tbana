@@ -51,9 +51,20 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--build-dir", help="directory containing Convert, DataPrep, HGCROCStudy")
     result.add_argument("--mapping", help="override the TB2026 V2 mapping")
     result.add_argument("--run-database", help="override the TB2026 run database")
-    result.add_argument("--bad-channels", help="override the TB2026 bad-channel map")
-    result.add_argument("--toa-offsets", help="override the TB2026 ToA offsets")
-    result.add_argument("--active-cells", help="override the waveform active-cell list")
+    result.add_argument(
+        "--bad-channels",
+        required=True,
+        help="bad-channel map appropriate to these runs",
+    )
+    result.add_argument(
+        "--toa-offsets",
+        required=True,
+        help="ToA-offset file appropriate to these runs",
+    )
+    result.add_argument(
+        "--active-cells",
+        help="optional waveform active-cell list; omit to analyze all cells",
+    )
     result.add_argument("--retries", type=int, default=1, help="retries per job (default: 1)")
     result.add_argument(
         "--check",
@@ -74,16 +85,18 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
     build_dir = absolute_path(args.build_dir, base) if args.build_dir else repository / "NewStructure/build"
     mapping = absolute_path(args.mapping, base) if args.mapping else repository / "configs/TB2026/mapping_HGCROC_SPSH2TB_sumV2_default.csv"
     run_database = absolute_path(args.run_database, base) if args.run_database else repository / "configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv"
-    bad_channels = absolute_path(args.bad_channels, base) if args.bad_channels else repository / "configs/TB2026/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt"
-    toa_offsets = absolute_path(args.toa_offsets, base) if args.toa_offsets else repository / "configs/TB2026/ToAOffsets_TBSPS2026_ParamScan_1.csv"
-    active_cells = absolute_path(args.active_cells, base) if args.active_cells else repository / "configs/TB2026/activeCellsHGCROCParameterScan.txt"
+    bad_channels = absolute_path(args.bad_channels, base)
+    toa_offsets = absolute_path(args.toa_offsets, base)
+    active_cells = absolute_path(args.active_cells, base) if args.active_cells else None
     convert = build_dir / "Convert"
     data_prep = build_dir / "DataPrep"
     hgcroc_study = build_dir / "HGCROCStudy"
 
-    plot_roots = {
-        "calibration": output_dir / "HGCROC_PlotsCalibrated",
-        "waveform": output_dir / "HGCROC_PlotsWave",
+    calibration_plot_dirs = {
+        run: output_dir / f"HGCROC_PlotsCalibrated/Run_{run}" for run in runs
+    }
+    waveform_plot_dirs = {
+        run: output_dir / f"HGCROC_PlotsWave/Run_{run}" for run in runs
     }
     campaign = Campaign(
         [
@@ -94,7 +107,13 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
     )
     campaign.add_job(
         "prepare",
-        ["mkdir", "-p", output_dir, *plot_roots.values()],
+        [
+            "mkdir",
+            "-p",
+            output_dir,
+            *calibration_plot_dirs.values(),
+            *waveform_plot_dirs.values(),
+        ],
         outputs=[("workspace", output_dir)],
         retries=args.retries,
     )
@@ -105,8 +124,8 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
         raw_root = output_dir / f"rawHGCROC_{run}.root"
         calibrated = output_dir / f"calibratedHGCROC_Run_{run}.root"
         waveform = output_dir / f"calibratedHGCROC_wave_Run_{run}.root"
-        calibration_plots = plot_roots["calibration"] / f"Run_{run}"
-        waveform_plots = plot_roots["waveform"] / f"Run_{run}"
+        calibration_plots = calibration_plot_dirs[run]
+        waveform_plots = waveform_plot_dirs[run]
         raw_inputs.append(raw_h2g)
 
         convert_name = f"convert-{run}"
@@ -172,32 +191,34 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
             parents=[convert_name],
             retries=args.retries,
         )
+        waveform_command: list[str | pathlib.Path] = [
+            hgcroc_study,
+            "-d",
+            "1",
+            "-E",
+            "1",
+            "-f",
+            "-w",
+            "-i",
+            calibrated,
+            "-o",
+            waveform,
+            "-O",
+            waveform_plots,
+            "-r",
+            run_database,
+        ]
+        waveform_inputs = [
+            ("calibrated", calibrated),
+            ("run_database", run_database),
+        ]
+        if active_cells is not None:
+            waveform_command.extend(("-l", active_cells))
+            waveform_inputs.append(("active_cells", active_cells))
         campaign.add_job(
             f"waveform-{run}",
-            [
-                hgcroc_study,
-                "-d",
-                "1",
-                "-E",
-                "1",
-                "-f",
-                "-w",
-                "-i",
-                calibrated,
-                "-o",
-                waveform,
-                "-O",
-                waveform_plots,
-                "-r",
-                run_database,
-                "-l",
-                active_cells,
-            ],
-            inputs=[
-                ("calibrated", calibrated),
-                ("run_database", run_database),
-                ("active_cells", active_cells),
-            ],
+            waveform_command,
+            inputs=waveform_inputs,
             outputs=[("waveform", waveform), ("plots", waveform_plots)],
             parents=[apply_name],
             retries=args.retries,
@@ -211,10 +232,11 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
         run_database,
         bad_channels,
         toa_offsets,
-        active_cells,
         calibration,
         *raw_inputs,
     ]
+    if active_cells is not None:
+        required.append(active_cells)
     return campaign, required, runs
 
 

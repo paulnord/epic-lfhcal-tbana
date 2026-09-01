@@ -39,15 +39,19 @@ all conversions independently.
 
 ## Existing calibration plus many data runs
 
-Supply the final calibration ROOT file with `--calibration`. The bad-channel
-map, ToA offsets, run database, mapping, and active-cell list use TB2026
-defaults but each has an override option.
+Supply the final calibration ROOT file with `--calibration`. Because the
+bad-channel and ToA corrections change between detector configurations, they
+must also be selected explicitly. The run database and mapping use TB2026 SPS
+H2 defaults. An active-cell list is optional; without one, waveform analysis
+does not add an `-l` restriction.
 
 ```console
 python3 tools/make-tb2026-analysis-campaign \
   --raw-dir /path/to/2026TBdata \
   --output-dir /path/to/analysis-137-178 \
-  --calibration /path/to/rawHGCROC_wPedwMuon_wBC_Imp3R_298.root \
+  --calibration /path/to/fullsetc-final-calibration.root \
+  --bad-channels configs/TB2026/badChannel_HGCROC_SPSTB2026_dummy.txt \
+  --toa-offsets configs/TB2026/ToAOffsets_TBSPS2026_FullSetC.csv \
   --manifest analysis-137-178.txt \
   --check \
   137 138-149 153 159 165 178
@@ -100,7 +104,7 @@ run; `--request-cpus` controls CPUs requested by each Condor job.
 
 ## Safety checks
 
-`--check` verifies the built executables, shared configuration, calibration,
+`--check` verifies the built executables, selected configuration, calibration,
 and all `RunNNN.h2g` inputs before writing the manifest. Without `--check`, a
 manifest can be prepared before all inputs arrive. Existing manifests are not
 overwritten unless `--force` is supplied.
