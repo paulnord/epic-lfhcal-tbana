@@ -12,3 +12,4 @@ NewStructure/*.txt
 NewStructure/*.log
 *.root
 *.h2g
+.lfhcal/

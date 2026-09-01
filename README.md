@@ -31,3 +31,22 @@ In order to prevent ROOT from complaining about dictionaries of classes not foun
 
 To generate doxygen documentation for the project in *NewStructure*, navigate to the *NewStructure* directory (`cd NewStructure`) and run `doxygen Doxyfile`. This will generate [Doxygen](https://www.doxygen.nl/) style documentation for the project in a new folder called __doxy__ inside *NewStructure*. The Doxygen settings can be modified in a file called __Doxyfile__ found in *NewStructure*.
 
+## Reproducible job launcher (experimental)
+
+`tools/lfhcal-run` runs arbitrary analysis commands locally, in parallel, or
+through HTCondor while recording execution provenance. Analysis-program options
+remain entirely under the control of the program being run.
+
+```console
+# One local command
+./tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
+
+# Several commands, four at a time
+./tools/lfhcal-run -j 4 jobs.txt
+
+# The same jobs through HTCondor
+./tools/lfhcal-run --condor jobs.txt
+```
+
+See [`docs/lfhcal-run.md`](docs/lfhcal-run.md) for named multi-file lineage,
+job-file syntax, provenance output, and Condor/container configuration.
