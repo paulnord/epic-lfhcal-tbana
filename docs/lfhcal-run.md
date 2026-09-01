@@ -17,14 +17,14 @@ ROOT outputs under `LFHCalProvenance/lfhcal_run`.
 From the repository root:
 
 ```console
-./tools/lfhcal-run -- ./NewStructure/DataPrep --help
+python3 tools/lfhcal-run -- ./NewStructure/DataPrep --help
 ```
 
 Everything after `--` belongs to the payload program. Named file roles are
 optional and repeatable:
 
 ```console
-./tools/lfhcal-run \
+python3 tools/lfhcal-run \
   --input pedestal=/data/rawHGCROC_307.root \
   --input muon=/data/rawHGCROC_308.root \
   --output calibrated=/data/calibrated_307_308.root \
@@ -51,7 +51,7 @@ python3 my_summary.py --run 298
 Run at most four simultaneously:
 
 ```console
-./tools/lfhcal-run -j 4 jobs.txt
+python3 tools/lfhcal-run -j 4 jobs.txt
 ```
 
 Lines are parsed with shell quoting, but are launched directly without a shell.
@@ -67,7 +67,7 @@ bash -lc './analysis input.root > analysis.log 2>&1'
 The same job file can be submitted to HTCondor:
 
 ```console
-./tools/lfhcal-run --condor jobs.txt
+python3 tools/lfhcal-run --condor jobs.txt
 ```
 
 The initial backend assumes that the repository, campaign directory, data, and
@@ -75,7 +75,7 @@ outputs are on a filesystem shared by the submit and execute hosts. For a BNL
 container wrapper:
 
 ```console
-./tools/lfhcal-run \
+python3 tools/lfhcal-run \
   --condor \
   --condor-wrapper /path/to/run_in_eic_container.sh \
   --request-cpus 1 \
@@ -86,7 +86,7 @@ container wrapper:
 Site-specific submit entries remain configuration, not analysis knowledge:
 
 ```console
-./tools/lfhcal-run --condor \
+python3 tools/lfhcal-run --condor \
   --condor-extra 'requirements=...' \
   --condor-extra '+MyProject="LFHCal"' \
   jobs.txt
