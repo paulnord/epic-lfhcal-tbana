@@ -144,8 +144,8 @@ Fetch individual runs or inclusive ranges from the JLab XRootD store before
 generating a campaign:
 
 ```console
-python3 tools/fetch-tb2026-raw \\
-  --destination /path/to/2026TBdata \\
+python3 tools/fetch-tb2026-raw \
+  --destination /path/to/2026TBdata \
   137 138-149 153 159 165 178
 ```
 
