@@ -96,12 +96,19 @@ def copy_command(
     force: bool,
 ) -> list[str]:
     filename = f"Run{run}.h2g"
-    return [
-        executable,
-        "--force" if force else "--continue",
-        f"{source_directory.rstrip('/')}/{filename}",
-        str(destination_directory / filename),
-    ]
+    destination = destination_directory / filename
+    command = [executable]
+    if force:
+        command.append("--force")
+    elif destination.exists():
+        command.append("--continue")
+    command.extend(
+        (
+            f"{source_directory.rstrip('/')}/{filename}",
+            str(destination),
+        )
+    )
+    return command
 
 
 def executable_exists(value: str) -> bool:
