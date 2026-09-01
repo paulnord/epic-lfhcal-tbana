@@ -139,7 +139,7 @@ class LFHCalRunTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            latest = next((work / ".lfhcal" / "runs").glob("*/jobs/*/latest.json"))
+            latest = next((work / "lfhcal-runs").glob("*/jobs/*/latest.json"))
             record = json.loads(latest.read_text(encoding="utf-8"))
             self.assertEqual(record["container"]["content_digest"], f"sha256:{digest}")
             self.assertEqual(record["host"]["python_executable"], sys.executable)
@@ -183,7 +183,7 @@ class LFHCalRunTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            campaign_paths = list((work / ".lfhcal" / "runs").glob("*/campaign.json"))
+            campaign_paths = list((work / "lfhcal-runs").glob("*/campaign.json"))
             self.assertEqual(len(campaign_paths), 1)
             campaign = json.loads(campaign_paths[0].read_text(encoding="utf-8"))
             self.assertEqual(campaign["status"], "completed")
@@ -230,7 +230,7 @@ class LFHCalRunTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            submit_paths = list((work / ".lfhcal" / "runs").glob("*/condor.sub"))
+            submit_paths = list((work / "lfhcal-runs").glob("*/condor.sub"))
             self.assertEqual(len(submit_paths), 1)
             submit = submit_paths[0].read_text(encoding="utf-8")
             campaign_dir = submit_paths[0].parent

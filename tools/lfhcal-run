@@ -144,8 +144,8 @@ def main_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", action="append", default=[], type=parse_file_ref)
     parser.add_argument(
         "--provenance-dir",
-        default=".lfhcal/runs",
-        help="campaign record directory (default: .lfhcal/runs)",
+        default="lfhcal-runs",
+        help="campaign record directory (default: lfhcal-runs)",
     )
     parser.add_argument("--dry-run", action="store_true", help="describe work without running/submitting")
     parser.add_argument("--condor-wrapper", help="container/site wrapper placed before the worker command")

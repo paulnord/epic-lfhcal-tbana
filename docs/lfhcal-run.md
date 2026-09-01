@@ -132,7 +132,7 @@ Execution attempts also discover this information automatically from
 By default each invocation creates:
 
 ```text
-.lfhcal/runs/campaign-.../
+lfhcal-runs/campaign-.../
   campaign.json
   environment/
     condor-wrapper.sh        # exact submitted wrapper, when configured
