@@ -145,7 +145,13 @@ def main_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="job/DAG file containing shell-quoted commands and optional dependencies",
     )
-    parser.add_argument("-j", "--jobs", type=int, default=1, help="maximum local jobs at once")
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=None,
+        help="maximum local jobs at once (default: 1; invalid with Condor)",
+    )
     parser.add_argument("--backend", choices=("local", "condor"), default="local")
     parser.add_argument("--condor", action="store_true", help="alias for --backend condor")
     parser.add_argument("--name", help="single-job name")
@@ -761,17 +767,19 @@ def create_campaign(
     campaign_id = new_id("campaign")
     base = normalized_path(args.provenance_dir, invocation_cwd)
     campaign_dir = base / campaign_id
+    backend = "condor" if args.condor else args.backend
     campaign = {
         "schema": SCHEMA,
         "kind": "campaign",
         "campaign_id": campaign_id,
         "created_at": utc_now(),
         "created_from": str(invocation_cwd),
-        "backend": "condor" if args.condor else args.backend,
-        "max_parallel": args.jobs,
+        "backend": backend,
         "jobs": [job.to_dict() for job in jobs],
         "status": "planned" if args.dry_run else "created",
     }
+    if backend == "local":
+        campaign["max_parallel"] = args.jobs
     if args.note:
         campaign["notes"] = list(args.note)
     if is_dag_campaign(jobs):
@@ -1139,6 +1147,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(runner_values)
     if args.condor:
         args.backend = "condor"
+    if args.backend == "condor" and args.jobs is not None:
+        parser.error("-j/--jobs applies only to local execution; Condor manages job concurrency")
+    if args.jobs is None:
+        args.jobs = 1
     invocation_cwd = logical_cwd()
     try:
         if payload is not None:
