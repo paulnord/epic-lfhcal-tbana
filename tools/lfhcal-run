@@ -7,6 +7,7 @@ import argparse
 import concurrent.futures
 import dataclasses
 import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
@@ -148,6 +149,18 @@ def main_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dry-run", action="store_true", help="describe work without running/submitting")
     parser.add_argument("--condor-wrapper", help="container/site wrapper placed before the worker command")
+    parser.add_argument(
+        "--environment-file",
+        action="append",
+        default=[],
+        metavar="FILE",
+        help="file copied into the campaign environment archive; repeat as needed",
+    )
+    parser.add_argument(
+        "--container-image",
+        metavar="PATH",
+        help="container path whose resolved identity is recorded (the image is not copied)",
+    )
     parser.add_argument("--request-cpus", type=int, default=1)
     parser.add_argument("--request-memory", default="2GB")
     parser.add_argument("--request-disk", default="2GB")
@@ -284,6 +297,88 @@ def run_capture(command: Sequence[str], cwd: pathlib.Path | None = None) -> str 
     return result.stdout.strip()
 
 
+def sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
+
+
+def archive_file(
+    source_text: str,
+    destination: pathlib.Path,
+    cwd: pathlib.Path,
+) -> dict[str, Any]:
+    source = normalized_path(source_text, cwd)
+    if not source.is_file():
+        raise ValueError(f"environment file does not exist or is not a file: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+    stat = destination.stat()
+    return {
+        "source_path": str(source),
+        "archived_path": str(destination),
+        "sha256": sha256_file(destination),
+        "size_bytes": stat.st_size,
+        "mode": oct(stat.st_mode & 0o7777),
+    }
+
+
+def digest_from_cvmfs_image_path(path: str) -> str | None:
+    match = re.search(
+        r"/\.images/sha256:(?:([0-9a-fA-F]{2})/([0-9a-fA-F]{62})|"
+        r"([0-9a-fA-F]{64}))(?:/|$)",
+        path,
+    )
+    if not match:
+        return None
+    value = match.group(3) or f"{match.group(1)}{match.group(2)}"
+    return f"sha256:{value.lower()}"
+
+
+def container_path_record(path_text: str, cwd: pathlib.Path) -> dict[str, Any]:
+    path = normalized_path(path_text, cwd)
+    result: dict[str, Any] = {
+        "path": str(path),
+        "exists": path.exists(),
+        "is_symlink": path.is_symlink(),
+    }
+    if path.is_symlink():
+        try:
+            result["symlink_target"] = os.readlink(path)
+        except OSError as exc:
+            result["symlink_error"] = str(exc)
+    resolved = pathlib.Path(os.path.realpath(path))
+    result["resolved_path"] = str(resolved)
+    digest = digest_from_cvmfs_image_path(str(resolved))
+    if digest:
+        result["content_digest"] = digest
+    return result
+
+
+def active_container_record(cwd: pathlib.Path) -> dict[str, Any] | None:
+    variables = {
+        name: os.environ[name]
+        for name in ("APPTAINER_CONTAINER", "SINGULARITY_CONTAINER")
+        if os.environ.get(name)
+    }
+    if not variables:
+        return None
+    selected = variables.get("APPTAINER_CONTAINER") or variables["SINGULARITY_CONTAINER"]
+    record = container_path_record(selected, cwd)
+    record["environment_variables"] = variables
+    for runtime in ("apptainer", "singularity"):
+        executable = shutil.which(runtime)
+        if executable:
+            record["runtime"] = {
+                "command": executable,
+                "version": run_capture((executable, "--version")),
+            }
+            break
+    return record
+
+
 def git_record(path: pathlib.Path) -> dict[str, Any] | None:
     start = path if path.is_dir() else path.parent
     root_text = run_capture(("git", "-C", str(start), "rev-parse", "--show-toplevel"))
@@ -332,6 +427,7 @@ def host_record() -> dict[str, Any]:
         "cpu_model": cpu_model(),
         "logical_cpus": os.cpu_count(),
         "python": platform.python_version(),
+        "python_executable": sys.executable,
     }
 
 
@@ -477,6 +573,9 @@ def execute_job(
         "backend": "condor" if os.environ.get("LFHCAL_CONDOR_JOB_ID") else "local",
         "dry_run": dry_run,
     }
+    container = active_container_record(cwd)
+    if container:
+        record["container"] = container
     atomic_json(attempt_dir / "provenance.json", record)
     if dry_run:
         exit_code = 0
@@ -538,6 +637,21 @@ def create_campaign(
         "jobs": [job.to_dict() for job in jobs],
         "status": "planned" if args.dry_run else "created",
     }
+    environment: dict[str, Any] = {}
+    if args.container_image:
+        image = container_path_record(args.container_image, invocation_cwd)
+        if not image["exists"]:
+            raise ValueError(f"container image does not exist: {image['path']}")
+        environment["container_image"] = image
+    if args.environment_file:
+        archived_files = []
+        for index, source in enumerate(args.environment_file):
+            name = pathlib.Path(source).name or "environment-file"
+            destination = campaign_dir / "environment" / "files" / f"{index:03d}-{name}"
+            archived_files.append(archive_file(source, destination, invocation_cwd))
+        environment["archived_files"] = archived_files
+    if environment:
+        campaign["execution_environment"] = environment
     atomic_json(campaign_dir / "campaign.json", campaign)
     return campaign_id, campaign_dir, campaign
 
@@ -615,10 +729,11 @@ def submit_condor(
 ) -> int:
     tool = logical_invocation_path(__file__, invocation_cwd)
     worker = campaign_dir / "condor_worker.sh"
+    worker_python = "python3" if args.condor_wrapper else sys.executable
     worker_text = (
         "#!/usr/bin/env bash\n"
         "set -u\n"
-        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(tool))} _worker "
+        f"exec {shlex.quote(worker_python)} {shlex.quote(str(tool))} _worker "
         f"--campaign {shlex.quote(str(campaign_dir / 'campaign.json'))} "
         '"$1"\n'
     )
@@ -626,20 +741,37 @@ def submit_condor(
     worker.chmod(0o755)
     condor_dir = campaign_dir / "condor"
     condor_dir.mkdir(parents=True, exist_ok=True)
-    executable = normalized_path(args.condor_wrapper, invocation_cwd) if args.condor_wrapper else worker
-    if args.condor_wrapper and not executable.is_file():
-        raise ValueError(f"Condor wrapper does not exist: {executable}")
+    executable = worker
+    if args.condor_wrapper:
+        source_wrapper = normalized_path(args.condor_wrapper, invocation_cwd)
+        if not source_wrapper.is_file():
+            raise ValueError(f"Condor wrapper does not exist: {source_wrapper}")
+        wrapper_name = f"condor-wrapper{source_wrapper.suffix}"
+        executable = campaign_dir / "environment" / wrapper_name
+        wrapper_record = archive_file(str(source_wrapper), executable, invocation_cwd)
+        campaign.setdefault("execution_environment", {})["condor_wrapper"] = wrapper_record
+        atomic_json(campaign_dir / "campaign.json", campaign)
     arguments = f'"{worker} $(Process)"' if args.condor_wrapper else "$(Process)"
+    environment_assignments = [
+        "LFHCAL_BATCH_SYSTEM=condor",
+        "LFHCAL_CONDOR_CLUSTER=$(ClusterId)",
+        "LFHCAL_CONDOR_PROCESS=$(ProcId)",
+        "LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)",
+    ]
+    container = campaign.get("execution_environment", {}).get("container_image")
+    if container:
+        container_execution_path = container["resolved_path"]
+        if re.search(r'[\s"]', container_execution_path):
+            raise ValueError("resolved container image path may not contain whitespace or quotes")
+        environment_assignments.append(
+            f"LFHCAL_CONTAINER_IMAGE={container_execution_path}"
+        )
     submit_lines = [
         "universe = vanilla",
         f"executable = {executable}",
         f"arguments = {arguments}",
         "getenv = True",
-        (
-            'environment = "LFHCAL_BATCH_SYSTEM=condor '
-            'LFHCAL_CONDOR_CLUSTER=$(ClusterId) LFHCAL_CONDOR_PROCESS=$(ProcId) '
-            'LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)"'
-        ),
+        f'environment = "{" ".join(environment_assignments)}"',
         f"request_cpus = {args.request_cpus}",
         f"request_memory = {args.request_memory}",
         f"request_disk = {args.request_disk}",

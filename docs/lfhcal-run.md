@@ -87,7 +87,9 @@ container wrapper:
 ```console
 python3 tools/lfhcal-run \
   --condor \
-  --condor-wrapper /path/to/run_in_eic_container.sh \
+  --condor-wrapper tools/run-in-eic-container.sh \
+  --environment-file /path/to/eic-shell \
+  --container-image /path/to/local/lib/eic_xl-nightly \
   --request-cpus 1 \
   --request-memory 4GB \
   jobs.txt
@@ -104,6 +106,27 @@ python3 tools/lfhcal-run --condor \
 
 Use `--dry-run` to inspect the generated submit description without submitting.
 
+The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
+and preserves the payload argument vector exactly. The Condor wrapper is copied
+into the campaign before submission, hashed, and used from that archived
+location. `--environment-file` similarly preserves
+small environment-defining files such as the generated outer `eic-shell`;
+repeat it when more than one file matters. A wrapped worker invokes `python3`
+through the container's `PATH`, so the provenance runner uses the EIC Python
+rather than a host `/usr/bin/python3` path carried into the container.
+
+`--container-image` records the requested image path, its symlink target, its
+fully resolved path, and the content digest encoded by a CVMFS `.images`
+target. The multi-gigabyte image is deliberately not duplicated into every
+campaign. For example, a mutable `eic_xl:nightly` name may resolve to an
+immutable path like `.images/sha256:50/725b...`; the reconstructed
+`sha256:50725b...` identity is what makes the execution environment precise.
+The resolved path is exported to the wrapper as `LFHCAL_CONTAINER_IMAGE`,
+pinning the intended image even if the `nightly` alias advances while a job is
+waiting in the queue.
+Execution attempts also discover this information automatically from
+`APPTAINER_CONTAINER` or `SINGULARITY_CONTAINER` inside a container.
+
 ## Provenance layout
 
 By default each invocation creates:
@@ -111,6 +134,10 @@ By default each invocation creates:
 ```text
 .lfhcal/runs/campaign-.../
   campaign.json
+  environment/
+    condor-wrapper.sh        # exact submitted wrapper, when configured
+    files/
+      000-eic-shell          # explicitly archived environment files
   jobs/
     0000-job-name/
       latest.json
