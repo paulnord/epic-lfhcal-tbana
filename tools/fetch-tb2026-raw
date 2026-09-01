@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Fetch selected TB2026 SPS H2 raw files from the JLab XRootD store."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import pathlib
+import shlex
+import shutil
+import subprocess
+import sys
+from collections.abc import Sequence
+
+
+DEFAULT_SOURCE = (
+    "root://dtn-eic.jlab.org:1094//work/eic3/EPIC/TestBeam/LFHCAL/"
+    "CERN/2026/2026_SPSH2/raw"
+)
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(
+        description="Fetch selected TB2026 SPS H2 RunNNN.h2g files from JLab."
+    )
+    result.add_argument(
+        "runs",
+        nargs="+",
+        metavar="RUN",
+        help="run number or inclusive range, for example 137 138-149 153",
+    )
+    result.add_argument(
+        "-d",
+        "--destination",
+        default=".",
+        help="directory receiving RunNNN.h2g files (default: current directory)",
+    )
+    result.add_argument(
+        "--source",
+        default=DEFAULT_SOURCE,
+        help="source XRootD directory (default: JLab TB2026 SPS H2 raw store)",
+    )
+    result.add_argument(
+        "--xrdcp",
+        default="xrdcp",
+        help="xrdcp executable or path (default: xrdcp from PATH)",
+    )
+    result.add_argument(
+        "--force",
+        action="store_true",
+        help="replace existing destination files instead of resuming them",
+    )
+    result.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print xrdcp commands without creating directories or downloading",
+    )
+    return result
+
+
+def parse_runs(specifications: Sequence[str]) -> list[int]:
+    runs: list[int] = []
+    seen: set[int] = set()
+    for specification in specifications:
+        parts = specification.split("-", maxsplit=1)
+        try:
+            first = int(parts[0])
+            last = int(parts[1]) if len(parts) == 2 else first
+        except ValueError as error:
+            raise ValueError(f"invalid run or range: {specification!r}") from error
+        if first <= 0 or last <= 0:
+            raise ValueError(f"run numbers must be positive: {specification!r}")
+        if last < first:
+            raise ValueError(f"run range must be ascending: {specification!r}")
+        for run in range(first, last + 1):
+            if run not in seen:
+                runs.append(run)
+                seen.add(run)
+    return runs
+
+
+def logical_absolute_path(value: str) -> pathlib.Path:
+    path = pathlib.Path(value).expanduser()
+    if not path.is_absolute():
+        path = pathlib.Path(os.environ.get("PWD", os.getcwd())) / path
+    # Preserve BNL's logical /star spelling instead of resolving it to /direct.
+    return pathlib.Path(os.path.abspath(path))
+
+
+def copy_command(
+    executable: str,
+    source_directory: str,
+    destination_directory: pathlib.Path,
+    run: int,
+    *,
+    force: bool,
+) -> list[str]:
+    filename = f"Run{run}.h2g"
+    return [
+        executable,
+        "--force" if force else "--continue",
+        f"{source_directory.rstrip('/')}/{filename}",
+        str(destination_directory / filename),
+    ]
+
+
+def executable_exists(value: str) -> bool:
+    if os.sep in value:
+        path = pathlib.Path(value).expanduser()
+        return path.is_file() and os.access(path, os.X_OK)
+    return shutil.which(value) is not None
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    try:
+        runs = parse_runs(args.runs)
+    except ValueError as error:
+        parser().error(str(error))
+
+    destination = logical_absolute_path(args.destination)
+    commands = [
+        copy_command(
+            args.xrdcp,
+            args.source,
+            destination,
+            run,
+            force=args.force,
+        )
+        for run in runs
+    ]
+
+    if args.dry_run:
+        for command in commands:
+            print(shlex.join(command))
+        return 0
+
+    if not executable_exists(args.xrdcp):
+        print(f"fetch-tb2026-raw: xrdcp executable not found: {args.xrdcp}", file=sys.stderr)
+        return 127
+
+    destination.mkdir(parents=True, exist_ok=True)
+    for index, (run, command) in enumerate(zip(runs, commands), start=1):
+        print(f"[{index}/{len(runs)}] fetching Run{run}.h2g", flush=True)
+        completed = subprocess.run(command, check=False)
+        if completed.returncode != 0:
+            print(
+                f"fetch-tb2026-raw: Run{run}.h2g failed with exit "
+                f"{completed.returncode}",
+                file=sys.stderr,
+            )
+            return completed.returncode
+
+    print(f"Fetched {len(runs)} raw file(s) into {destination}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
