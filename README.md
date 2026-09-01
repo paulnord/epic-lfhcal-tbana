@@ -39,13 +39,13 @@ remain entirely under the control of the program being run.
 
 ```console
 # One local command
-./tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
+python3 tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
 
 # Several commands, four at a time
-./tools/lfhcal-run -j 4 jobs.txt
+python3 tools/lfhcal-run -j 4 jobs.txt
 
 # The same jobs through HTCondor
-./tools/lfhcal-run --condor jobs.txt
+python3 tools/lfhcal-run --condor jobs.txt
 ```
 
 See [`docs/lfhcal-run.md`](docs/lfhcal-run.md) for named multi-file lineage,
