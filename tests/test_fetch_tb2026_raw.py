@@ -27,7 +27,7 @@ class FetchTB2026RawTests(unittest.TestCase):
         tool = load_tool()
         self.assertEqual(tool.parse_runs(["137", "138-140", "139", "153"]), [137, 138, 139, 140, 153])
 
-    def test_dry_run_builds_resumable_jlab_commands(self):
+    def test_dry_run_builds_new_jlab_download_commands(self):
         with tempfile.TemporaryDirectory() as temporary:
             destination = pathlib.Path(temporary) / "raw data"
             result = subprocess.run(
@@ -50,9 +50,38 @@ class FetchTB2026RawTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         lines = result.stdout.splitlines()
         self.assertEqual(len(lines), 4)
-        self.assertTrue(all("--continue" in line for line in lines))
+        self.assertTrue(all("--continue" not in line for line in lines))
         self.assertIn("2026_SPSH2/raw/Run137.h2g", lines[0])
         self.assertIn("Run153.h2g", lines[-1])
+
+    def test_existing_destination_is_resumed(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = pathlib.Path(temporary)
+            (destination / "Run137.h2g").touch()
+            command = tool.copy_command(
+                "xrdcp",
+                tool.DEFAULT_SOURCE,
+                destination,
+                137,
+                force=False,
+            )
+
+        self.assertEqual(command[1], "--continue")
+
+    def test_force_replaces_existing_destination(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = pathlib.Path(temporary)
+            command = tool.copy_command(
+                "xrdcp",
+                tool.DEFAULT_SOURCE,
+                destination,
+                137,
+                force=True,
+            )
+
+        self.assertEqual(command[1], "--force")
 
     def test_invalid_descending_range_is_rejected(self):
         result = subprocess.run(
