@@ -391,7 +391,6 @@ def run_payload(
 
 def job_label(index: int, job: JobSpec) -> str:
     name = job.name or pathlib.Path(job.command[0]).name or "job"
-# Placeholder replaced by the complete launcher in the next commit.
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-.") or "job"
     return f"{index:04d}-{slug}"
 
