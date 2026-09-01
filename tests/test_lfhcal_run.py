@@ -192,6 +192,38 @@ class LFHCalRunTests(unittest.TestCase):
         self.assertEqual([item.role for item in jobs[1].inputs], ["pedestal", "muon"])
         self.assertEqual(jobs[1].outputs[0].role, "calibrated")
 
+    def test_manifest_supports_dagman_style_dependencies_and_retries(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "campaign.txt"
+            path.write_text(
+                "JOB pedestal -- python3 pedestal.py\n"
+                "JOB muon -- python3 muon.py\n"
+                "JOB calibration --input pedestal=ped.root --input muon=mu.root "
+                "--output calibrated=out.root -- python3 calibrate.py\n"
+                "PARENT pedestal muon CHILD calibration\n"
+                "RETRY calibration 2\n",
+                encoding="utf-8",
+            )
+            jobs = tool.parse_manifest(path, None)
+        self.assertEqual([job.name for job in jobs], ["pedestal", "muon", "calibration"])
+        self.assertEqual(jobs[2].parents, ["pedestal", "muon"])
+        self.assertEqual(jobs[2].retries, 2)
+
+    def test_manifest_rejects_dependency_cycles(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "campaign.txt"
+            path.write_text(
+                "JOB first -- python3 first.py\n"
+                "JOB second -- python3 second.py\n"
+                "PARENT first CHILD second\n"
+                "PARENT second CHILD first\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "dependency cycle"):
+                tool.parse_manifest(path, None)
+
     def test_local_parallel_run_records_attempts(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)
@@ -221,6 +253,164 @@ class LFHCalRunTests(unittest.TestCase):
             records = [json.loads(path.read_text(encoding="utf-8")) for path in latest]
             self.assertTrue(all(record["exit_code"] == 0 for record in records))
             self.assertTrue(all(record["outputs"][0]["exists"] for record in records))
+
+    def test_local_dag_retries_parent_before_running_child(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            retry_script = work / "retry_once.py"
+            retry_script.write_text(
+                "from pathlib import Path\n"
+                "marker = Path('attempt-count')\n"
+                "count = int(marker.read_text()) + 1 if marker.exists() else 1\n"
+                "marker.write_text(str(count))\n"
+                "raise SystemExit(0 if count >= 2 else 9)\n",
+                encoding="utf-8",
+            )
+            child_script = work / "child.py"
+            child_script.write_text(
+                "from pathlib import Path\n"
+                "assert Path('attempt-count').read_text() == '2'\n"
+                "Path('done.txt').write_text('done')\n",
+                encoding="utf-8",
+            )
+            manifest = work / "campaign.txt"
+            manifest.write_text(
+                f"JOB first -- {sys.executable} {retry_script}\n"
+                f"JOB second --output result=done.txt -- {sys.executable} {child_script}\n"
+                "PARENT first CHILD second\n"
+                "RETRY first 1\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "-j", "2", "--cwd", str(work), str(manifest)],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            campaign_path = next((work / "lfhcal-runs").glob("*/campaign.json"))
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["status"], "completed")
+            self.assertEqual(campaign["dag"]["retries"], {"first": 1})
+            self.assertEqual([item["status"] for item in campaign["job_statuses"]], [
+                "completed",
+                "completed",
+            ])
+            first_attempts = list(
+                campaign_path.parent.glob("jobs/0000-first/attempts/attempt-*")
+            )
+            self.assertEqual(len(first_attempts), 2)
+            self.assertEqual((work / "done.txt").read_text(encoding="utf-8"), "done")
+
+    def test_local_dag_blocks_child_after_parent_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            fail_script = work / "fail.py"
+            fail_script.write_text("raise SystemExit(3)\n", encoding="utf-8")
+            child_script = work / "child.py"
+            child_script.write_text(
+                "from pathlib import Path\nPath('should-not-exist').touch()\n",
+                encoding="utf-8",
+            )
+            manifest = work / "campaign.txt"
+            manifest.write_text(
+                f"JOB first -- {sys.executable} {fail_script}\n"
+                f"JOB second -- {sys.executable} {child_script}\n"
+                "PARENT first CHILD second\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "-j", "2", "--cwd", str(work), str(manifest)],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 3, result.stderr)
+            campaign_path = next((work / "lfhcal-runs").glob("*/campaign.json"))
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["failed_jobs"], 1)
+            self.assertEqual(campaign["blocked_jobs"], 1)
+            self.assertFalse((work / "should-not-exist").exists())
+
+    def test_condor_dag_dry_run_creates_dagman_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            manifest = work / "campaign.txt"
+            manifest.write_text(
+                "JOB first -- python3 first.py\n"
+                "JOB second -- python3 second.py\n"
+                "PARENT first CHILD second\n"
+                "RETRY first 2\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "--condor", "--dry-run", str(manifest)],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            campaign_path = next((work / "lfhcal-runs").glob("*/campaign.json"))
+            campaign_dir = campaign_path.parent
+            submit = (campaign_dir / "condor.sub").read_text(encoding="utf-8")
+            dag = (campaign_dir / "campaign.dag").read_text(encoding="utf-8")
+            self.assertIn("arguments = $(lfhcal_job_index)", submit)
+            self.assertIn("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)", submit)
+            self.assertIn("output = " + str(campaign_dir / "condor") + "/$(lfhcal_node).out", submit)
+            self.assertIn("queue 1", submit)
+            self.assertIn(f"JOB first {campaign_dir / 'condor.sub'}", dag)
+            self.assertIn('VARS second lfhcal_job_index="1" lfhcal_node="second"', dag)
+            self.assertIn("RETRY first 2", dag)
+            self.assertIn("PARENT first CHILD second", dag)
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["condor_dag_file"], str(campaign_dir / "campaign.dag"))
+
+    def test_condor_dag_uses_condor_submit_dag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            manifest = work / "campaign.txt"
+            manifest.write_text(
+                "JOB first -- python3 first.py\n"
+                "JOB second -- python3 second.py\n"
+                "PARENT first CHILD second\n",
+                encoding="utf-8",
+            )
+            binary_dir = work / "bin"
+            binary_dir.mkdir()
+            argument_log = work / "submit-arguments.txt"
+            submit_dag = binary_dir / "condor_submit_dag"
+            submit_dag.write_text(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$LFHCAL_TEST_ARGUMENT_LOG\"\n",
+                encoding="utf-8",
+            )
+            submit_dag.chmod(0o755)
+            environment = os.environ.copy()
+            environment["PATH"] = f"{binary_dir}{os.pathsep}{environment['PATH']}"
+            environment["LFHCAL_TEST_ARGUMENT_LOG"] = str(argument_log)
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "--condor", str(manifest)],
+                cwd=work,
+                env=environment,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            campaign_path = next((work / "lfhcal-runs").glob("*/campaign.json"))
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            dag_path = campaign_path.parent / "campaign.dag"
+            self.assertEqual(argument_log.read_text(encoding="utf-8").strip(), str(dag_path))
+            self.assertEqual(
+                campaign["condor_submit_command"],
+                ["condor_submit_dag", str(dag_path)],
+            )
 
     def test_condor_dry_run_creates_submit_file(self):
         with tempfile.TemporaryDirectory() as temporary:

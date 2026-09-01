@@ -73,10 +73,46 @@ need an explicit shell payload, for example:
 bash -lc './analysis input.root > analysis.log 2>&1'
 ```
 
+## Dependent campaigns
+
+When jobs depend on one another, the same manifest can use a small,
+DAGMan-inspired vocabulary. `JOB` defines a named arbitrary command,
+`PARENT ... CHILD ...` defines dependencies, and `RETRY` allows additional
+execution attempts after failure:
+
+```text
+JOB pedestal --output pedestal=ped.root -- ./make-pedestal -o ped.root
+JOB muon --output muon=mu.root -- ./make-muon -o mu.root
+JOB calibration --input pedestal=ped.root --input muon=mu.root --output calibrated=cal.root -- ./calibrate ped.root mu.root cal.root
+
+PARENT pedestal muon CHILD calibration
+RETRY pedestal 2
+RETRY muon 2
+RETRY calibration 1
+```
+
+Job names use letters, digits, `_`, `-`, and `.`, beginning with a letter.
+Every job in a dependent campaign must be named, and names must be unique.
+Dependency records may appear before or after job records. The runner rejects
+unknown job names, self-dependencies, and dependency cycles before execution.
+
+Locally, the runner releases a job only after all its parents succeed, while
+still running as many ready jobs as `-j N` permits:
+
+```console
+python3 tools/lfhcal-run -j 4 campaign.txt
+```
+
+A retry creates another provenance attempt beneath the same intended job.
+After a job exhausts its retries, its descendants are marked blocked and are
+not executed. Manifests without `PARENT` or a nonzero `RETRY` remain ordinary
+flat campaigns and retain the original one-command-per-line behavior.
+
 ## HTCondor
 
-Run Condor submission on a submit host where `condor_submit` is available, not
-from inside the EIC analysis container. The same job file can be submitted with:
+Run Condor submission on a submit host where `condor_submit` and, for dependent
+campaigns, `condor_submit_dag` are available—not from inside the EIC analysis
+container. The same job file can be submitted with:
 
 ```console
 python3 tools/lfhcal-run --condor jobs.txt
@@ -117,6 +153,26 @@ python3 tools/lfhcal-run --condor \
 
 Use `--dry-run` to inspect the generated submit description without submitting.
 
+For a dependent campaign, the Condor backend compiles the same manifest into
+a real DAGMan description, sharing one generated `condor.sub` among the nodes:
+
+```text
+JOB pedestal /.../condor.sub
+VARS pedestal lfhcal_job_index="0" lfhcal_node="pedestal"
+RETRY pedestal 2
+
+JOB calibration /.../condor.sub
+VARS calibration lfhcal_job_index="2" lfhcal_node="calibration"
+
+PARENT pedestal muon CHILD calibration
+```
+
+It submits that file with `condor_submit_dag`. DAGMan controls release,
+failure blocking, and retries; each retry still calls the common provenance
+worker and therefore creates a distinct attempt record for the same campaign
+job. Flat campaigns continue to use `condor_submit` and a single `queue N`
+submit description.
+
 The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
 and preserves the payload argument vector exactly. The Condor wrapper is copied
 into the campaign before submission, hashed, and used from that archived
@@ -149,6 +205,8 @@ lfhcal-runs/campaign-.../
     condor-wrapper.sh        # exact submitted wrapper, when configured
     files/
       000-eic-shell          # explicitly archived environment files
+  campaign.dag               # generated for a dependent Condor campaign
+  condor.sub                 # generated Condor node description
   jobs/
     0000-job-name/
       latest.json

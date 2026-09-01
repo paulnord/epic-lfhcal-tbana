@@ -64,6 +64,8 @@ class JobSpec:
     name: str | None = None
     cwd: str | None = None
     source_line: int | None = None
+    parents: list[str] = dataclasses.field(default_factory=list)
+    retries: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -73,6 +75,8 @@ class JobSpec:
             "inputs": [item.to_dict() for item in self.inputs],
             "outputs": [item.to_dict() for item in self.outputs],
             "source_line": self.source_line,
+            "parents": self.parents,
+            "retries": self.retries,
         }
 
     @classmethod
@@ -84,6 +88,8 @@ class JobSpec:
             inputs=[FileRef.from_dict(item) for item in value.get("inputs", [])],
             outputs=[FileRef.from_dict(item) for item in value.get("outputs", [])],
             source_line=value.get("source_line"),
+            parents=list(value.get("parents", [])),
+            retries=int(value.get("retries", 0)),
         )
 
 
@@ -134,7 +140,11 @@ def main_parser() -> argparse.ArgumentParser:
             "-- COMMAND [ARGS...]"
         ),
     )
-    parser.add_argument("manifest", nargs="?", help="job file: one shell-quoted command per line")
+    parser.add_argument(
+        "manifest",
+        nargs="?",
+        help="job/DAG file containing shell-quoted commands and optional dependencies",
+    )
     parser.add_argument("-j", "--jobs", type=int, default=1, help="maximum local jobs at once")
     parser.add_argument("--backend", choices=("local", "condor"), default="local")
     parser.add_argument("--condor", action="store_true", help="alias for --backend condor")
@@ -191,6 +201,8 @@ def tokenize_manifest_line(line: str) -> list[str]:
 def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]:
     jobs: list[JobSpec] = []
     parser = metadata_parser()
+    parent_directives: list[tuple[int, list[str], list[str]]] = []
+    retry_directives: list[tuple[int, str, int]] = []
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         try:
             tokens = tokenize_manifest_line(line)
@@ -198,6 +210,43 @@ def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]
             raise ValueError(f"{path}:{line_number}: {exc}") from exc
         if not tokens:
             continue
+        if tokens[0] == "PARENT":
+            if tokens.count("CHILD") != 1:
+                raise ValueError(
+                    f"{path}:{line_number}: PARENT requires exactly one CHILD keyword"
+                )
+            child_index = tokens.index("CHILD")
+            parents = tokens[1:child_index]
+            children = tokens[child_index + 1 :]
+            if not parents or not children:
+                raise ValueError(
+                    f"{path}:{line_number}: PARENT requires parent and child job names"
+                )
+            parent_directives.append((line_number, parents, children))
+            continue
+        if tokens[0] == "RETRY":
+            if len(tokens) != 3:
+                raise ValueError(f"{path}:{line_number}: RETRY requires JOB COUNT")
+            try:
+                retries = int(tokens[2])
+            except ValueError as exc:
+                raise ValueError(
+                    f"{path}:{line_number}: RETRY count must be an integer"
+                ) from exc
+            if retries < 0:
+                raise ValueError(f"{path}:{line_number}: RETRY count may not be negative")
+            retry_directives.append((line_number, tokens[1], retries))
+            continue
+        forced_name: str | None = None
+        if tokens[0] == "JOB":
+            if len(tokens) < 4 or "--" not in tokens[2:]:
+                raise ValueError(
+                    f"{path}:{line_number}: JOB requires NAME -- COMMAND [ARGS...]"
+                )
+            forced_name = tokens[1]
+            if not ROLE_RE.fullmatch(forced_name):
+                raise ValueError(f"{path}:{line_number}: invalid job name {forced_name!r}")
+            tokens = tokens[2:]
         if "--" in tokens:
             delimiter = tokens.index("--")
             metadata = parser.parse_args(tokens[:delimiter])
@@ -207,9 +256,13 @@ def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]
             command = tokens
         if not command:
             raise ValueError(f"{path}:{line_number}: no command after --")
+        if forced_name and metadata.name and metadata.name != forced_name:
+            raise ValueError(
+                f"{path}:{line_number}: JOB name and --name must be identical"
+            )
         jobs.append(
             JobSpec(
-                name=metadata.name,
+                name=forced_name or metadata.name,
                 command=command,
                 cwd=metadata.cwd or default_cwd,
                 inputs=metadata.input,
@@ -219,7 +272,73 @@ def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]
         )
     if not jobs:
         raise ValueError(f"{path}: contains no jobs")
+    apply_graph_directives(path, jobs, parent_directives, retry_directives)
     return jobs
+
+
+def apply_graph_directives(
+    path: pathlib.Path,
+    jobs: list[JobSpec],
+    parent_directives: Sequence[tuple[int, list[str], list[str]]],
+    retry_directives: Sequence[tuple[int, str, int]],
+) -> None:
+    if not parent_directives and not retry_directives:
+        return
+    unnamed = [index for index, job in enumerate(jobs) if not job.name]
+    if unnamed:
+        lines = ", ".join(str(jobs[index].source_line) for index in unnamed)
+        raise ValueError(f"{path}: DAG jobs require names; unnamed job lines: {lines}")
+    jobs_by_name: dict[str, JobSpec] = {}
+    for job in jobs:
+        assert job.name is not None
+        if job.name in jobs_by_name:
+            raise ValueError(f"{path}: duplicate DAG job name {job.name!r}")
+        jobs_by_name[job.name] = job
+    for line_number, parents, children in parent_directives:
+        for name in parents + children:
+            if name not in jobs_by_name:
+                raise ValueError(f"{path}:{line_number}: unknown DAG job {name!r}")
+        for child in children:
+            child_job = jobs_by_name[child]
+            for parent in parents:
+                if parent == child:
+                    raise ValueError(
+                        f"{path}:{line_number}: job {child!r} cannot depend on itself"
+                    )
+                if parent not in child_job.parents:
+                    child_job.parents.append(parent)
+    for line_number, name, retries in retry_directives:
+        if name not in jobs_by_name:
+            raise ValueError(f"{path}:{line_number}: unknown DAG job {name!r}")
+        jobs_by_name[name].retries = retries
+    validate_acyclic_graph(path, jobs, jobs_by_name)
+
+
+def validate_acyclic_graph(
+    path: pathlib.Path, jobs: Sequence[JobSpec], jobs_by_name: dict[str, JobSpec]
+) -> None:
+    children: dict[str, list[str]] = {name: [] for name in jobs_by_name}
+    remaining_parents = {job.name: len(job.parents) for job in jobs if job.name}
+    for job in jobs:
+        assert job.name is not None
+        for parent in job.parents:
+            children[parent].append(job.name)
+    ready = [name for name, count in remaining_parents.items() if count == 0]
+    visited = 0
+    while ready:
+        parent = ready.pop()
+        visited += 1
+        for child in children[parent]:
+            remaining_parents[child] -= 1
+            if remaining_parents[child] == 0:
+                ready.append(child)
+    if visited != len(jobs_by_name):
+        cyclic = sorted(name for name, count in remaining_parents.items() if count)
+        raise ValueError(f"{path}: dependency cycle involving {', '.join(cyclic)}")
+
+
+def is_dag_campaign(jobs: Sequence[JobSpec]) -> bool:
+    return any(job.parents or job.retries for job in jobs)
 
 
 def split_invocation(argv: Sequence[str]) -> tuple[list[str], list[str] | None]:
@@ -646,6 +765,17 @@ def create_campaign(
     }
     if args.note:
         campaign["notes"] = list(args.note)
+    if is_dag_campaign(jobs):
+        campaign["dag"] = {
+            "dependencies": [
+                {"parent": parent, "child": job.name}
+                for job in jobs
+                for parent in job.parents
+            ],
+            "retries": {
+                job.name: job.retries for job in jobs if job.retries and job.name
+            },
+        }
     environment: dict[str, Any] = {}
     if args.container_image:
         image = container_path_record(args.container_image, invocation_cwd)
@@ -665,6 +795,37 @@ def create_campaign(
     return campaign_id, campaign_dir, campaign
 
 
+def execute_local_job_with_retries(
+    job: JobSpec,
+    index: int,
+    campaign_id: str,
+    campaign_dir: pathlib.Path,
+    invocation_cwd: pathlib.Path,
+    stream_output: bool,
+) -> dict[str, Any]:
+    record: dict[str, Any] | None = None
+    for retry_number in range(job.retries + 1):
+        record = execute_job(
+            job,
+            index,
+            campaign_id,
+            campaign_dir,
+            invocation_cwd,
+            False,
+            stream_output,
+        )
+        if int(record["exit_code"]) == 0:
+            return record
+        if retry_number < job.retries:
+            print(
+                f"[{index}] retry {retry_number + 1} of {job.retries} after "
+                f"exit {record['exit_code']}",
+                flush=True,
+            )
+    assert record is not None
+    return record
+
+
 def run_local(
     jobs: list[JobSpec],
     args: argparse.Namespace,
@@ -677,36 +838,87 @@ def run_local(
         raise ValueError("--jobs must be at least 1")
     if args.dry_run:
         for index, job in enumerate(jobs):
-            print(f"[{index}] {shlex.join(job.command)}")
+            details = []
+            if job.parents:
+                details.append(f"after {', '.join(job.parents)}")
+            if job.retries:
+                details.append(f"retry {job.retries}")
+            suffix = f" ({'; '.join(details)})" if details else ""
+            print(f"[{index}] {shlex.join(job.command)}{suffix}")
         campaign.update({"status": "dry_run", "ended_at": utc_now()})
         atomic_json(campaign_dir / "campaign.json", campaign)
         return 0
     records: list[dict[str, Any] | None] = [None] * len(jobs)
+    states = ["pending"] * len(jobs)
+    names = {job.name: index for index, job in enumerate(jobs) if job.name}
+    parent_indexes = {
+        index: [names[parent] for parent in job.parents]
+        for index, job in enumerate(jobs)
+    }
+    pending = set(range(len(jobs)))
+    successful: set[int] = set()
+    failed: set[int] = set()
+    blocked: set[int] = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
-        futures = {
-            executor.submit(
-                execute_job,
-                job,
-                index,
-                campaign_id,
-                campaign_dir,
-                invocation_cwd,
-                False,
-                len(jobs) == 1,
-            ): index
-            for index, job in enumerate(jobs)
-        }
-        for future in concurrent.futures.as_completed(futures):
-            index = futures[future]
-            records[index] = future.result()
+        futures: dict[concurrent.futures.Future[dict[str, Any]], int] = {}
+        while pending or futures:
+            for index in sorted(tuple(pending)):
+                parents = parent_indexes[index]
+                if any(parent in failed or parent in blocked for parent in parents):
+                    pending.remove(index)
+                    blocked.add(index)
+                    states[index] = "blocked"
+                    print(f"[{index}] blocked: a parent job failed", flush=True)
+            available = args.jobs - len(futures)
+            if available:
+                ready = [
+                    index
+                    for index in sorted(pending)
+                    if all(parent in successful for parent in parent_indexes[index])
+                ]
+                for index in ready[:available]:
+                    pending.remove(index)
+                    states[index] = "running"
+                    future = executor.submit(
+                        execute_local_job_with_retries,
+                        jobs[index],
+                        index,
+                        campaign_id,
+                        campaign_dir,
+                        invocation_cwd,
+                        len(jobs) == 1,
+                    )
+                    futures[future] = index
+            if not futures:
+                if pending:
+                    raise ValueError("dependency scheduler could not find a runnable job")
+                break
+            completed, _ = concurrent.futures.wait(
+                futures, return_when=concurrent.futures.FIRST_COMPLETED
+            )
+            for future in completed:
+                index = futures.pop(future)
+                record = future.result()
+                records[index] = record
+                if int(record["exit_code"]) == 0:
+                    successful.add(index)
+                    states[index] = "completed"
+                else:
+                    failed.add(index)
+                    states[index] = "failed"
     exit_codes = [int(record["exit_code"]) for record in records if record is not None]
-    failed = sum(code != 0 for code in exit_codes)
+    failed_count = len(failed)
     campaign.update(
         {
-            "status": "failed" if failed else "completed",
+            "status": "failed" if failed_count or blocked else "completed",
             "ended_at": utc_now(),
             "completed_jobs": len(exit_codes),
-            "failed_jobs": failed,
+            "failed_jobs": failed_count,
+            "blocked_jobs": len(blocked),
+            "job_statuses": [
+                {"index": index, "name": job.name, "status": states[index]}
+                for index, job in enumerate(jobs)
+            ],
         }
     )
     atomic_json(campaign_dir / "campaign.json", campaign)
@@ -736,6 +948,7 @@ def submit_condor(
     campaign: dict[str, Any],
     invocation_cwd: pathlib.Path,
 ) -> int:
+    dag_campaign = is_dag_campaign(jobs)
     tool = logical_invocation_path(__file__, invocation_cwd)
     worker = campaign_dir / "condor_worker.sh"
     worker_python = "python3" if args.condor_wrapper else sys.executable
@@ -760,13 +973,16 @@ def submit_condor(
         wrapper_record = archive_file(str(source_wrapper), executable, invocation_cwd)
         campaign.setdefault("execution_environment", {})["condor_wrapper"] = wrapper_record
         atomic_json(campaign_dir / "campaign.json", campaign)
-    arguments = f'"{worker} $(Process)"' if args.condor_wrapper else "$(Process)"
+    job_index = "$(lfhcal_job_index)" if dag_campaign else "$(Process)"
+    arguments = f'"{worker} {job_index}"' if args.condor_wrapper else job_index
     environment_assignments = [
         "LFHCAL_BATCH_SYSTEM=condor",
         "LFHCAL_CONDOR_CLUSTER=$(ClusterId)",
         "LFHCAL_CONDOR_PROCESS=$(ProcId)",
         "LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)",
     ]
+    if dag_campaign:
+        environment_assignments.append("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)")
     container = campaign.get("execution_environment", {}).get("container_image")
     if container:
         container_execution_path = container["resolved_path"]
@@ -775,6 +991,7 @@ def submit_condor(
         environment_assignments.append(
             f"LFHCAL_CONTAINER_IMAGE={container_execution_path}"
         )
+    output_name = "$(lfhcal_node)" if dag_campaign else "$(Process)"
     submit_lines = [
         "universe = vanilla",
         f"executable = {executable}",
@@ -785,22 +1002,57 @@ def submit_condor(
         f"request_memory = {args.request_memory}",
         f"request_disk = {args.request_disk}",
         f"log = {condor_dir}/campaign.log",
-        f"output = {condor_dir}/$(Process).out",
-        f"error = {condor_dir}/$(Process).err",
+        f"output = {condor_dir}/{output_name}.out",
+        f"error = {condor_dir}/{output_name}.err",
         "should_transfer_files = NO",
     ]
     submit_lines.extend(f"{key} = {value}" for key, value in validate_condor_extra(args.condor_extra))
-    submit_lines.append(f"queue {len(jobs)}")
+    submit_lines.append(f"queue {1 if dag_campaign else len(jobs)}")
     submit_path = campaign_dir / "condor.sub"
     submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
+    dag_path: pathlib.Path | None = None
+    if dag_campaign:
+        dag_lines = []
+        for index, job in enumerate(jobs):
+            assert job.name is not None
+            dag_lines.extend(
+                [
+                    f"JOB {job.name} {submit_path}",
+                    f'VARS {job.name} lfhcal_job_index="{index}" '
+                    f'lfhcal_node="{job.name}"',
+                ]
+            )
+            if job.retries:
+                dag_lines.append(f"RETRY {job.name} {job.retries}")
+        for job in jobs:
+            assert job.name is not None
+            if job.parents:
+                dag_lines.append(
+                    f"PARENT {' '.join(job.parents)} CHILD {job.name}"
+                )
+        dag_path = campaign_dir / "campaign.dag"
+        dag_path.write_text("\n".join(dag_lines) + "\n", encoding="utf-8")
     if args.dry_run:
         print(submit_path.read_text(encoding="utf-8"), end="")
-        campaign.update({"status": "dry_run", "condor_submit_file": str(submit_path)})
+        if dag_path:
+            print(dag_path.read_text(encoding="utf-8"), end="")
+        campaign.update(
+            {
+                "status": "dry_run",
+                "condor_submit_file": str(submit_path),
+                **({"condor_dag_file": str(dag_path)} if dag_path else {}),
+            }
+        )
         atomic_json(campaign_dir / "campaign.json", campaign)
         return 0
-    if shutil.which("condor_submit") is None:
+    submit_command = (
+        ("condor_submit_dag", str(dag_path))
+        if dag_path
+        else ("condor_submit", str(submit_path))
+    )
+    if shutil.which(submit_command[0]) is None:
         error = (
-            "condor_submit not found. Submit from an HTCondor host outside the "
+            f"{submit_command[0]} not found. Submit from an HTCondor host outside the "
             "analysis container; use --condor-wrapper to enter the container "
             "on execute nodes"
         )
@@ -808,14 +1060,19 @@ def submit_condor(
             {
                 "status": "submit_failed",
                 "condor_submit_file": str(submit_path),
+                **({"condor_dag_file": str(dag_path)} if dag_path else {}),
                 "error": error,
             }
         )
         atomic_json(campaign_dir / "campaign.json", campaign)
-        print(f"lfhcal-run: {error}; submit file retained at {submit_path}", file=sys.stderr)
+        retained_path = dag_path or submit_path
+        print(
+            f"lfhcal-run: {error}; submission files retained at {retained_path}",
+            file=sys.stderr,
+        )
         return 127
     result = subprocess.run(
-        ("condor_submit", str(submit_path)),
+        submit_command,
         cwd=invocation_cwd,
         text=True,
         stdout=subprocess.PIPE,
@@ -829,6 +1086,8 @@ def submit_condor(
             "status": "submitted" if result.returncode == 0 else "submit_failed",
             "submitted_at": utc_now(),
             "condor_submit_file": str(submit_path),
+            **({"condor_dag_file": str(dag_path)} if dag_path else {}),
+            "condor_submit_command": list(submit_command),
             "condor_submit_stdout": result.stdout,
             "condor_submit_stderr": result.stderr,
             "condor_submit_exit_code": result.returncode,
