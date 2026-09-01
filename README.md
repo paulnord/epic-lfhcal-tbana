@@ -44,7 +44,7 @@ python3 tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
 # Several commands, four at a time
 python3 tools/lfhcal-run -j 4 jobs.txt
 
-# The same jobs through HTCondor
+# The same jobs through HTCondor (run on the submit host, outside eic-shell)
 python3 tools/lfhcal-run --condor jobs.txt
 ```
 
