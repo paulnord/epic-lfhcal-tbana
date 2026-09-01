@@ -62,7 +62,7 @@ class LFHCalRunTests(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [str(TOOL), "-j", "2", "--cwd", str(work), str(manifest)],
+                [sys.executable, str(TOOL), "-j", "2", "--cwd", str(work), str(manifest)],
                 cwd=work,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -86,7 +86,7 @@ class LFHCalRunTests(unittest.TestCase):
             manifest = work / "jobs.txt"
             manifest.write_text("python3 -c 'print(42)'\n", encoding="utf-8")
             result = subprocess.run(
-                [str(TOOL), "--condor", "--dry-run", str(manifest)],
+                [sys.executable, str(TOOL), "--condor", "--dry-run", str(manifest)],
                 cwd=work,
                 text=True,
                 stdout=subprocess.PIPE,
