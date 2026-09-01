@@ -15,6 +15,7 @@ from unittest import mock
 REPOSITORY = pathlib.Path(__file__).resolve().parents[1]
 TOOL = REPOSITORY / "tools" / "lfhcal-run"
 CONTAINER_WRAPPER = REPOSITORY / "tools" / "run-in-eic-container.sh"
+PARAMSCAN_DAG_GENERATOR = REPOSITORY / "tools" / "make-tb2026-paramscan-dag"
 
 
 def load_tool():
@@ -27,6 +28,54 @@ def load_tool():
 
 
 class LFHCalRunTests(unittest.TestCase):
+    def test_tb2026_paramscan_generator_builds_full_imp3r_chain(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            raw = work / "raw"
+            output = work / "products"
+            manifest = work / "full-chain.txt"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PARAMSCAN_DAG_GENERATOR),
+                    "--repository",
+                    str(REPOSITORY),
+                    "--raw-dir",
+                    str(raw),
+                    "--output-dir",
+                    str(output),
+                    "--manifest",
+                    str(manifest),
+                ],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            jobs = tool.parse_manifest(manifest, None)
+
+        self.assertEqual(len(jobs), 12)
+        by_name = {job.name: job for job in jobs}
+        self.assertEqual(
+            by_name["transfer-calibration-298"].parents,
+            ["pedestal-296", "convert-muon-298"],
+        )
+        self.assertEqual(by_name["waveform-298"].parents, ["apply-calibration-298"])
+        self.assertTrue(all(job.retries == 1 for job in jobs))
+        apply_job = by_name["apply-calibration-298"]
+        calibration_argument = apply_job.command[apply_job.command.index("-C") + 1]
+        self.assertTrue(calibration_argument.endswith("rawHGCROC_wPedwMuon_wBC_Imp3R_298.root"))
+        self.assertEqual(
+            next(item.path for item in apply_job.inputs if item.role == "final_calibration"),
+            calibration_argument,
+        )
+        waveform_job = by_name["waveform-298"]
+        self.assertTrue(waveform_job.command[0].endswith("/NewStructure/build/HGCROCStudy"))
+        self.assertIn("activeCellsHGCROCParameterScan.txt", waveform_job.command[-1])
+
     def test_campaign_notes_are_recorded_separately_from_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)

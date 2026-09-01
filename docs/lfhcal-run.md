@@ -108,6 +108,36 @@ After a job exhausts its retries, its descendants are marked blocked and are
 not executed. Manifests without `PARENT` or a nonzero `RETRY` remain ordinary
 flat campaigns and retain the original one-command-per-line behavior.
 
+### TB2026 parameter-scan end-to-end campaign
+
+`tools/make-tb2026-paramscan-dag` turns one pedestal/muon pair into the
+established TB2026 Set-1 chain. It generates 12 jobs: workspace preparation,
+two parallel raw conversions, pedestal extraction, calibration transfer,
+initial muon calibration, MIP selection, three reduced refinement rounds,
+application of the `Imp3R` calibration, and waveform analysis.
+
+For the smallest established Set-1 pair, pedestal 296 and muon 298:
+
+```console
+python3 tools/make-tb2026-paramscan-dag \
+  --pedestal-run 296 \
+  --muon-run 298 \
+  --raw-dir /path/to/2026TBdata \
+  --output-dir /path/to/full-chain-296-298 \
+  --manifest full-chain-296-298.txt \
+  --check
+```
+
+`--check` verifies both `Run296.h2g` and `Run298.h2g`, the three built
+executables, and all referenced configuration files before writing the
+manifest. Use `--force` only when intentionally replacing an existing
+manifest. Paths and commands in the generated file are fully expanded, so it
+can be inspected directly and submitted without relying on shell variables.
+
+Run the generated campaign locally with `-j 2`, or pass it to the Condor
+invocation below. Only the two conversions can overlap in this particular
+dependency graph; the calibration stages remain ordered.
+
 ## HTCondor
 
 Run Condor submission on a submit host where `condor_submit` and, for dependent
