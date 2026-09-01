@@ -64,10 +64,20 @@ bash -lc './analysis input.root > analysis.log 2>&1'
 
 ## HTCondor
 
-The same job file can be submitted to HTCondor:
+Run Condor submission on a submit host where `condor_submit` is available, not
+from inside the EIC analysis container. The same job file can be submitted with:
 
 ```console
 python3 tools/lfhcal-run --condor jobs.txt
+```
+
+The generated Condor worker is what enters the analysis container. A wrapper
+passed with `--condor-wrapper` must accept the worker command and its arguments,
+then execute that command inside the container:
+
+```text
+submit host:  lfhcal-run --condor
+execute node: container wrapper -> lfhcal-run worker -> analysis command
 ```
 
 The initial backend assumes that the repository, campaign directory, data, and
