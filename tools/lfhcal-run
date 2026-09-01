@@ -237,6 +237,18 @@ def normalized_path(text: str, cwd: pathlib.Path) -> pathlib.Path:
     return pathlib.Path(os.path.abspath(path))
 
 
+def logical_invocation_path(text: str, cwd: pathlib.Path) -> pathlib.Path:
+    """Map an absolute path beneath the physical cwd back beneath the logical cwd."""
+    path = pathlib.Path(text).expanduser()
+    if not path.is_absolute():
+        return normalized_path(text, cwd)
+    try:
+        relative = path.relative_to(pathlib.Path.cwd())
+    except ValueError:
+        return normalized_path(text, cwd)
+    return normalized_path(str(relative), cwd)
+
+
 def inspect_file(item: FileRef, cwd: pathlib.Path) -> dict[str, Any]:
     path = normalized_path(item.path, cwd)
     result: dict[str, Any] = {"role": item.role, "path": str(path)}
@@ -601,7 +613,7 @@ def submit_condor(
     campaign: dict[str, Any],
     invocation_cwd: pathlib.Path,
 ) -> int:
-    tool = normalized_path(__file__, invocation_cwd)
+    tool = logical_invocation_path(__file__, invocation_cwd)
     worker = campaign_dir / "condor_worker.sh"
     worker_text = (
         "#!/usr/bin/env bash\n"
