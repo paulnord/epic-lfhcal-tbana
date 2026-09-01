@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Generate the established TB2026 calibration/analysis graph as YAWL TOML."""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import pathlib
+import sys
+from collections.abc import Sequence
+
+from lfhcal_campaign import (
+    absolute_path,
+    logical_cwd,
+    missing_files,
+    write_yawl_manifest,
+)
+
+
+TOOL_NAME = "make-tb2026-yawl-campaign"
+SOURCE = pathlib.Path(__file__).with_name("make-tb2026-analysis-campaign")
+
+
+def load_analysis_generator():
+    loader = importlib.machinery.SourceFileLoader(
+        "tb2026_analysis_campaign_for_yawl", str(SOURCE)
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    if spec is None:
+        raise RuntimeError(f"cannot load {SOURCE}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+ANALYSIS = load_analysis_generator()
+
+
+def parser() -> argparse.ArgumentParser:
+    result = ANALYSIS.parser()
+    result.description = (
+        "Generate the established TB2026 raw conversion, calibration, calibration "
+        "application, and waveform-analysis graph as a YAWL-run TOML campaign."
+    )
+    result.add_argument(
+        "--backend",
+        choices=("local", "condor"),
+        default="condor",
+        help="YAWL execution backend (default: condor)",
+    )
+    result.add_argument(
+        "--campaign-name",
+        help="YAWL campaign name (default: tb2026-CALIBRATION_NAME)",
+    )
+    result.add_argument(
+        "--condor-wrapper",
+        help=(
+            "execution wrapper for Condor; default is "
+            "REPOSITORY/tools/run-in-eic-container.sh"
+        ),
+    )
+    result.add_argument("--request-cpus", type=int, default=1)
+    result.add_argument("--request-memory", default="4GB")
+    result.add_argument("--request-disk", default="2GB")
+    return result
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    if args.retries < 0:
+        parser().error("--retries cannot be negative")
+    if args.request_cpus < 1:
+        parser().error("--request-cpus must be positive")
+
+    try:
+        campaign, required, data_runs = ANALYSIS.generate(args)
+    except ValueError as error:
+        parser().error(str(error))
+
+    base = logical_cwd()
+    repository = absolute_path(args.repository, base)
+    wrapper = None
+    if args.backend == "condor":
+        wrapper = (
+            absolute_path(args.condor_wrapper, base)
+            if args.condor_wrapper
+            else repository / "tools/run-in-eic-container.sh"
+        )
+        required.append(wrapper)
+
+    if args.check:
+        missing = missing_files(required)
+        if missing:
+            print(f"{TOOL_NAME}: required files are missing:", file=sys.stderr)
+            for path in missing:
+                print(f"  {path}", file=sys.stderr)
+            return 2
+
+    manifest = absolute_path(args.manifest, base)
+    campaign_name = args.campaign_name or f"tb2026-{args.calibration_name}"
+    try:
+        write_yawl_manifest(
+            campaign,
+            manifest,
+            name=campaign_name,
+            force=args.force,
+            tool_name=TOOL_NAME,
+            backend=args.backend,
+            cwd=repository,
+            condor_wrapper=wrapper,
+            request_cpus=args.request_cpus,
+            request_memory=args.request_memory,
+            request_disk=args.request_disk,
+        )
+    except FileExistsError as error:
+        print(error, file=sys.stderr)
+        return 2
+
+    print(f"Wrote YAWL campaign {manifest}")
+    print(
+        f"Generated calibration {args.calibration_name} and {len(data_runs)} "
+        f"data branch(es); {len(campaign.jobs)} YAWL tasks"
+    )
+    if args.backend == "condor":
+        print(f"Condor wrapper: {wrapper}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
