@@ -68,6 +68,9 @@ python3 tools/lfhcal-run -j 4 jobs.txt
 
 # The same job graph through HTCondor DAGMan (outside eic-shell)
 python3 tools/lfhcal-run --condor jobs.txt
+
+# Reconcile and display a campaign's recorded status
+python3 tools/lfhcal-run status lfhcal-runs/campaign-...
 ```
 
 See [`docs/lfhcal-run.md`](docs/lfhcal-run.md) for named multi-file lineage,

@@ -137,7 +137,7 @@ def main_parser() -> argparse.ArgumentParser:
         description="Run arbitrary commands with reproducible execution metadata.",
         epilog=(
             "Single job: lfhcal-run --input raw=file.root --output result=out.root "
-            "-- COMMAND [ARGS...]"
+            "-- COMMAND [ARGS...]. Campaign status: lfhcal-run status CAMPAIGN"
         ),
     )
     parser.add_argument(
@@ -657,6 +657,115 @@ def job_label(index: int, job: JobSpec) -> str:
     return f"{index:04d}-{slug}"
 
 
+def reconcile_campaign(campaign_path: pathlib.Path, *, final: bool) -> dict[str, Any]:
+    """Update campaign state from the durable per-job attempt records."""
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    jobs = [JobSpec.from_dict(item) for item in campaign["jobs"]]
+    campaign_dir = campaign_path.parent
+    states: list[str] = []
+    status_records: list[dict[str, Any]] = []
+    indexes_by_name = {
+        job.name: index for index, job in enumerate(jobs) if job.name is not None
+    }
+
+    for index, job in enumerate(jobs):
+        job_dir = campaign_dir / "jobs" / job_label(index, job)
+        attempts_dir = job_dir / "attempts"
+        attempt_dirs = (
+            [path for path in attempts_dir.iterdir() if path.is_dir()]
+            if attempts_dir.is_dir()
+            else []
+        )
+        attempts = len(attempt_dirs)
+        active_attempts = 0
+        for attempt_dir in attempt_dirs:
+            provenance_path = attempt_dir / "provenance.json"
+            if not provenance_path.is_file():
+                continue
+            attempt_record = json.loads(provenance_path.read_text(encoding="utf-8"))
+            if "exit_code" not in attempt_record:
+                active_attempts += 1
+        latest_path = job_dir / "latest.json"
+        latest = (
+            json.loads(latest_path.read_text(encoding="utf-8"))
+            if latest_path.is_file()
+            else None
+        )
+        latest_exit_code = int(latest["exit_code"]) if latest is not None else None
+        if latest_exit_code == 0:
+            state = "completed"
+        elif active_attempts:
+            state = "running"
+        elif latest_exit_code is not None:
+            state = "failed" if final or attempts >= job.retries + 1 else "retrying"
+        elif attempts:
+            state = "running"
+        else:
+            state = "pending"
+        states.append(state)
+        status_records.append(
+            {
+                "index": index,
+                "name": job.name,
+                "status": state,
+                "attempts": attempts,
+                "active_attempts": active_attempts,
+                "latest_exit_code": latest_exit_code,
+            }
+        )
+
+    changed = True
+    while changed:
+        changed = False
+        for index, job in enumerate(jobs):
+            if states[index] not in {"pending", "running"}:
+                continue
+            parent_states = [states[indexes_by_name[parent]] for parent in job.parents]
+            if any(state in {"failed", "blocked", "not_run"} for state in parent_states):
+                states[index] = "blocked"
+                status_records[index]["status"] = "blocked"
+                changed = True
+
+    if final:
+        for index, state in enumerate(states):
+            if state in {"pending", "running", "retrying"}:
+                states[index] = "not_run"
+                status_records[index]["status"] = "not_run"
+
+    counts = {state: states.count(state) for state in set(states)}
+    terminal = all(state in {"completed", "failed", "blocked", "not_run"} for state in states)
+    if terminal:
+        campaign_status = (
+            "completed"
+            if counts.get("completed", 0) == len(jobs)
+            else "failed"
+        )
+    else:
+        campaign_status = "running"
+
+    campaign.update(
+        {
+            "status": campaign_status,
+            "status_updated_at": utc_now(),
+            "total_jobs": len(jobs),
+            "completed_jobs": counts.get("completed", 0),
+            "failed_jobs": counts.get("failed", 0),
+            "blocked_jobs": counts.get("blocked", 0),
+            "not_run_jobs": counts.get("not_run", 0),
+            "pending_jobs": counts.get("pending", 0),
+            "running_jobs": counts.get("running", 0),
+            "retrying_jobs": counts.get("retrying", 0),
+            "job_statuses": status_records,
+        }
+    )
+    if terminal:
+        campaign.setdefault("ended_at", utc_now())
+    else:
+        campaign.pop("ended_at", None)
+    atomic_json(campaign_path, campaign)
+    return campaign
+
+
 def executable_path(command: str, cwd: pathlib.Path) -> pathlib.Path | None:
     if "/" in command:
         candidate = normalized_path(command, cwd)
@@ -916,21 +1025,7 @@ def run_local(
                     failed.add(index)
                     states[index] = "failed"
     exit_codes = [int(record["exit_code"]) for record in records if record is not None]
-    failed_count = len(failed)
-    campaign.update(
-        {
-            "status": "failed" if failed_count or blocked else "completed",
-            "ended_at": utc_now(),
-            "completed_jobs": len(exit_codes),
-            "failed_jobs": failed_count,
-            "blocked_jobs": len(blocked),
-            "job_statuses": [
-                {"index": index, "name": job.name, "status": states[index]}
-                for index, job in enumerate(jobs)
-            ],
-        }
-    )
-    atomic_json(campaign_dir / "campaign.json", campaign)
+    reconcile_campaign(campaign_dir / "campaign.json", final=True)
     return next((code for code in exit_codes if code != 0), 0)
 
 
@@ -969,6 +1064,15 @@ def submit_condor(
     )
     worker.write_text(worker_text, encoding="utf-8")
     worker.chmod(0o755)
+    finalizer = campaign_dir / "condor_finalize.sh"
+    finalizer_text = (
+        "#!/usr/bin/env bash\n"
+        "set -u\n"
+        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(tool))} _finalize "
+        f"--campaign {shlex.quote(str(campaign_dir / 'campaign.json'))}\n"
+    )
+    finalizer.write_text(finalizer_text, encoding="utf-8")
+    finalizer.chmod(0o755)
     condor_dir = campaign_dir / "condor"
     condor_dir.mkdir(parents=True, exist_ok=True)
     executable = worker
@@ -1017,6 +1121,20 @@ def submit_condor(
     submit_lines.append("queue 1")
     submit_path = campaign_dir / "condor.sub"
     submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
+    finalize_submit_path = campaign_dir / "condor_finalize.sub"
+    finalize_submit_lines = [
+        "universe = local",
+        f"executable = {finalizer}",
+        "getenv = True",
+        f"log = {condor_dir}/finalize.log",
+        f"output = {condor_dir}/finalize.out",
+        f"error = {condor_dir}/finalize.err",
+        "should_transfer_files = NO",
+        "queue 1",
+    ]
+    finalize_submit_path.write_text(
+        "\n".join(finalize_submit_lines) + "\n", encoding="utf-8"
+    )
     dag_lines = []
     dag_node_names = condor_dag_node_names(jobs)
     job_indexes_by_name = {
@@ -1046,15 +1164,18 @@ def submit_condor(
             dag_lines.append(
                 f"PARENT {parent_nodes} CHILD {dag_node_names[index]}"
             )
+    dag_lines.append(f"FINAL lfhcal_finalize {finalize_submit_path}")
     dag_path = campaign_dir / "campaign.dag"
     dag_path.write_text("\n".join(dag_lines) + "\n", encoding="utf-8")
     if args.dry_run:
         print(submit_path.read_text(encoding="utf-8"), end="")
+        print(finalize_submit_path.read_text(encoding="utf-8"), end="")
         print(dag_path.read_text(encoding="utf-8"), end="")
         campaign.update(
             {
                 "status": "dry_run",
                 "condor_submit_file": str(submit_path),
+                "condor_finalize_submit_file": str(finalize_submit_path),
                 "condor_dag_file": str(dag_path),
             }
         )
@@ -1071,6 +1192,7 @@ def submit_condor(
             {
                 "status": "submit_failed",
                 "condor_submit_file": str(submit_path),
+                "condor_finalize_submit_file": str(finalize_submit_path),
                 "condor_dag_file": str(dag_path),
                 "error": error,
             }
@@ -1081,6 +1203,15 @@ def submit_condor(
             file=sys.stderr,
         )
         return 127
+    campaign.update(
+        {
+            "status": "submitting",
+            "condor_submit_file": str(submit_path),
+            "condor_finalize_submit_file": str(finalize_submit_path),
+            "condor_dag_file": str(dag_path),
+        }
+    )
+    atomic_json(campaign_dir / "campaign.json", campaign)
     result = subprocess.run(
         submit_command,
         cwd=invocation_cwd,
@@ -1091,11 +1222,21 @@ def submit_condor(
     )
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
-    campaign.update(
+    current_campaign = json.loads(
+        (campaign_dir / "campaign.json").read_text(encoding="utf-8")
+    )
+    if result.returncode != 0 or current_campaign.get("status") not in {
+        "completed",
+        "failed",
+    }:
+        current_campaign["status"] = (
+            "submitted" if result.returncode == 0 else "submit_failed"
+        )
+    current_campaign.update(
         {
-            "status": "submitted" if result.returncode == 0 else "submit_failed",
             "submitted_at": utc_now(),
             "condor_submit_file": str(submit_path),
+            "condor_finalize_submit_file": str(finalize_submit_path),
             "condor_dag_file": str(dag_path),
             "condor_submit_command": list(submit_command),
             "condor_submit_stdout": result.stdout,
@@ -1103,7 +1244,7 @@ def submit_condor(
             "condor_submit_exit_code": result.returncode,
         }
     )
-    atomic_json(campaign_dir / "campaign.json", campaign)
+    atomic_json(campaign_dir / "campaign.json", current_campaign)
     return result.returncode
 
 
@@ -1128,10 +1269,68 @@ def worker_main(argv: Sequence[str]) -> int:
     return int(record["exit_code"])
 
 
+def campaign_path_from_argument(value: str) -> pathlib.Path:
+    path = normalized_path(value, logical_cwd())
+    if path.is_dir():
+        path = path / "campaign.json"
+    if not path.is_file():
+        raise ValueError(f"campaign record does not exist: {path}")
+    return path
+
+
+def print_campaign_status(campaign: dict[str, Any]) -> None:
+    counts = "\n".join(
+        f"  {label}: {campaign.get(key, 0)}"
+        for label, key in (
+            ("completed", "completed_jobs"),
+            ("failed", "failed_jobs"),
+            ("blocked", "blocked_jobs"),
+            ("not run", "not_run_jobs"),
+            ("pending", "pending_jobs"),
+            ("running", "running_jobs"),
+            ("retrying", "retrying_jobs"),
+        )
+        if campaign.get(key, 0)
+    )
+    print(f"Campaign {campaign['campaign_id']}: {campaign['status']}")
+    if counts:
+        print(counts)
+
+
+def status_main(argv: Sequence[str]) -> int:
+    parser = argparse.ArgumentParser(prog="lfhcal-run status", allow_abbrev=False)
+    parser.add_argument("campaign", help="campaign directory or campaign.json")
+    args = parser.parse_args(argv)
+    try:
+        campaign_path = campaign_path_from_argument(args.campaign)
+        campaign = reconcile_campaign(campaign_path, final=False)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print_campaign_status(campaign)
+    return 0
+
+
+def finalize_main(argv: Sequence[str]) -> int:
+    parser = argparse.ArgumentParser(prog="lfhcal-run _finalize", allow_abbrev=False)
+    parser.add_argument("--campaign", required=True)
+    args = parser.parse_args(argv)
+    try:
+        campaign_path = campaign_path_from_argument(args.campaign)
+        campaign = reconcile_campaign(campaign_path, final=True)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print_campaign_status(campaign)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     values = list(sys.argv[1:] if argv is None else argv)
     if values and values[0] == "_worker":
         return worker_main(values[1:])
+    if values and values[0] == "_finalize":
+        return finalize_main(values[1:])
+    if values and values[0] == "status":
+        return status_main(values[1:])
     runner_values, payload = split_invocation(values)
     parser = main_parser()
     args = parser.parse_args(runner_values)

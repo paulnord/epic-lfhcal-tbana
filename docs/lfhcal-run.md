@@ -229,6 +229,24 @@ campaign job. The generated `lfhcal_...` node names prevent collisions with
 DAGMan reserved words such as `PARENT` and `CHILD`; the original job name
 remains in `campaign.json`, output filenames, and provenance.
 
+Every generated Condor DAG also has a `FINAL` node. After the scientific jobs
+finish—even when one fails—the final node runs on the submit host and rebuilds
+the summary in `campaign.json` from the durable per-job attempt records. It
+records each job as `completed`, `failed`, `blocked`, or `not_run`, together
+with counts and the campaign end time.
+
+Status can also be reconciled manually while a campaign is running or for a
+campaign created by an older version of the runner:
+
+```console
+python3 tools/lfhcal-run status lfhcal-runs/campaign-...
+```
+
+The argument may be either the campaign directory or its `campaign.json`.
+During execution the command can report `pending`, `running`, or `retrying`
+jobs. It updates the same JSON file but does not require or query Condor; the
+attempt records remain its source of truth.
+
 The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
 and preserves the payload argument vector exactly. It also binds standard EIC
 host paths that exist on the execute node (`/media`, `/cvmfs`, `/gpfs`,
@@ -267,6 +285,8 @@ lfhcal-runs/campaign-.../
       000-eic-shell          # explicitly archived environment files
   campaign.dag               # generated for every Condor campaign
   condor.sub                 # generated Condor node description
+  condor_finalize.sh         # campaign-status reconciler
+  condor_finalize.sub        # DAGMan FINAL-node description
   jobs/
     0000-job-name/
       latest.json

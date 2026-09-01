@@ -502,8 +502,24 @@ class LFHCalRunTests(unittest.TestCase):
                 "PARENT lfhcal_0000_parent CHILD lfhcal_0001_child",
                 dag,
             )
+            finalize_submit = campaign_dir / "condor_finalize.sub"
+            self.assertIn(
+                f"FINAL lfhcal_finalize {finalize_submit}",
+                dag,
+            )
+            self.assertIn(
+                "universe = local",
+                finalize_submit.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                " _finalize --campaign ",
+                (campaign_dir / "condor_finalize.sh").read_text(encoding="utf-8"),
+            )
             campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
             self.assertEqual(campaign["condor_dag_file"], str(campaign_dir / "campaign.dag"))
+            self.assertEqual(
+                campaign["condor_finalize_submit_file"], str(finalize_submit)
+            )
 
     def test_independent_condor_jobs_use_condor_submit_dag(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -672,6 +688,142 @@ class LFHCalRunTests(unittest.TestCase):
             self.assertEqual(len(latest), 1)
             record = json.loads(latest[0].read_text(encoding="utf-8"))
             self.assertEqual(record["command"]["argv"][:2], ["python3", "-c"])
+
+    def test_status_reconciles_completed_condor_campaign(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            campaign_dir = pathlib.Path(temporary) / "campaign-test"
+            campaign_path = campaign_dir / "campaign.json"
+            jobs = [
+                tool.JobSpec(command=["python3", "first.py"], inputs=[], outputs=[], name="first"),
+                tool.JobSpec(command=["python3", "second.py"], inputs=[], outputs=[], name="second"),
+            ]
+            tool.atomic_json(
+                campaign_path,
+                {
+                    "schema": tool.SCHEMA,
+                    "kind": "campaign",
+                    "campaign_id": "campaign-test",
+                    "backend": "condor",
+                    "status": "submitted",
+                    "jobs": [job.to_dict() for job in jobs],
+                },
+            )
+            for index, job in enumerate(jobs):
+                job_dir = campaign_dir / "jobs" / tool.job_label(index, job)
+                (job_dir / "attempts" / f"attempt-{index}").mkdir(parents=True)
+                tool.atomic_json(job_dir / "latest.json", {"exit_code": 0})
+
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "status", str(campaign_dir)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("campaign-test: completed", result.stdout)
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["status"], "completed")
+            self.assertEqual(campaign["completed_jobs"], 2)
+            self.assertEqual(campaign["failed_jobs"], 0)
+            self.assertEqual(
+                [item["status"] for item in campaign["job_statuses"]],
+                ["completed", "completed"],
+            )
+
+    def test_finalizer_records_failed_blocked_and_not_run_jobs(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            campaign_dir = pathlib.Path(temporary) / "campaign-test"
+            campaign_path = campaign_dir / "campaign.json"
+            jobs = [
+                tool.JobSpec(command=["false"], inputs=[], outputs=[], name="parent"),
+                tool.JobSpec(
+                    command=["echo", "child"],
+                    inputs=[],
+                    outputs=[],
+                    name="child",
+                    parents=["parent"],
+                ),
+                tool.JobSpec(command=["echo", "independent"], inputs=[], outputs=[], name="independent"),
+            ]
+            tool.atomic_json(
+                campaign_path,
+                {
+                    "schema": tool.SCHEMA,
+                    "kind": "campaign",
+                    "campaign_id": "campaign-test",
+                    "backend": "condor",
+                    "status": "submitted",
+                    "jobs": [job.to_dict() for job in jobs],
+                },
+            )
+            failed_dir = campaign_dir / "jobs" / tool.job_label(0, jobs[0])
+            (failed_dir / "attempts" / "attempt-0").mkdir(parents=True)
+            tool.atomic_json(failed_dir / "latest.json", {"exit_code": 9})
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(TOOL),
+                    "_finalize",
+                    "--campaign",
+                    str(campaign_path),
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+            self.assertEqual(campaign["status"], "failed")
+            self.assertEqual(campaign["failed_jobs"], 1)
+            self.assertEqual(campaign["blocked_jobs"], 1)
+            self.assertEqual(campaign["not_run_jobs"], 1)
+            self.assertEqual(
+                [item["status"] for item in campaign["job_statuses"]],
+                ["failed", "blocked", "not_run"],
+            )
+            self.assertIn("ended_at", campaign)
+
+    def test_status_recognizes_an_active_retry_attempt(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            campaign_dir = pathlib.Path(temporary) / "campaign-test"
+            campaign_path = campaign_dir / "campaign.json"
+            job = tool.JobSpec(
+                command=["false"],
+                inputs=[],
+                outputs=[],
+                name="retrying",
+                retries=1,
+            )
+            tool.atomic_json(
+                campaign_path,
+                {
+                    "schema": tool.SCHEMA,
+                    "kind": "campaign",
+                    "campaign_id": "campaign-test",
+                    "backend": "condor",
+                    "status": "submitted",
+                    "jobs": [job.to_dict()],
+                },
+            )
+            attempts_dir = campaign_dir / "jobs" / tool.job_label(0, job) / "attempts"
+            first = attempts_dir / "attempt-0"
+            second = attempts_dir / "attempt-1"
+            first.mkdir(parents=True)
+            second.mkdir()
+            tool.atomic_json(first / "provenance.json", {"exit_code": 9})
+            tool.atomic_json(second / "provenance.json", {"started_at": "now"})
+            tool.atomic_json(attempts_dir.parent / "latest.json", {"exit_code": 9})
+
+            campaign = tool.reconcile_campaign(campaign_path, final=False)
+            self.assertEqual(campaign["status"], "running")
+            self.assertEqual(campaign["running_jobs"], 1)
+            self.assertEqual(campaign["job_statuses"][0]["active_attempts"], 1)
 
 
 if __name__ == "__main__":
