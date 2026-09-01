@@ -210,11 +210,31 @@ def split_invocation(argv: Sequence[str]) -> tuple[list[str], list[str] | None]:
     return values[:delimiter], values[delimiter + 1 :]
 
 
+def logical_cwd() -> pathlib.Path:
+    """Return the shell's logical working directory when it names this directory."""
+    physical = pathlib.Path.cwd()
+    shell_pwd = os.environ.get("PWD")
+    if not shell_pwd:
+        return physical
+    candidate = pathlib.Path(shell_pwd).expanduser()
+    if not candidate.is_absolute():
+        return physical
+    try:
+        if os.path.samefile(candidate, physical):
+            return pathlib.Path(os.path.normpath(str(candidate)))
+    except OSError:
+        pass
+    return physical
+
+
 def normalized_path(text: str, cwd: pathlib.Path) -> pathlib.Path:
     path = pathlib.Path(text).expanduser()
     if not path.is_absolute():
         path = cwd / path
-    return path.resolve(strict=False)
+    # Deliberately avoid resolving symlinks.  At BNL, /star/u/... may resolve to
+    # /direct/star+u/..., but the logical path is the one shared with containers
+    # and execute nodes.
+    return pathlib.Path(os.path.abspath(path))
 
 
 def inspect_file(item: FileRef, cwd: pathlib.Path) -> dict[str, Any]:
@@ -400,7 +420,7 @@ def executable_path(command: str, cwd: pathlib.Path) -> pathlib.Path | None:
         candidate = normalized_path(command, cwd)
         return candidate if candidate.exists() else None
     found = shutil.which(command)
-    return pathlib.Path(found).resolve() if found else None
+    return normalized_path(found, cwd) if found else None
 
 
 def execute_job(
@@ -581,7 +601,7 @@ def submit_condor(
     campaign: dict[str, Any],
     invocation_cwd: pathlib.Path,
 ) -> int:
-    tool = pathlib.Path(__file__).resolve()
+    tool = normalized_path(__file__, invocation_cwd)
     worker = campaign_dir / "condor_worker.sh"
     worker_text = (
         "#!/usr/bin/env bash\n"
@@ -626,15 +646,20 @@ def submit_condor(
         atomic_json(campaign_dir / "campaign.json", campaign)
         return 0
     if shutil.which("condor_submit") is None:
+        error = (
+            "condor_submit not found. Submit from an HTCondor host outside the "
+            "analysis container; use --condor-wrapper to enter the container "
+            "on execute nodes"
+        )
         campaign.update(
             {
                 "status": "submit_failed",
                 "condor_submit_file": str(submit_path),
-                "error": "condor_submit not found",
+                "error": error,
             }
         )
         atomic_json(campaign_dir / "campaign.json", campaign)
-        print(f"lfhcal-run: condor_submit not found; submit file retained at {submit_path}", file=sys.stderr)
+        print(f"lfhcal-run: {error}; submit file retained at {submit_path}", file=sys.stderr)
         return 127
     result = subprocess.run(
         ("condor_submit", str(submit_path)),
@@ -665,7 +690,7 @@ def worker_main(argv: Sequence[str]) -> int:
     parser.add_argument("--campaign", required=True)
     parser.add_argument("index", type=int)
     args = parser.parse_args(argv)
-    campaign_path = pathlib.Path(args.campaign).resolve()
+    campaign_path = normalized_path(args.campaign, logical_cwd())
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     jobs = [JobSpec.from_dict(item) for item in campaign["jobs"]]
     if args.index < 0 or args.index >= len(jobs):
@@ -690,7 +715,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(runner_values)
     if args.condor:
         args.backend = "condor"
-    invocation_cwd = pathlib.Path.cwd().resolve()
+    invocation_cwd = logical_cwd()
     try:
         if payload is not None:
             if args.manifest:
