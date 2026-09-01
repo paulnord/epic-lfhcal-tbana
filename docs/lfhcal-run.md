@@ -60,7 +60,7 @@ JOB wave-298 --input data=run298.root --output wave=wave298.root -- ./HGCROCStud
 JOB wave-300 --input data=run300.root --output wave=wave300.root -- ./HGCROCStudy -w -i run300.root -o wave300.root
 ```
 
-Run at most four simultaneously:
+To run up to four jobs simultaneously:
 
 ```console
 python3 tools/lfhcal-run -j 4 jobs.txt
