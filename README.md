@@ -52,6 +52,13 @@ listing, replacement behavior, and source configuration.
 through HTCondor while recording execution provenance. Analysis-program options
 remain entirely under the control of the program being run.
 
+Job files use one format for both execution environments:
+
+```text
+JOB run-298 -- ./NewStructure/HGCROCStudy [options ...]
+JOB run-300 -- ./NewStructure/HGCROCStudy [options ...]
+```
+
 ```console
 # One local command
 python3 tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
@@ -59,7 +66,7 @@ python3 tools/lfhcal-run -- ./NewStructure/HGCROCStudy [options ...]
 # Several commands, four at a time
 python3 tools/lfhcal-run -j 4 jobs.txt
 
-# The same jobs through HTCondor (run on the submit host, outside eic-shell)
+# The same job graph through HTCondor DAGMan (outside eic-shell)
 python3 tools/lfhcal-run --condor jobs.txt
 ```
 

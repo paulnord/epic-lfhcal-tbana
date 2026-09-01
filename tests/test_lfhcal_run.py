@@ -28,6 +28,31 @@ def load_tool():
 
 
 class LFHCalRunTests(unittest.TestCase):
+    def test_backend_option_is_not_public(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(TOOL),
+                    "--backend",
+                    "condor",
+                    "--dry-run",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "print('not submitted')",
+                ],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("unrecognized arguments: --backend", result.stderr)
+            self.assertFalse((work / "lfhcal-runs").exists())
+
     def test_condor_rejects_local_jobs_option(self):
         for option in ("-j", "--jobs"):
             with self.subTest(option=option), tempfile.TemporaryDirectory() as temporary:
@@ -261,18 +286,39 @@ class LFHCalRunTests(unittest.TestCase):
             path = pathlib.Path(temporary) / "jobs.txt"
             path.write_text(
                 "# comment\n"
-                "python3 custom.py --mode bananas\n"
-                "--name calibration --input pedestal=ped.root "
+                "JOB summary -- python3 custom.py --mode bananas\n"
+                "JOB calibration --input pedestal=ped.root "
                 "--input muon=mu.root --output calibrated=out.root -- "
                 "./DataPrep -i mu.root -P ped.root -o out.root\n",
                 encoding="utf-8",
             )
             jobs = tool.parse_manifest(path, None)
         self.assertEqual(len(jobs), 2)
+        self.assertEqual(jobs[0].name, "summary")
         self.assertEqual(jobs[0].command, ["python3", "custom.py", "--mode", "bananas"])
         self.assertEqual(jobs[1].name, "calibration")
         self.assertEqual([item.role for item in jobs[1].inputs], ["pedestal", "muon"])
         self.assertEqual(jobs[1].outputs[0].role, "calibrated")
+
+    def test_manifest_requires_job_records(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "jobs.txt"
+            path.write_text("python3 custom.py --mode bananas\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "job lines must use JOB NAME"):
+                tool.parse_manifest(path, None)
+
+    def test_manifest_rejects_duplicate_job_names_without_dependencies(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "jobs.txt"
+            path.write_text(
+                "JOB repeated -- python3 first.py\n"
+                "JOB repeated -- python3 second.py\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate DAG job name"):
+                tool.parse_manifest(path, None)
 
     def test_manifest_supports_dagman_style_dependencies_and_retries(self):
         tool = load_tool()
@@ -311,9 +357,9 @@ class LFHCalRunTests(unittest.TestCase):
             work = pathlib.Path(temporary)
             manifest = work / "jobs.txt"
             manifest.write_text(
-                "--name first --output result=one.txt -- "
+                "JOB first --output result=one.txt -- "
                 "python3 -c 'from pathlib import Path; Path(\"one.txt\").write_text(\"1\")'\n"
-                "--name second --output result=two.txt -- "
+                "JOB second --output result=two.txt -- "
                 "python3 -c 'from pathlib import Path; Path(\"two.txt\").write_text(\"2\")'\n",
                 encoding="utf-8",
             )
@@ -459,14 +505,13 @@ class LFHCalRunTests(unittest.TestCase):
             campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
             self.assertEqual(campaign["condor_dag_file"], str(campaign_dir / "campaign.dag"))
 
-    def test_condor_dag_uses_condor_submit_dag(self):
+    def test_independent_condor_jobs_use_condor_submit_dag(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)
             manifest = work / "campaign.txt"
             manifest.write_text(
                 "JOB first -- python3 first.py\n"
-                "JOB second -- python3 second.py\n"
-                "PARENT first CHILD second\n",
+                "JOB second -- python3 second.py\n",
                 encoding="utf-8",
             )
             binary_dir = work / "bin"
@@ -495,16 +540,46 @@ class LFHCalRunTests(unittest.TestCase):
             campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
             dag_path = campaign_path.parent / "campaign.dag"
             self.assertEqual(argument_log.read_text(encoding="utf-8").strip(), str(dag_path))
+            dag = dag_path.read_text(encoding="utf-8")
+            self.assertIn("JOB lfhcal_0000_first", dag)
+            self.assertIn("JOB lfhcal_0001_second", dag)
+            self.assertNotIn("PARENT", dag)
             self.assertEqual(
                 campaign["condor_submit_command"],
                 ["condor_submit_dag", str(dag_path)],
             )
 
+    def test_single_condor_command_creates_one_node_dag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = pathlib.Path(temporary)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(TOOL),
+                    "--condor",
+                    "--dry-run",
+                    "--",
+                    "python3",
+                    "-c",
+                    "print(42)",
+                ],
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            dag_path = next((work / "lfhcal-runs").glob("*/campaign.dag"))
+            dag = dag_path.read_text(encoding="utf-8")
+            self.assertIn("JOB lfhcal_0000_python3", dag)
+            self.assertIn('lfhcal_job_index="0" lfhcal_node="0000-python3"', dag)
+
     def test_condor_dry_run_creates_submit_file(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)
             manifest = work / "jobs.txt"
-            manifest.write_text("python3 -c 'print(42)'\n", encoding="utf-8")
+            manifest.write_text("JOB answer -- python3 -c 'print(42)'\n", encoding="utf-8")
             wrapper = work / "container-wrapper.sh"
             wrapper.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")
             wrapper.chmod(0o755)
@@ -548,8 +623,19 @@ class LFHCalRunTests(unittest.TestCase):
             self.assertIn("LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)", submit)
             self.assertIn(f"LFHCAL_CONTAINER_IMAGE={resolved_image}", submit)
             self.assertIn(f"executable = {archived_wrapper}", submit)
-            self.assertIn(f'arguments = "{worker} $(Process)"', submit)
+            self.assertIn(f'arguments = "{worker} $(lfhcal_job_index)"', submit)
+            self.assertIn("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)", submit)
+            self.assertIn(
+                "output = " + str(campaign_dir / "condor") + "/$(lfhcal_node).out",
+                submit,
+            )
             self.assertIn("queue 1", submit)
+            dag = (campaign_dir / "campaign.dag").read_text(encoding="utf-8")
+            self.assertIn(f"JOB lfhcal_0000_answer {campaign_dir / 'condor.sub'}", dag)
+            self.assertIn(
+                'VARS lfhcal_0000_answer lfhcal_job_index="0" lfhcal_node="answer"',
+                dag,
+            )
             self.assertTrue(archived_wrapper.is_file())
             self.assertIn("exec python3 ", worker.read_text(encoding="utf-8"))
 

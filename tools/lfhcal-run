@@ -152,8 +152,11 @@ def main_parser() -> argparse.ArgumentParser:
         default=None,
         help="maximum local jobs at once (default: 1; invalid with Condor)",
     )
-    parser.add_argument("--backend", choices=("local", "condor"), default="local")
-    parser.add_argument("--condor", action="store_true", help="alias for --backend condor")
+    parser.add_argument(
+        "--condor",
+        action="store_true",
+        help="submit the campaign through HTCondor DAGMan",
+    )
     parser.add_argument("--name", help="single-job name")
     parser.add_argument("--cwd", help="working directory for every job unless overridden")
     parser.add_argument("--input", action="append", default=[], type=parse_file_ref)
@@ -243,23 +246,22 @@ def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]
                 raise ValueError(f"{path}:{line_number}: RETRY count may not be negative")
             retry_directives.append((line_number, tokens[1], retries))
             continue
-        forced_name: str | None = None
-        if tokens[0] == "JOB":
-            if len(tokens) < 4 or "--" not in tokens[2:]:
-                raise ValueError(
-                    f"{path}:{line_number}: JOB requires NAME -- COMMAND [ARGS...]"
-                )
-            forced_name = tokens[1]
-            if not ROLE_RE.fullmatch(forced_name):
-                raise ValueError(f"{path}:{line_number}: invalid job name {forced_name!r}")
-            tokens = tokens[2:]
-        if "--" in tokens:
-            delimiter = tokens.index("--")
-            metadata = parser.parse_args(tokens[:delimiter])
-            command = tokens[delimiter + 1 :]
-        else:
-            metadata = parser.parse_args([])
-            command = tokens
+        if tokens[0] != "JOB":
+            raise ValueError(
+                f"{path}:{line_number}: expected JOB, PARENT, or RETRY; "
+                "job lines must use JOB NAME -- COMMAND [ARGS...]"
+            )
+        if len(tokens) < 4 or "--" not in tokens[2:]:
+            raise ValueError(
+                f"{path}:{line_number}: JOB requires NAME -- COMMAND [ARGS...]"
+            )
+        forced_name = tokens[1]
+        if not ROLE_RE.fullmatch(forced_name):
+            raise ValueError(f"{path}:{line_number}: invalid job name {forced_name!r}")
+        tokens = tokens[2:]
+        delimiter = tokens.index("--")
+        metadata = parser.parse_args(tokens[:delimiter])
+        command = tokens[delimiter + 1 :]
         if not command:
             raise ValueError(f"{path}:{line_number}: no command after --")
         if forced_name and metadata.name and metadata.name != forced_name:
@@ -268,7 +270,7 @@ def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]
             )
         jobs.append(
             JobSpec(
-                name=forced_name or metadata.name,
+                name=forced_name,
                 command=command,
                 cwd=metadata.cwd or default_cwd,
                 inputs=metadata.input,
@@ -288,12 +290,6 @@ def apply_graph_directives(
     parent_directives: Sequence[tuple[int, list[str], list[str]]],
     retry_directives: Sequence[tuple[int, str, int]],
 ) -> None:
-    if not parent_directives and not retry_directives:
-        return
-    unnamed = [index for index, job in enumerate(jobs) if not job.name]
-    if unnamed:
-        lines = ", ".join(str(jobs[index].source_line) for index in unnamed)
-        raise ValueError(f"{path}: DAG jobs require names; unnamed job lines: {lines}")
     jobs_by_name: dict[str, JobSpec] = {}
     for job in jobs:
         assert job.name is not None
@@ -343,17 +339,14 @@ def validate_acyclic_graph(
         raise ValueError(f"{path}: dependency cycle involving {', '.join(cyclic)}")
 
 
-def is_dag_campaign(jobs: Sequence[JobSpec]) -> bool:
-    return any(job.parents or job.retries for job in jobs)
-
-
-def condor_dag_node_names(jobs: Sequence[JobSpec]) -> dict[str, str]:
+def condor_dag_node_names(jobs: Sequence[JobSpec]) -> list[str]:
     """Return safe internal DAGMan names without constraining user job names."""
-    return {
-        job.name: f"lfhcal_{index:04d}_{job.name}"
-        for index, job in enumerate(jobs)
-        if job.name
-    }
+    result = []
+    for index, job in enumerate(jobs):
+        name = job.name or pathlib.Path(job.command[0]).name or "job"
+        slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-.") or "job"
+        result.append(f"lfhcal_{index:04d}_{slug}")
+    return result
 
 
 def split_invocation(argv: Sequence[str]) -> tuple[list[str], list[str] | None]:
@@ -767,7 +760,7 @@ def create_campaign(
     campaign_id = new_id("campaign")
     base = normalized_path(args.provenance_dir, invocation_cwd)
     campaign_dir = base / campaign_id
-    backend = "condor" if args.condor else args.backend
+    backend = "condor" if args.condor else "local"
     campaign = {
         "schema": SCHEMA,
         "kind": "campaign",
@@ -782,17 +775,16 @@ def create_campaign(
         campaign["max_parallel"] = args.jobs
     if args.note:
         campaign["notes"] = list(args.note)
-    if is_dag_campaign(jobs):
-        campaign["dag"] = {
-            "dependencies": [
-                {"parent": parent, "child": job.name}
-                for job in jobs
-                for parent in job.parents
-            ],
-            "retries": {
-                job.name: job.retries for job in jobs if job.retries and job.name
-            },
-        }
+    campaign["dag"] = {
+        "dependencies": [
+            {"parent": parent, "child": job.name}
+            for job in jobs
+            for parent in job.parents
+        ],
+        "retries": {
+            job.name: job.retries for job in jobs if job.retries and job.name
+        },
+    }
     environment: dict[str, Any] = {}
     if args.container_image:
         image = container_path_record(args.container_image, invocation_cwd)
@@ -965,7 +957,6 @@ def submit_condor(
     campaign: dict[str, Any],
     invocation_cwd: pathlib.Path,
 ) -> int:
-    dag_campaign = is_dag_campaign(jobs)
     tool = logical_invocation_path(__file__, invocation_cwd)
     worker = campaign_dir / "condor_worker.sh"
     worker_python = "python3" if args.condor_wrapper else sys.executable
@@ -990,7 +981,7 @@ def submit_condor(
         wrapper_record = archive_file(str(source_wrapper), executable, invocation_cwd)
         campaign.setdefault("execution_environment", {})["condor_wrapper"] = wrapper_record
         atomic_json(campaign_dir / "campaign.json", campaign)
-    job_index = "$(lfhcal_job_index)" if dag_campaign else "$(Process)"
+    job_index = "$(lfhcal_job_index)"
     arguments = f'"{worker} {job_index}"' if args.condor_wrapper else job_index
     environment_assignments = [
         "LFHCAL_BATCH_SYSTEM=condor",
@@ -998,8 +989,7 @@ def submit_condor(
         "LFHCAL_CONDOR_PROCESS=$(ProcId)",
         "LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)",
     ]
-    if dag_campaign:
-        environment_assignments.append("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)")
+    environment_assignments.append("LFHCAL_CONDOR_DAG_NODE=$(lfhcal_node)")
     container = campaign.get("execution_environment", {}).get("container_image")
     if container:
         container_execution_path = container["resolved_path"]
@@ -1008,7 +998,7 @@ def submit_condor(
         environment_assignments.append(
             f"LFHCAL_CONTAINER_IMAGE={container_execution_path}"
         )
-    output_name = "$(lfhcal_node)" if dag_campaign else "$(Process)"
+    output_name = "$(lfhcal_node)"
     submit_lines = [
         "universe = vanilla",
         f"executable = {executable}",
@@ -1024,52 +1014,53 @@ def submit_condor(
         "should_transfer_files = NO",
     ]
     submit_lines.extend(f"{key} = {value}" for key, value in validate_condor_extra(args.condor_extra))
-    submit_lines.append(f"queue {1 if dag_campaign else len(jobs)}")
+    submit_lines.append("queue 1")
     submit_path = campaign_dir / "condor.sub"
     submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
-    dag_path: pathlib.Path | None = None
-    if dag_campaign:
-        dag_lines = []
-        dag_node_names = condor_dag_node_names(jobs)
-        for index, job in enumerate(jobs):
-            assert job.name is not None
-            node_name = dag_node_names[job.name]
-            dag_lines.extend(
-                [
-                    f"JOB {node_name} {submit_path}",
-                    f'VARS {node_name} lfhcal_job_index="{index}" '
-                    f'lfhcal_node="{job.name}"',
-                ]
+    dag_lines = []
+    dag_node_names = condor_dag_node_names(jobs)
+    job_indexes_by_name = {
+        job.name: index for index, job in enumerate(jobs) if job.name is not None
+    }
+    for index, job in enumerate(jobs):
+        node_name = dag_node_names[index]
+        node_label = (
+            job.name
+            if job.name and ROLE_RE.fullmatch(job.name)
+            else job_label(index, job)
+        )
+        dag_lines.extend(
+            [
+                f"JOB {node_name} {submit_path}",
+                f'VARS {node_name} lfhcal_job_index="{index}" '
+                f'lfhcal_node="{node_label}"',
+            ]
+        )
+        if job.retries:
+            dag_lines.append(f"RETRY {node_name} {job.retries}")
+    for index, job in enumerate(jobs):
+        if job.parents:
+            parent_nodes = " ".join(
+                dag_node_names[job_indexes_by_name[parent]] for parent in job.parents
             )
-            if job.retries:
-                dag_lines.append(f"RETRY {node_name} {job.retries}")
-        for job in jobs:
-            assert job.name is not None
-            if job.parents:
-                dag_lines.append(
-                    f"PARENT {' '.join(dag_node_names[parent] for parent in job.parents)} "
-                    f"CHILD {dag_node_names[job.name]}"
-                )
-        dag_path = campaign_dir / "campaign.dag"
-        dag_path.write_text("\n".join(dag_lines) + "\n", encoding="utf-8")
+            dag_lines.append(
+                f"PARENT {parent_nodes} CHILD {dag_node_names[index]}"
+            )
+    dag_path = campaign_dir / "campaign.dag"
+    dag_path.write_text("\n".join(dag_lines) + "\n", encoding="utf-8")
     if args.dry_run:
         print(submit_path.read_text(encoding="utf-8"), end="")
-        if dag_path:
-            print(dag_path.read_text(encoding="utf-8"), end="")
+        print(dag_path.read_text(encoding="utf-8"), end="")
         campaign.update(
             {
                 "status": "dry_run",
                 "condor_submit_file": str(submit_path),
-                **({"condor_dag_file": str(dag_path)} if dag_path else {}),
+                "condor_dag_file": str(dag_path),
             }
         )
         atomic_json(campaign_dir / "campaign.json", campaign)
         return 0
-    submit_command = (
-        ("condor_submit_dag", str(dag_path))
-        if dag_path
-        else ("condor_submit", str(submit_path))
-    )
+    submit_command = ("condor_submit_dag", str(dag_path))
     if shutil.which(submit_command[0]) is None:
         error = (
             f"{submit_command[0]} not found. Submit from an HTCondor host outside the "
@@ -1080,14 +1071,13 @@ def submit_condor(
             {
                 "status": "submit_failed",
                 "condor_submit_file": str(submit_path),
-                **({"condor_dag_file": str(dag_path)} if dag_path else {}),
+                "condor_dag_file": str(dag_path),
                 "error": error,
             }
         )
         atomic_json(campaign_dir / "campaign.json", campaign)
-        retained_path = dag_path or submit_path
         print(
-            f"lfhcal-run: {error}; submission files retained at {retained_path}",
+            f"lfhcal-run: {error}; submission files retained at {dag_path}",
             file=sys.stderr,
         )
         return 127
@@ -1106,7 +1096,7 @@ def submit_condor(
             "status": "submitted" if result.returncode == 0 else "submit_failed",
             "submitted_at": utc_now(),
             "condor_submit_file": str(submit_path),
-            **({"condor_dag_file": str(dag_path)} if dag_path else {}),
+            "condor_dag_file": str(dag_path),
             "condor_submit_command": list(submit_command),
             "condor_submit_stdout": result.stdout,
             "condor_submit_stderr": result.stderr,
@@ -1145,9 +1135,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     runner_values, payload = split_invocation(values)
     parser = main_parser()
     args = parser.parse_args(runner_values)
-    if args.condor:
-        args.backend = "condor"
-    if args.backend == "condor" and args.jobs is not None:
+    if args.condor and args.jobs is not None:
         parser.error("-j/--jobs applies only to local execution; Condor manages job concurrency")
     if args.jobs is None:
         args.jobs = 1
@@ -1181,7 +1169,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "No file lineage was declared. For richer provenance, use "
                 "--input [ROLE=]FILE and --output [ROLE=]FILE before --."
             )
-        if args.backend == "condor":
+        if args.condor:
             return submit_condor(
                 jobs, args, campaign_id, campaign_dir, campaign, invocation_cwd
             )

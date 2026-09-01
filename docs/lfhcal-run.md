@@ -47,16 +47,17 @@ Notes are stored in the campaign JSON in the order supplied.
 
 ## Several local jobs
 
-A job file contains one shell-quoted argument list per line. Blank lines and
-comments are ignored:
+A job file uses the same small DAG language for local and Condor execution.
+Every command begins with `JOB` and a unique name. Blank lines and comments
+are ignored:
 
 ```text
 # A job without explicit file lineage
-python3 my_summary.py --run 298
+JOB summary-298 -- python3 my_summary.py --run 298
 
 # Per-job metadata precedes --; the payload follows it
---name wave-298 --input data=run298.root --output wave=wave298.root -- ./HGCROCStudy -w -i run298.root -o wave298.root
---name wave-300 --input data=run300.root --output wave=wave300.root -- ./HGCROCStudy -w -i run300.root -o wave300.root
+JOB wave-298 --input data=run298.root --output wave=wave298.root -- ./HGCROCStudy -w -i run298.root -o wave298.root
+JOB wave-300 --input data=run300.root --output wave=wave300.root -- ./HGCROCStudy -w -i run300.root -o wave300.root
 ```
 
 Run at most four simultaneously:
@@ -66,22 +67,22 @@ python3 tools/lfhcal-run -j 4 jobs.txt
 ```
 
 `-j`/`--jobs` controls only the number of simultaneous local jobs. Combining
-it with `--condor` or `--backend condor` is an error; HTCondor controls how
-many dependency-ready jobs execute at once. Use `--request-cpus N` to request
-CPUs for each individual Condor job.
+it with `--condor` is an error; HTCondor controls how many dependency-ready
+jobs execute at once. Use `--request-cpus N` to request CPUs for each
+individual Condor job.
 
 Lines are parsed with shell quoting, but are launched directly without a shell.
 Pipes, redirection, variable expansion, and compound shell commands therefore
 need an explicit shell payload, for example:
 
 ```text
-bash -lc './analysis input.root > analysis.log 2>&1'
+JOB analysis -- bash -lc './analysis input.root > analysis.log 2>&1'
 ```
 
-## Dependent campaigns
+## Dependencies and retries
 
-When jobs depend on one another, the same manifest can use a small,
-DAGMan-inspired vocabulary. `JOB` defines a named arbitrary command,
+The manifest uses a small, DAGMan-inspired vocabulary. `JOB` defines a named
+arbitrary command,
 `PARENT ... CHILD ...` defines dependencies, and `RETRY` allows additional
 execution attempts after failure:
 
@@ -97,9 +98,11 @@ RETRY calibration 1
 ```
 
 Job names use letters, digits, `_`, `-`, and `.`, beginning with a letter.
-Every job in a dependent campaign must be named, and names must be unique.
+Every job must be named, and names must be unique.
 Dependency records may appear before or after job records. The runner rejects
 unknown job names, self-dependencies, and dependency cycles before execution.
+Jobs without a `PARENT` relationship are independent graph nodes. A manifest
+containing only `JOB` records is therefore a valid DAG with no edges.
 
 Locally, the runner releases a job only after all its parents succeed, while
 still running as many ready jobs as `-j N` permits:
@@ -110,8 +113,8 @@ python3 tools/lfhcal-run -j 4 campaign.txt
 
 A retry creates another provenance attempt beneath the same intended job.
 After a job exhausts its retries, its descendants are marked blocked and are
-not executed. Manifests without `PARENT` or a nonzero `RETRY` remain ordinary
-flat campaigns and retain the original one-command-per-line behavior.
+not executed. This local scheduler implements only these portable graph
+semantics; it does not require Condor or attempt to reproduce Condor itself.
 
 ### TB2026 parameter-scan end-to-end campaign
 
@@ -161,9 +164,9 @@ replacement, remote directory listing, and alternate sources.
 
 ## HTCondor
 
-Run Condor submission on a submit host where `condor_submit` and, for dependent
-campaigns, `condor_submit_dag` are available—not from inside the EIC analysis
-container. The same job file can be submitted with:
+Run Condor submission on a submit host where `condor_submit_dag` is
+available—not from inside the EIC analysis container. The same job file can be
+submitted with:
 
 ```console
 python3 tools/lfhcal-run --condor jobs.txt
@@ -204,8 +207,8 @@ python3 tools/lfhcal-run --condor \
 
 Use `--dry-run` to inspect the generated submit description without submitting.
 
-For a dependent campaign, the Condor backend compiles the same manifest into
-a real DAGMan description, sharing one generated `condor.sub` among the nodes:
+The Condor backend always compiles the manifest into a real DAGMan description,
+sharing one generated `condor.sub` among the nodes:
 
 ```text
 JOB lfhcal_0000_pedestal /.../condor.sub
@@ -218,13 +221,13 @@ VARS lfhcal_0002_calibration lfhcal_job_index="2" lfhcal_node="calibration"
 PARENT lfhcal_0000_pedestal lfhcal_0001_muon CHILD lfhcal_0002_calibration
 ```
 
-It submits that file with `condor_submit_dag`. DAGMan controls release,
-failure blocking, and retries; each retry still calls the common provenance
-worker and therefore creates a distinct attempt record for the same campaign
-job. The generated `lfhcal_...` node names prevent collisions with DAGMan
-reserved words such as `PARENT` and `CHILD`; the original job name remains in
-`campaign.json`, output filenames, and provenance. Flat campaigns continue to
-use `condor_submit` and a single `queue N` submit description.
+It submits that file with `condor_submit_dag`. Independent jobs are DAG nodes
+without edges; dependent jobs add `PARENT`/`CHILD` records. DAGMan controls
+release, failure blocking, and retries; each retry still calls the common
+provenance worker and therefore creates a distinct attempt record for the same
+campaign job. The generated `lfhcal_...` node names prevent collisions with
+DAGMan reserved words such as `PARENT` and `CHILD`; the original job name
+remains in `campaign.json`, output filenames, and provenance.
 
 The supplied `tools/run-in-eic-container.sh` selects Apptainer or Singularity
 and preserves the payload argument vector exactly. It also binds standard EIC
@@ -262,7 +265,7 @@ lfhcal-runs/campaign-.../
     condor-wrapper.sh        # exact submitted wrapper, when configured
     files/
       000-eic-shell          # explicitly archived environment files
-  campaign.dag               # generated for a dependent Condor campaign
+  campaign.dag               # generated for every Condor campaign
   condor.sub                 # generated Condor node description
   jobs/
     0000-job-name/
