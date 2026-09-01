@@ -13,3 +13,5 @@ NewStructure/*.log
 *.root
 *.h2g
 lfhcal-runs/
+__pycache__/
+*.py[cod]
