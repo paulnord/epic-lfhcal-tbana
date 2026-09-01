@@ -37,8 +37,8 @@ To generate doxygen documentation for the project in *NewStructure*, navigate to
 JLab XRootD store. Individual runs and inclusive ranges can be mixed:
 
 ```console
-python3 tools/fetch-tb2026-raw \\
-  --destination /path/to/2026TBdata \\
+python3 tools/fetch-tb2026-raw \
+  --destination /path/to/2026TBdata \
   137 138-149 153 159 165 178
 ```
 
