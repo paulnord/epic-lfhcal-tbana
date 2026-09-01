@@ -89,10 +89,9 @@ class CampaignGeneratorTests(unittest.TestCase):
         self.assertTrue(all(job.retries == 1 for job in jobs))
         self.assertTrue(jobs[-1].command[jobs[-1].command.index("-c") + 1].endswith("Run139.h2g"))
 
-    def test_analysis_campaign_builds_parallel_full_data_branches(self):
+    def test_analysis_campaign_builds_calibration_and_parallel_data_branches(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = pathlib.Path(temporary)
-            calibration = work / "calibration.root"
             bad_channels = work / "bad-channels.txt"
             toa_offsets = work / "toa-offsets.csv"
             jobs = self.generate(
@@ -104,30 +103,61 @@ class CampaignGeneratorTests(unittest.TestCase):
                     str(work / "raw"),
                     "--output-dir",
                     str(work / "analysis"),
-                    "--calibration",
-                    str(calibration),
+                    "--pedestal-run",
+                    "137",
+                    "--muon-runs",
+                    "138-149",
+                    "--calibration-name",
+                    "FullSetC_1",
                     "--bad-channels",
                     str(bad_channels),
                     "--toa-offsets",
                     str(toa_offsets),
-                    "137",
                     "153",
+                    "159",
+                    "165",
+                    "178",
                 ],
                 work / "analysis.txt",
             )
 
-        self.assertEqual(len(jobs), 7)
+        self.assertEqual(len(jobs), 36)
         by_name = {job.name: job for job in jobs}
         self.assertEqual(by_name["convert-137"].parents, ["prepare"])
-        self.assertEqual(by_name["apply-calibration-137"].parents, ["convert-137"])
-        self.assertEqual(by_name["waveform-137"].parents, ["apply-calibration-137"])
+        self.assertEqual(
+            by_name["merge-muons"].parents,
+            [f"convert-{run}" for run in range(138, 150)],
+        )
+        self.assertEqual(by_name["pedestal"].parents, ["convert-137"])
+        self.assertEqual(
+            by_name["transfer-calibration"].parents,
+            ["pedestal", "merge-muons"],
+        )
+        self.assertEqual(by_name["muon-calibration"].parents, ["transfer-calibration"])
+        self.assertEqual(by_name["select-mip"].parents, ["muon-calibration"])
+        self.assertEqual(by_name["refine-1"].parents, ["select-mip"])
+        self.assertEqual(by_name["refine-4"].parents, ["refine-3"])
+        self.assertEqual(by_name["strip-calibration"].parents, ["refine-4"])
         self.assertEqual(by_name["convert-153"].parents, ["prepare"])
-        self.assertEqual(by_name["apply-calibration-153"].parents, ["convert-153"])
-        apply = by_name["apply-calibration-137"]
-        self.assertEqual(apply.command[apply.command.index("-C") + 1], str(calibration))
+        self.assertEqual(
+            by_name["apply-calibration-153"].parents,
+            ["strip-calibration", "convert-153"],
+        )
+        self.assertEqual(by_name["waveform-153"].parents, ["apply-calibration-153"])
+        calibration = str(work / "analysis" / "calib_FullSetC_1.root")
+        apply = by_name["apply-calibration-153"]
+        self.assertEqual(apply.command[apply.command.index("-C") + 1], calibration)
         self.assertEqual(
             next(item.path for item in apply.inputs if item.role == "final_calibration"),
-            str(calibration),
+            calibration,
+        )
+        self.assertEqual(
+            next(
+                item.path
+                for item in by_name["strip-calibration"].outputs
+                if item.role == "final_calibration"
+            ),
+            calibration,
         )
         self.assertTrue(by_name["waveform-153"].command[0].endswith("/HGCROCStudy"))
         self.assertNotIn("-l", by_name["waveform-153"].command)
@@ -143,8 +173,12 @@ class CampaignGeneratorTests(unittest.TestCase):
                     str(work),
                     "--output-dir",
                     str(work / "out"),
-                    "--calibration",
-                    str(work / "calibration.root"),
+                    "--pedestal-run",
+                    "137",
+                    "--muon-runs",
+                    "138-149",
+                    "--calibration-name",
+                    "FullSetC_1",
                     "--bad-channels",
                     str(work / "bad-channels.txt"),
                     "--toa-offsets",

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Generate convert, calibration, and waveform jobs for many TB2026 runs."""
+"""Generate calibration and analysis jobs for a TB2026 data campaign."""
 
 from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import sys
 from collections.abc import Sequence
 
@@ -19,72 +20,116 @@ from lfhcal_campaign import (
 
 
 TOOL_NAME = "make-tb2026-analysis-campaign"
+SAFE_LABEL = re.compile(r"^[A-Za-z0-9_.+-]+$")
 
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description=(
-            "Generate independent Convert -> apply calibration -> waveform branches "
-            "for TB2026 data runs. The output is an lfhcal-run campaign manifest; "
-            "this command does not execute jobs."
+            "Generate raw conversion, pedestal/muon calibration, calibration "
+            "application, and waveform analysis as one lfhcal-run campaign. "
+            "This command writes a manifest; it does not execute jobs."
         )
     )
     result.add_argument(
         "runs",
         nargs="+",
-        metavar="RUN",
-        help="run number or inclusive range, for example 137 138-149 153",
+        metavar="DATA_RUN",
+        help="data run or inclusive range, for example 153 159 165 178",
+    )
+    result.add_argument("--pedestal-run", required=True, type=int)
+    result.add_argument(
+        "--muon-runs",
+        required=True,
+        action="append",
+        metavar="RUNS",
+        help="muon run or inclusive range; repeat for disjoint sets",
+    )
+    result.add_argument(
+        "--calibration-name",
+        required=True,
+        help="short label used in calibration products, for example FullSetC_1",
     )
     result.add_argument("--raw-dir", required=True, help="directory containing RunNNN.h2g")
     result.add_argument("--output-dir", required=True, help="new campaign product directory")
-    result.add_argument(
-        "--calibration",
-        required=True,
-        help="final ROOT calibration passed to DataPrep -C for every run",
-    )
     result.add_argument("--manifest", required=True, help="campaign manifest to create")
     result.add_argument(
         "--repository",
         default=str(logical_cwd()),
         help="epic-lfhcal-tbana checkout (default: logical current directory)",
     )
-    result.add_argument("--build-dir", help="directory containing Convert, DataPrep, HGCROCStudy")
+    result.add_argument(
+        "--build-dir",
+        help="directory containing Convert, DataPrep, and HGCROCStudy",
+    )
     result.add_argument("--mapping", help="override the TB2026 V2 mapping")
     result.add_argument("--run-database", help="override the TB2026 run database")
     result.add_argument(
         "--bad-channels",
         required=True,
-        help="bad-channel map appropriate to these runs",
+        help="bad-channel map appropriate to this detector configuration",
     )
     result.add_argument(
         "--toa-offsets",
         required=True,
-        help="ToA-offset file appropriate to these runs",
+        help="ToA-offset file appropriate to this detector configuration",
     )
     result.add_argument(
         "--active-cells",
         help="optional waveform active-cell list; omit to analyze all cells",
     )
+    result.add_argument(
+        "--refinement-rounds",
+        type=int,
+        default=4,
+        help="number of reduced MIP-calibration refinements (default: 4)",
+    )
     result.add_argument("--retries", type=int, default=1, help="retries per job (default: 1)")
     result.add_argument(
         "--check",
         action="store_true",
-        help="require executables, configuration, calibration, and raw inputs to exist",
+        help="require executables, configuration, and every raw input to exist",
     )
     result.add_argument("--force", action="store_true", help="replace an existing manifest")
     return result
 
 
+def refinement_tag(round_number: int) -> str:
+    return "ImpR" if round_number == 1 else f"Imp{round_number}R"
+
+
 def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], list[int]]:
     base = logical_cwd()
-    runs = parse_runs(args.runs)
+    data_runs = parse_runs(args.runs)
+    muon_runs = parse_runs(args.muon_runs)
+    if args.pedestal_run <= 0:
+        raise ValueError("--pedestal-run must be positive")
+    if not SAFE_LABEL.fullmatch(args.calibration_name):
+        raise ValueError(
+            "--calibration-name may contain only letters, digits, _, ., +, and -"
+        )
+    if args.refinement_rounds < 1:
+        raise ValueError("--refinement-rounds must be at least 1")
+
     repository = absolute_path(args.repository, base)
     raw_dir = absolute_path(args.raw_dir, base)
     output_dir = absolute_path(args.output_dir, base)
-    calibration = absolute_path(args.calibration, base)
-    build_dir = absolute_path(args.build_dir, base) if args.build_dir else repository / "NewStructure/build"
-    mapping = absolute_path(args.mapping, base) if args.mapping else repository / "configs/TB2026/mapping_HGCROC_SPSH2TB_sumV2_default.csv"
-    run_database = absolute_path(args.run_database, base) if args.run_database else repository / "configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv"
+    build_dir = (
+        absolute_path(args.build_dir, base)
+        if args.build_dir
+        else repository / "NewStructure/build"
+    )
+    mapping = (
+        absolute_path(args.mapping, base)
+        if args.mapping
+        else repository
+        / "configs/TB2026/mapping_HGCROC_SPSH2TB_sumV2_default.csv"
+    )
+    run_database = (
+        absolute_path(args.run_database, base)
+        if args.run_database
+        else repository / "configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv"
+    )
     bad_channels = absolute_path(args.bad_channels, base)
     toa_offsets = absolute_path(args.toa_offsets, base)
     active_cells = absolute_path(args.active_cells, base) if args.active_cells else None
@@ -92,17 +137,47 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
     data_prep = build_dir / "DataPrep"
     hgcroc_study = build_dir / "HGCROCStudy"
 
-    calibration_plot_dirs = {
-        run: output_dir / f"HGCROC_PlotsCalibrated/Run_{run}" for run in runs
+    all_runs: list[int] = []
+    for run in [args.pedestal_run, *muon_runs, *data_runs]:
+        if run not in all_runs:
+            all_runs.append(run)
+    raw_h2g = {run: raw_dir / f"Run{run}.h2g" for run in all_runs}
+    raw_root = {run: output_dir / f"rawHGCROC_{run}.root" for run in all_runs}
+
+    label = args.calibration_name
+    merged_muons = output_dir / f"rawHGCROC_Muon_{label}.root"
+    pedestal = output_dir / f"rawHGCROC_wPed_{args.pedestal_run}.root"
+    transferred = output_dir / f"rawHGCROC_wPed_wBC_Muon_{label}.root"
+    initial_calibration = output_dir / f"rawHGCROC_wPedwMuon_wBC_Muon_{label}.root"
+    mip_selected = output_dir / f"rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{label}.root"
+    refinement_files = [
+        output_dir / f"rawHGCROC_wPedwMuon_wBC_{refinement_tag(index)}_Muon_{label}.root"
+        for index in range(1, args.refinement_rounds + 1)
+    ]
+    calibration = output_dir / f"calib_{label}.root"
+
+    calibration_plots = {
+        "pedestal": output_dir / f"PlotsPedestal/Run{args.pedestal_run}",
+        "transfer": output_dir / f"HGCROC_PlotsCalibTransferWToA/Muon_{label}",
+        "muon": output_dir / f"HGCROC_PlotsCalibMuon/Muon_{label}",
     }
-    waveform_plot_dirs = {
-        run: output_dir / f"HGCROC_PlotsWave/Run_{run}" for run in runs
+    for index in range(1, args.refinement_rounds + 1):
+        calibration_plots[f"refine_{index}"] = (
+            output_dir / f"HGCROC_PlotsCalibMuonImproved{index}_Red/Muon_{label}"
+        )
+    data_calibration_plots = {
+        run: output_dir / f"HGCROC_PlotsCalibrated/Run_{run}" for run in data_runs
     }
+    waveform_plots = {
+        run: output_dir / f"HGCROC_PlotsWave/Run_{run}" for run in data_runs
+    }
+
     campaign = Campaign(
         [
             "Generated by tools/make-tb2026-analysis-campaign",
-            f"TB2026 conversion, existing-calibration application, and waveform analysis for {len(runs)} run(s)",
-            f"Shared final calibration: {calibration}",
+            f"Calibration {label}: pedestal {args.pedestal_run}; muons "
+            + ", ".join(str(run) for run in muon_runs),
+            f"Apply generated calibration to {len(data_runs)} data run(s)",
         ]
     )
     campaign.add_job(
@@ -111,27 +186,17 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
             "mkdir",
             "-p",
             output_dir,
-            *calibration_plot_dirs.values(),
-            *waveform_plot_dirs.values(),
+            *calibration_plots.values(),
+            *data_calibration_plots.values(),
+            *waveform_plots.values(),
         ],
         outputs=[("workspace", output_dir)],
         retries=args.retries,
     )
 
-    raw_inputs: list[pathlib.Path] = []
-    for run in runs:
-        raw_h2g = raw_dir / f"Run{run}.h2g"
-        raw_root = output_dir / f"rawHGCROC_{run}.root"
-        calibrated = output_dir / f"calibratedHGCROC_Run_{run}.root"
-        waveform = output_dir / f"calibratedHGCROC_wave_Run_{run}.root"
-        calibration_plots = calibration_plot_dirs[run]
-        waveform_plots = waveform_plot_dirs[run]
-        raw_inputs.append(raw_h2g)
-
-        convert_name = f"convert-{run}"
-        apply_name = f"apply-calibration-{run}"
+    for run in all_runs:
         campaign.add_job(
-            convert_name,
+            f"convert-{run}",
             [
                 convert,
                 "-d",
@@ -139,23 +204,190 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
                 "-f",
                 "-w",
                 "-c",
-                raw_h2g,
+                raw_h2g[run],
                 "-o",
-                raw_root,
+                raw_root[run],
                 "-m",
                 mapping,
                 "-r",
                 run_database,
             ],
             inputs=[
-                ("raw_h2g", raw_h2g),
+                ("raw_h2g", raw_h2g[run]),
                 ("mapping", mapping),
                 ("run_database", run_database),
             ],
-            outputs=[("raw_root", raw_root)],
+            outputs=[("raw_root", raw_root[run])],
             parents=["prepare"],
             retries=args.retries,
         )
+
+    campaign.add_job(
+        "merge-muons",
+        ["hadd", "-f", merged_muons, *(raw_root[run] for run in muon_runs)],
+        inputs=[(f"muon_{run}", raw_root[run]) for run in muon_runs],
+        outputs=[("merged_muons", merged_muons)],
+        parents=[f"convert-{run}" for run in muon_runs],
+        retries=args.retries,
+    )
+    campaign.add_job(
+        "pedestal",
+        [
+            data_prep,
+            "-a",
+            "-d",
+            "1",
+            "-p",
+            "-i",
+            raw_root[args.pedestal_run],
+            "-f",
+            "-o",
+            pedestal,
+            "-O",
+            calibration_plots["pedestal"],
+            "-r",
+            run_database,
+            "-F",
+            "pdf",
+        ],
+        inputs=[
+            ("raw_pedestal", raw_root[args.pedestal_run]),
+            ("run_database", run_database),
+        ],
+        outputs=[("pedestal", pedestal), ("plots", calibration_plots["pedestal"])],
+        parents=[f"convert-{args.pedestal_run}"],
+        retries=args.retries,
+    )
+    campaign.add_job(
+        "transfer-calibration",
+        [
+            data_prep,
+            "-d",
+            "1",
+            "-e",
+            "-f",
+            "-P",
+            pedestal,
+            "-i",
+            merged_muons,
+            "-o",
+            transferred,
+            "-O",
+            calibration_plots["transfer"],
+            "-r",
+            run_database,
+            "-B",
+            bad_channels,
+            "-G",
+            toa_offsets,
+        ],
+        inputs=[
+            ("pedestal", pedestal),
+            ("merged_muons", merged_muons),
+            ("run_database", run_database),
+            ("bad_channels", bad_channels),
+            ("toa_offsets", toa_offsets),
+        ],
+        outputs=[
+            ("pedestal_transferred", transferred),
+            ("plots", calibration_plots["transfer"]),
+        ],
+        parents=["pedestal", "merge-muons"],
+        retries=args.retries,
+    )
+    campaign.add_job(
+        "muon-calibration",
+        [
+            data_prep,
+            "-a",
+            "-f",
+            "-d",
+            "1",
+            "-e",
+            "-s",
+            "-i",
+            transferred,
+            "-o",
+            initial_calibration,
+            "-O",
+            calibration_plots["muon"],
+            "-r",
+            run_database,
+        ],
+        inputs=[("pedestal_transferred", transferred), ("run_database", run_database)],
+        outputs=[
+            ("muon_calibration", initial_calibration),
+            ("plots", calibration_plots["muon"]),
+        ],
+        parents=["transfer-calibration"],
+        retries=args.retries,
+    )
+    campaign.add_job(
+        "select-mip",
+        [
+            data_prep,
+            "-f",
+            "-d",
+            "1",
+            "-X",
+            "-i",
+            initial_calibration,
+            "-o",
+            mip_selected,
+        ],
+        inputs=[("muon_calibration", initial_calibration)],
+        outputs=[("mip_selected", mip_selected)],
+        parents=["muon-calibration"],
+        retries=args.retries,
+    )
+
+    previous_file = mip_selected
+    previous_job = "select-mip"
+    for index, refined in enumerate(refinement_files, start=1):
+        job_name = f"refine-{index}"
+        plot_key = f"refine_{index}"
+        campaign.add_job(
+            job_name,
+            [
+                data_prep,
+                "-a",
+                "-f",
+                "-d",
+                "1",
+                "-S",
+                "-i",
+                previous_file,
+                "-o",
+                refined,
+                "-O",
+                calibration_plots[plot_key],
+                "-r",
+                run_database,
+            ],
+            inputs=[("previous_calibration", previous_file), ("run_database", run_database)],
+            outputs=[
+                ("refined_calibration", refined),
+                ("plots", calibration_plots[plot_key]),
+            ],
+            parents=[previous_job],
+            retries=args.retries,
+        )
+        previous_file = refined
+        previous_job = job_name
+
+    campaign.add_job(
+        "strip-calibration",
+        [data_prep, "-a", "-i", previous_file, "-A", calibration],
+        inputs=[("refined_calibration", previous_file)],
+        outputs=[("final_calibration", calibration)],
+        parents=[previous_job],
+        retries=args.retries,
+    )
+
+    for run in data_runs:
+        calibrated = output_dir / f"calibratedHGCROC_Run_{run}.root"
+        waveform = output_dir / f"calibratedHGCROC_wave_Run_{run}.root"
+        apply_name = f"apply-calibration-{run}"
         campaign.add_job(
             apply_name,
             [
@@ -168,11 +400,11 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
                 "-C",
                 calibration,
                 "-i",
-                raw_root,
+                raw_root[run],
                 "-o",
                 calibrated,
                 "-O",
-                calibration_plots,
+                data_calibration_plots[run],
                 "-r",
                 run_database,
                 "-B",
@@ -182,13 +414,16 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
             ],
             inputs=[
                 ("final_calibration", calibration),
-                ("raw_root", raw_root),
+                ("raw_root", raw_root[run]),
                 ("run_database", run_database),
                 ("bad_channels", bad_channels),
                 ("toa_offsets", toa_offsets),
             ],
-            outputs=[("calibrated", calibrated), ("plots", calibration_plots)],
-            parents=[convert_name],
+            outputs=[
+                ("calibrated", calibrated),
+                ("plots", data_calibration_plots[run]),
+            ],
+            parents=["strip-calibration", f"convert-{run}"],
             retries=args.retries,
         )
         waveform_command: list[str | pathlib.Path] = [
@@ -204,7 +439,7 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
             "-o",
             waveform,
             "-O",
-            waveform_plots,
+            waveform_plots[run],
             "-r",
             run_database,
         ]
@@ -219,7 +454,7 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
             f"waveform-{run}",
             waveform_command,
             inputs=waveform_inputs,
-            outputs=[("waveform", waveform), ("plots", waveform_plots)],
+            outputs=[("waveform", waveform), ("plots", waveform_plots[run])],
             parents=[apply_name],
             retries=args.retries,
         )
@@ -232,12 +467,11 @@ def generate(args: argparse.Namespace) -> tuple[Campaign, list[pathlib.Path], li
         run_database,
         bad_channels,
         toa_offsets,
-        calibration,
-        *raw_inputs,
+        *raw_h2g.values(),
     ]
     if active_cells is not None:
         required.append(active_cells)
-    return campaign, required, runs
+    return campaign, required, data_runs
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -245,7 +479,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.retries < 0:
         parser().error("--retries cannot be negative")
     try:
-        campaign, required, runs = generate(args)
+        campaign, required, data_runs = generate(args)
     except ValueError as error:
         parser().error(str(error))
 
@@ -264,7 +498,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     print(f"Wrote {manifest}")
-    print(f"{len(runs)} run(s); {len(campaign.jobs)} campaign jobs")
+    print(
+        f"Generated calibration {args.calibration_name} and {len(data_runs)} "
+        f"data branch(es); {len(campaign.jobs)} campaign jobs"
+    )
     return 0
 
 

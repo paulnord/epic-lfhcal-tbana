@@ -54,9 +54,8 @@ submit jobs themselves:
 - `make-tb2026-conversion-campaign`: convert any set of raw runs.
 - `make-tb2026-paramscan-campaign`: produce a calibration from one
   pedestal/muon pair and analyze that muon run.
-- `make-tb2026-analysis-campaign`: use an existing final calibration and shared
-  configuration to convert, calibrate, and run waveform analysis on many data
-  runs.
+- `make-tb2026-analysis-campaign`: build a shared pedestal/muon calibration,
+  then apply it and run waveform analysis for many data runs.
 
 All accept `--help`. See the
 [`TB2026 campaign guide`](docs/tb2026-campaigns.md) and the dedicated

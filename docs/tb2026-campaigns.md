@@ -14,8 +14,8 @@ paths and explicit input/output lineage.
 | Goal | Generator | Per-run chain |
 |---|---|---|
 | Convert raw files only | `make-tb2026-conversion-campaign` | `Convert` |
-| Create a calibration | `make-tb2026-paramscan-campaign` | full pedestal/muon calibration chain |
-| Analyze many runs with an existing calibration | `make-tb2026-analysis-campaign` | `Convert` → `DataPrep -C` → `HGCROCStudy` |
+| Test one pedestal/muon calibration pair | `make-tb2026-paramscan-campaign` | full parameter-scan calibration chain |
+| Calibrate once and analyze many data runs | `make-tb2026-analysis-campaign` | build calibration → per-run `Convert` → `DataPrep -C` → `HGCROCStudy` |
 
 Use `--help` on a generator for its complete option list. Run and Condor
 resource options belong to `lfhcal-run`, not to the generators.
@@ -37,53 +37,61 @@ The manifest has one small `prepare` node and one independent `Convert` node
 per run. Once preparation succeeds, local `-j N` execution or Condor may run
 all conversions independently.
 
-## Existing calibration plus many data runs
+## Calibration plus many data runs
 
-Supply the final calibration ROOT file with `--calibration`. Because the
-bad-channel and ToA corrections change between detector configurations, they
-must also be selected explicitly. The run database and mapping use TB2026 SPS
-H2 defaults. An active-cell list is optional; without one, waveform analysis
-does not add an `-l` restriction.
+Provide one pedestal run, all muon runs that form the calibration sample, and
+the data runs to analyze. The generator converts every required raw file,
+merges the muon ROOT files, builds and refines one calibration, then applies
+that calibration independently to each data run. Because bad-channel and ToA
+corrections change between detector configurations, they must be selected
+explicitly. The run database and mapping use TB2026 SPS H2 defaults.
+
+This FullSetC example uses pedestal 137, muon runs 138 through 149, and four
+representative 50 GeV data runs:
 
 ```console
 python3 tools/make-tb2026-analysis-campaign \
   --raw-dir /path/to/2026TBdata \
-  --output-dir /path/to/analysis-137-178 \
-  --calibration /path/to/fullsetc-final-calibration.root \
+  --output-dir /path/to/fullsetc-analysis \
+  --pedestal-run 137 \
+  --muon-runs 138-149 \
+  --calibration-name FullSetC_1 \
   --bad-channels configs/TB2026/badChannel_HGCROC_SPSTB2026_dummy.txt \
   --toa-offsets configs/TB2026/ToAOffsets_TBSPS2026_FullSetC.csv \
-  --manifest analysis-137-178.txt \
+  --manifest fullsetc-analysis.txt \
   --check \
-  137 138-149 153 159 165 178
+  153 159 165 178
 ```
 
-For each run the generator emits:
+The shared calibration section converts the pedestal and all muons, merges the
+muon ROOT files, transfers pedestal/bad-channel/ToA information, performs the
+initial muon calibration and MIP selection, runs four reduced refinements, and
+writes `calib_FullSetC_1.root`.
+
+Each data branch can convert while calibration is being built, then waits for
+the final shared calibration:
 
 ```text
-convert-RUN → apply-calibration-RUN → waveform-RUN
+convert-RUN + shared calibration → apply-calibration-RUN → waveform-RUN
 ```
 
-The branches share only the `prepare` node and the declared calibration/config
-inputs. There are no dependencies between data runs, so each branch may
-progress independently.
-
-The calibration command follows the repository's established `Calib full`
-path in `NewStructure/helperCalibHGCROC.sh`: `DataPrep -C` is applied directly
-to the converted `rawHGCROC_RUN.root`, followed by `HGCROCStudy -w` on the
-calibrated output.
+The default is four reduced MIP-calibration refinement rounds, matching the
+established FullSetC workflow. Use `--refinement-rounds N` when a detector
+configuration requires a different count. An active-cell list is optional;
+without one, waveform analysis does not add an `-l` restriction.
 
 ## Inspect, run, or submit
 
 Inspect the generated manifest first:
 
 ```console
-less analysis-137-178.txt
+less fullsetc-analysis.txt
 ```
 
 Run locally with at most four simultaneous jobs:
 
 ```console
-python3 tools/lfhcal-run -j 4 analysis-137-178.txt
+python3 tools/lfhcal-run -j 4 fullsetc-analysis.txt
 ```
 
 Or submit exactly the same graph through Condor DAGMan from the BNL submit
@@ -96,7 +104,7 @@ python3 tools/lfhcal-run \
   --environment-file /star/u/USER/eic-2026/eic-env/eic-shell \
   --container-image /star/u/USER/eic-2026/eic-env/local/lib/eic_xl-nightly \
   --request-memory 4GB \
-  analysis-137-178.txt
+  fullsetc-analysis.txt
 ```
 
 `-j` is intentionally local-only. Condor controls when independent DAG nodes
@@ -104,10 +112,10 @@ run; `--request-cpus` controls CPUs requested by each Condor job.
 
 ## Safety checks
 
-`--check` verifies the built executables, selected configuration, calibration,
-and all `RunNNN.h2g` inputs before writing the manifest. Without `--check`, a
-manifest can be prepared before all inputs arrive. Existing manifests are not
-overwritten unless `--force` is supplied.
+`--check` verifies the built executables, selected configuration, and every
+pedestal, muon, and data `RunNNN.h2g` input before writing the manifest.
+Without `--check`, a manifest can be prepared before all inputs arrive.
+Existing manifests are not overwritten unless `--force` is supplied.
 
 All three generators use the shared `tools/lfhcal_campaign.py` manifest
 builder. New workflow-specific generators should use that builder rather than
