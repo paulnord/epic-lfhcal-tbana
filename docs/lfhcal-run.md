@@ -65,6 +65,11 @@ Run at most four simultaneously:
 python3 tools/lfhcal-run -j 4 jobs.txt
 ```
 
+`-j`/`--jobs` controls only the number of simultaneous local jobs. Combining
+it with `--condor` or `--backend condor` is an error; HTCondor controls how
+many dependency-ready jobs execute at once. Use `--request-cpus N` to request
+CPUs for each individual Condor job.
+
 Lines are parsed with shell quoting, but are launched directly without a shell.
 Pipes, redirection, variable expansion, and compound shell commands therefore
 need an explicit shell payload, for example:
