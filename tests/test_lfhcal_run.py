@@ -3,11 +3,13 @@
 import importlib.machinery
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[1]
@@ -30,6 +32,28 @@ class LFHCalRunTests(unittest.TestCase):
         unnamed = tool.parse_file_ref("relative.root")
         self.assertEqual((named.role, named.path), ("pedestal", "/data/ped.root"))
         self.assertEqual((unnamed.role, unnamed.path), (None, "relative.root"))
+
+    def test_logical_paths_are_not_resolved_to_physical_mounts(self):
+        tool = load_tool()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            physical = root / "direct"
+            physical.mkdir()
+            logical = root / "star"
+            logical.symlink_to(physical, target_is_directory=True)
+
+            self.assertEqual(
+                tool.normalized_path("results/out.root", logical),
+                logical / "results" / "out.root",
+            )
+
+            previous = pathlib.Path.cwd()
+            try:
+                os.chdir(physical)
+                with mock.patch.dict(os.environ, {"PWD": str(logical)}):
+                    self.assertEqual(tool.logical_cwd(), logical)
+            finally:
+                os.chdir(previous)
 
     def test_manifest_supports_arbitrary_commands_and_metadata(self):
         tool = load_tool()
