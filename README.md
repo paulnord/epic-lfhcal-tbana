@@ -31,6 +31,21 @@ In order to prevent ROOT from complaining about dictionaries of classes not foun
 
 To generate doxygen documentation for the project in *NewStructure*, navigate to the *NewStructure* directory (`cd NewStructure`) and run `doxygen Doxyfile`. This will generate [Doxygen](https://www.doxygen.nl/) style documentation for the project in a new folder called __doxy__ inside *NewStructure*. The Doxygen settings can be modified in a file called __Doxyfile__ found in *NewStructure*.
 
+## Fetching TB2026 raw data
+
+`tools/fetch-tb2026-raw` downloads selected `RunNNN.h2g` files from the
+JLab XRootD store. Individual runs and inclusive ranges can be mixed:
+
+```console
+python3 tools/fetch-tb2026-raw \\
+  --destination /path/to/2026TBdata \\
+  137 138-149 153 159 165 178
+```
+
+New files are downloaded normally; existing partial files are resumed. See
+[`docs/fetch-tb2026-raw.md`](docs/fetch-tb2026-raw.md) for dry runs, remote
+listing, replacement behavior, and source configuration.
+
 ## Reproducible job launcher (experimental)
 
 `tools/lfhcal-run` runs arbitrary analysis commands locally, in parallel, or
