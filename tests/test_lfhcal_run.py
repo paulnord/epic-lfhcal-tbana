@@ -52,6 +52,12 @@ class LFHCalRunTests(unittest.TestCase):
                 os.chdir(physical)
                 with mock.patch.dict(os.environ, {"PWD": str(logical)}):
                     self.assertEqual(tool.logical_cwd(), logical)
+                    self.assertEqual(
+                        tool.logical_invocation_path(
+                            str(physical / "tools" / "lfhcal-run"), logical
+                        ),
+                        logical / "tools" / "lfhcal-run",
+                    )
             finally:
                 os.chdir(previous)
 
@@ -109,8 +115,19 @@ class LFHCalRunTests(unittest.TestCase):
             work = pathlib.Path(temporary)
             manifest = work / "jobs.txt"
             manifest.write_text("python3 -c 'print(42)'\n", encoding="utf-8")
+            wrapper = work / "container-wrapper.sh"
+            wrapper.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")
+            wrapper.chmod(0o755)
             result = subprocess.run(
-                [sys.executable, str(TOOL), "--condor", "--dry-run", str(manifest)],
+                [
+                    sys.executable,
+                    str(TOOL),
+                    "--condor",
+                    "--dry-run",
+                    "--condor-wrapper",
+                    str(wrapper),
+                    str(manifest),
+                ],
                 cwd=work,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -121,12 +138,14 @@ class LFHCalRunTests(unittest.TestCase):
             submit_paths = list((work / ".lfhcal" / "runs").glob("*/condor.sub"))
             self.assertEqual(len(submit_paths), 1)
             submit = submit_paths[0].read_text(encoding="utf-8")
+            worker = submit_paths[0].parent / "condor_worker.sh"
             self.assertIn("LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)", submit)
+            self.assertIn(f"executable = {wrapper}", submit)
+            self.assertIn(f'arguments = "{worker} $(Process)"', submit)
             self.assertIn("queue 1", submit)
 
-            worker = submit_paths[0].parent / "condor_worker.sh"
             worker_result = subprocess.run(
-                [str(worker), "0"],
+                [str(wrapper), str(worker), "0"],
                 cwd=work,
                 text=True,
                 stdout=subprocess.PIPE,
