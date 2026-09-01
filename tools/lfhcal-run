@@ -1,0 +1,735 @@
+#!/usr/bin/env python3
+"""Run arbitrary LFHCal jobs locally or through HTCondor with provenance."""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import dataclasses
+import datetime as dt
+import json
+import os
+import pathlib
+import platform
+import re
+import shlex
+import shutil
+import socket
+import subprocess
+import sys
+import threading
+import time
+import uuid
+from typing import Any, Sequence
+
+
+SCHEMA = "lfhcal.run/v1"
+ROOT_LOCK = threading.Lock()
+ROLE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
+ENVIRONMENT_NAMES = {
+    "PATH",
+    "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    "ROOTSYS",
+    "ROOT_INCLUDE_PATH",
+    "ROOT_VERSION",
+    "ROOT_HEADLESS",
+    "EIC_SHELL_PREFIX",
+    "SINGULARITY_CONTAINER",
+    "APPTAINER_CONTAINER",
+    "CONDA_DEFAULT_ENV",
+}
+ENVIRONMENT_PREFIXES = ("LFHCAL_", "_CONDOR_")
+
+
+@dataclasses.dataclass
+class FileRef:
+    path: str
+    role: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"role": self.role, "path": self.path}
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "FileRef":
+        return cls(path=value["path"], role=value.get("role"))
+
+
+@dataclasses.dataclass
+class JobSpec:
+    command: list[str]
+    inputs: list[FileRef]
+    outputs: list[FileRef]
+    name: str | None = None
+    cwd: str | None = None
+    source_line: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "command": self.command,
+            "cwd": self.cwd,
+            "inputs": [item.to_dict() for item in self.inputs],
+            "outputs": [item.to_dict() for item in self.outputs],
+            "source_line": self.source_line,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "JobSpec":
+        return cls(
+            name=value.get("name"),
+            command=list(value["command"]),
+            cwd=value.get("cwd"),
+            inputs=[FileRef.from_dict(item) for item in value.get("inputs", [])],
+            outputs=[FileRef.from_dict(item) for item in value.get("outputs", [])],
+            source_line=value.get("source_line"),
+        )
+
+
+def utc_now() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="microseconds")
+
+
+def new_id(prefix: str) -> str:
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{prefix}-{stamp}-{uuid.uuid4().hex[:8]}"
+
+
+def atomic_json(path: pathlib.Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def parse_file_ref(text: str) -> FileRef:
+    if "=" in text:
+        possible_role, possible_path = text.split("=", 1)
+        if ROLE_RE.fullmatch(possible_role):
+            if not possible_path:
+                raise argparse.ArgumentTypeError(f"missing path after role in {text!r}")
+            return FileRef(path=possible_path, role=possible_role)
+    if not text:
+        raise argparse.ArgumentTypeError("file path may not be empty")
+    return FileRef(path=text)
+
+
+def metadata_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    parser.add_argument("--name")
+    parser.add_argument("--cwd")
+    parser.add_argument("--input", action="append", default=[], type=parse_file_ref)
+    parser.add_argument("--output", action="append", default=[], type=parse_file_ref)
+    return parser
+
+
+def main_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="lfhcal-run",
+        allow_abbrev=False,
+        description="Run arbitrary commands with reproducible execution metadata.",
+        epilog=(
+            "Single job: lfhcal-run --input raw=file.root --output result=out.root "
+            "-- COMMAND [ARGS...]"
+        ),
+    )
+    parser.add_argument("manifest", nargs="?", help="job file: one shell-quoted command per line")
+    parser.add_argument("-j", "--jobs", type=int, default=1, help="maximum local jobs at once")
+    parser.add_argument("--backend", choices=("local", "condor"), default="local")
+    parser.add_argument("--condor", action="store_true", help="alias for --backend condor")
+    parser.add_argument("--name", help="single-job name")
+    parser.add_argument("--cwd", help="working directory for every job unless overridden")
+    parser.add_argument("--input", action="append", default=[], type=parse_file_ref)
+    parser.add_argument("--output", action="append", default=[], type=parse_file_ref)
+    parser.add_argument(
+        "--provenance-dir",
+        default=".lfhcal/runs",
+        help="campaign record directory (default: .lfhcal/runs)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="describe work without running/submitting")
+    parser.add_argument("--condor-wrapper", help="container/site wrapper placed before the worker command")
+    parser.add_argument("--request-cpus", type=int, default=1)
+    parser.add_argument("--request-memory", default="2GB")
+    parser.add_argument("--request-disk", default="2GB")
+    parser.add_argument(
+        "--condor-extra",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="extra submit description entry; repeat as needed",
+    )
+    return parser
+
+
+def tokenize_manifest_line(line: str) -> list[str]:
+    lexer = shlex.shlex(line, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = "#"
+    return list(lexer)
+
+
+def parse_manifest(path: pathlib.Path, default_cwd: str | None) -> list[JobSpec]:
+    jobs: list[JobSpec] = []
+    parser = metadata_parser()
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        try:
+            tokens = tokenize_manifest_line(line)
+        except ValueError as exc:
+            raise ValueError(f"{path}:{line_number}: {exc}") from exc
+        if not tokens:
+            continue
+        if "--" in tokens:
+            delimiter = tokens.index("--")
+            metadata = parser.parse_args(tokens[:delimiter])
+            command = tokens[delimiter + 1 :]
+        else:
+            metadata = parser.parse_args([])
+            command = tokens
+        if not command:
+            raise ValueError(f"{path}:{line_number}: no command after --")
+        jobs.append(
+            JobSpec(
+                name=metadata.name,
+                command=command,
+                cwd=metadata.cwd or default_cwd,
+                inputs=metadata.input,
+                outputs=metadata.output,
+                source_line=line_number,
+            )
+        )
+    if not jobs:
+        raise ValueError(f"{path}: contains no jobs")
+    return jobs
+
+
+def split_invocation(argv: Sequence[str]) -> tuple[list[str], list[str] | None]:
+    values = list(argv)
+    if "--" not in values:
+        return values, None
+    delimiter = values.index("--")
+    return values[:delimiter], values[delimiter + 1 :]
+
+
+def normalized_path(text: str, cwd: pathlib.Path) -> pathlib.Path:
+    path = pathlib.Path(text).expanduser()
+    if not path.is_absolute():
+        path = cwd / path
+    return path.resolve(strict=False)
+
+
+def inspect_file(item: FileRef, cwd: pathlib.Path) -> dict[str, Any]:
+    path = normalized_path(item.path, cwd)
+    result: dict[str, Any] = {"role": item.role, "path": str(path)}
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        result.update({"exists": False, "stat_error": str(exc)})
+        return result
+    result.update(
+        {
+            "exists": True,
+            "kind": "directory" if path.is_dir() else "file",
+            "size_bytes": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+        }
+    )
+    return result
+
+
+def run_capture(command: Sequence[str], cwd: pathlib.Path | None = None) -> str | None:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip()
+
+
+def git_record(path: pathlib.Path) -> dict[str, Any] | None:
+    start = path if path.is_dir() else path.parent
+    root_text = run_capture(("git", "-C", str(start), "rev-parse", "--show-toplevel"))
+    if not root_text:
+        return None
+    root = pathlib.Path(root_text)
+    commit = run_capture(("git", "-C", str(root), "rev-parse", "HEAD"))
+    branch = run_capture(("git", "-C", str(root), "branch", "--show-current"))
+    status = run_capture(
+        ("git", "-C", str(root), "status", "--porcelain", "--untracked-files=no")
+    )
+    submodules = run_capture(("git", "-C", str(root), "submodule", "status", "--recursive"))
+    return {
+        "root": str(root),
+        "commit": commit,
+        "branch": branch or None,
+        "tracked_files_modified": bool(status),
+        "submodules": submodules.splitlines() if submodules else [],
+    }
+
+
+def cpu_model() -> str | None:
+    if pathlib.Path("/proc/cpuinfo").is_file():
+        try:
+            for line in pathlib.Path("/proc/cpuinfo").read_text(errors="replace").splitlines():
+                if line.lower().startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+        except OSError:
+            pass
+    return platform.processor() or None
+
+
+def execution_environment() -> dict[str, str]:
+    return {
+        key: value
+        for key, value in sorted(os.environ.items())
+        if key in ENVIRONMENT_NAMES or key.startswith(ENVIRONMENT_PREFIXES)
+    }
+
+
+def host_record() -> dict[str, Any]:
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "cpu_model": cpu_model(),
+        "logical_cpus": os.cpu_count(),
+        "python": platform.python_version(),
+    }
+
+
+def root_module() -> tuple[Any | None, str | None]:
+    try:
+        import ROOT  # type: ignore
+
+        ROOT.gROOT.SetBatch(True)
+        return ROOT, None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def write_root_record(path: pathlib.Path, record: dict[str, Any], update: bool) -> str | None:
+    with ROOT_LOCK:
+        ROOT, error = root_module()
+        if ROOT is None:
+            return f"PyROOT unavailable: {error}"
+        mode = "UPDATE" if update else "RECREATE"
+        root_file = ROOT.TFile.Open(str(path), mode)
+        if not root_file or root_file.IsZombie():
+            return f"could not open ROOT file in {mode} mode: {path}"
+        try:
+            directory = root_file.GetDirectory("LFHCalProvenance")
+            if not directory:
+                directory = root_file.mkdir("LFHCalProvenance")
+            directory.cd()
+            payload = ROOT.TObjString(json.dumps(record, sort_keys=True))
+            payload.Write("lfhcal_run", ROOT.TObject.kOverwrite)
+        except Exception as exc:
+            return f"failed writing ROOT provenance to {path}: {exc}"
+        finally:
+            root_file.Close()
+        return None
+
+
+def run_payload(
+    command: Sequence[str],
+    cwd: pathlib.Path,
+    stdout_path: pathlib.Path,
+    stderr_path: pathlib.Path,
+    stream_output: bool,
+) -> int:
+    if not stream_output:
+        with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+            return subprocess.run(
+                command,
+                cwd=cwd,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                check=False,
+            ).returncode
+
+    with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        def copy_stream(source: Any, log_file: Any, display: Any) -> None:
+            try:
+                for chunk in iter(lambda: os.read(source.fileno(), 65536), b""):
+                    log_file.write(chunk)
+                    log_file.flush()
+                    display.write(chunk)
+                    display.flush()
+            finally:
+                source.close()
+
+        stdout_thread = threading.Thread(
+            target=copy_stream,
+            args=(process.stdout, stdout_file, sys.stdout.buffer),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=copy_stream,
+            args=(process.stderr, stderr_file, sys.stderr.buffer),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        exit_code = process.wait()
+        stdout_thread.join()
+        stderr_thread.join()
+        return exit_code
+
+
+def job_label(index: int, job: JobSpec) -> str:
+    name = job.name or pathlib.Path(job.command[0]).name or "job"
+# Placeholder replaced by the complete launcher in the next commit.
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-.") or "job"
+    return f"{index:04d}-{slug}"
+
+
+def executable_path(command: str, cwd: pathlib.Path) -> pathlib.Path | None:
+    if "/" in command:
+        candidate = normalized_path(command, cwd)
+        return candidate if candidate.exists() else None
+    found = shutil.which(command)
+    return pathlib.Path(found).resolve() if found else None
+
+
+def execute_job(
+    job: JobSpec,
+    index: int,
+    campaign_id: str,
+    campaign_dir: pathlib.Path,
+    invocation_cwd: pathlib.Path,
+    dry_run: bool = False,
+    stream_output: bool = False,
+) -> dict[str, Any]:
+    cwd = normalized_path(job.cwd, invocation_cwd) if job.cwd else invocation_cwd
+    attempt_id = new_id("attempt")
+    attempt_dir = campaign_dir / "jobs" / job_label(index, job) / "attempts" / attempt_id
+    attempt_dir.mkdir(parents=True, exist_ok=True)
+    started_at = utc_now()
+    started_clock = time.monotonic()
+    executable = executable_path(job.command[0], cwd)
+    repositories: list[dict[str, Any]] = []
+    for candidate in (cwd, executable):
+        if candidate is None:
+            continue
+        info = git_record(candidate)
+        if info and all(existing["root"] != info["root"] for existing in repositories):
+            repositories.append(info)
+    record: dict[str, Any] = {
+        "schema": SCHEMA,
+        "kind": "execution_attempt",
+        "campaign_id": campaign_id,
+        "job_index": index,
+        "job_name": job.name,
+        "attempt_id": attempt_id,
+        "source_line": job.source_line,
+        "command": {"argv": job.command, "display": shlex.join(job.command)},
+        "cwd": str(cwd),
+        "inputs": [inspect_file(item, cwd) for item in job.inputs],
+        "declared_outputs_before": [inspect_file(item, cwd) for item in job.outputs],
+        "host": host_record(),
+        "environment": execution_environment(),
+        "git": repositories,
+        "started_at": started_at,
+        "backend": "condor" if os.environ.get("LFHCAL_CONDOR_JOB_ID") else "local",
+        "dry_run": dry_run,
+    }
+    atomic_json(attempt_dir / "provenance.json", record)
+    if dry_run:
+        exit_code = 0
+    else:
+        stdout_path = attempt_dir / "stdout.log"
+        stderr_path = attempt_dir / "stderr.log"
+        print(f"[{index}] starting: {shlex.join(job.command)}", flush=True)
+        try:
+            exit_code = run_payload(
+                job.command, cwd, stdout_path, stderr_path, stream_output
+            )
+        except OSError as exc:
+            stderr_path.write_text(f"lfhcal-run: could not launch command: {exc}\n", encoding="utf-8")
+            exit_code = 127
+        print(f"[{index}] finished with exit {exit_code}; logs: {attempt_dir}", flush=True)
+    record.update(
+        {
+            "ended_at": utc_now(),
+            "duration_seconds": time.monotonic() - started_clock,
+            "exit_code": exit_code,
+            "outputs": [inspect_file(item, cwd) for item in job.outputs],
+        }
+    )
+    warnings: list[str] = []
+    atomic_json(attempt_dir / "provenance.json", record)
+    root_sidecar = attempt_dir / "provenance.root"
+    root_error = write_root_record(root_sidecar, record, update=False)
+    if root_error:
+        warnings.append(root_error)
+    if exit_code == 0:
+        for item in job.outputs:
+            output = normalized_path(item.path, cwd)
+            if output.suffix.lower() == ".root" and output.is_file():
+                error = write_root_record(output, record, update=True)
+                if error:
+                    warnings.append(error)
+    if warnings:
+        record["provenance_warnings"] = warnings
+        atomic_json(attempt_dir / "provenance.json", record)
+    latest = campaign_dir / "jobs" / job_label(index, job) / "latest.json"
+    atomic_json(latest, record)
+    return record
+
+
+def create_campaign(
+    jobs: list[JobSpec], args: argparse.Namespace, invocation_cwd: pathlib.Path
+) -> tuple[str, pathlib.Path, dict[str, Any]]:
+    campaign_id = new_id("campaign")
+    base = normalized_path(args.provenance_dir, invocation_cwd)
+    campaign_dir = base / campaign_id
+    campaign = {
+        "schema": SCHEMA,
+        "kind": "campaign",
+        "campaign_id": campaign_id,
+        "created_at": utc_now(),
+        "created_from": str(invocation_cwd),
+        "backend": "condor" if args.condor else args.backend,
+        "max_parallel": args.jobs,
+        "jobs": [job.to_dict() for job in jobs],
+        "status": "planned" if args.dry_run else "created",
+    }
+    atomic_json(campaign_dir / "campaign.json", campaign)
+    return campaign_id, campaign_dir, campaign
+
+
+def run_local(
+    jobs: list[JobSpec],
+    args: argparse.Namespace,
+    campaign_id: str,
+    campaign_dir: pathlib.Path,
+    campaign: dict[str, Any],
+    invocation_cwd: pathlib.Path,
+) -> int:
+    if args.jobs < 1:
+        raise ValueError("--jobs must be at least 1")
+    if args.dry_run:
+        for index, job in enumerate(jobs):
+            print(f"[{index}] {shlex.join(job.command)}")
+        campaign.update({"status": "dry_run", "ended_at": utc_now()})
+        atomic_json(campaign_dir / "campaign.json", campaign)
+        return 0
+    records: list[dict[str, Any] | None] = [None] * len(jobs)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
+        futures = {
+            executor.submit(
+                execute_job,
+                job,
+                index,
+                campaign_id,
+                campaign_dir,
+                invocation_cwd,
+                False,
+                len(jobs) == 1,
+            ): index
+            for index, job in enumerate(jobs)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            index = futures[future]
+            records[index] = future.result()
+    exit_codes = [int(record["exit_code"]) for record in records if record is not None]
+    failed = sum(code != 0 for code in exit_codes)
+    campaign.update(
+        {
+            "status": "failed" if failed else "completed",
+            "ended_at": utc_now(),
+            "completed_jobs": len(exit_codes),
+            "failed_jobs": failed,
+        }
+    )
+    atomic_json(campaign_dir / "campaign.json", campaign)
+    return next((code for code in exit_codes if code != 0), 0)
+
+
+def validate_condor_extra(entries: Sequence[str]) -> list[tuple[str, str]]:
+    result: list[tuple[str, str]] = []
+    for entry in entries:
+        if "=" not in entry:
+            raise ValueError(f"--condor-extra requires KEY=VALUE, got {entry!r}")
+        key, value = entry.split("=", 1)
+        key = key.strip()
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.]*", key):
+            raise ValueError(f"invalid Condor submit key: {key!r}")
+        if "\n" in value or "\r" in value:
+            raise ValueError("Condor submit values may not contain newlines")
+        result.append((key, value.strip()))
+    return result
+
+
+def submit_condor(
+    jobs: list[JobSpec],
+    args: argparse.Namespace,
+    campaign_id: str,
+    campaign_dir: pathlib.Path,
+    campaign: dict[str, Any],
+    invocation_cwd: pathlib.Path,
+) -> int:
+    tool = pathlib.Path(__file__).resolve()
+    worker = campaign_dir / "condor_worker.sh"
+    worker_text = (
+        "#!/usr/bin/env bash\n"
+        "set -u\n"
+        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(tool))} _worker "
+        f"--campaign {shlex.quote(str(campaign_dir / 'campaign.json'))} "
+        '"$1"\n'
+    )
+    worker.write_text(worker_text, encoding="utf-8")
+    worker.chmod(0o755)
+    condor_dir = campaign_dir / "condor"
+    condor_dir.mkdir(parents=True, exist_ok=True)
+    executable = normalized_path(args.condor_wrapper, invocation_cwd) if args.condor_wrapper else worker
+    if args.condor_wrapper and not executable.is_file():
+        raise ValueError(f"Condor wrapper does not exist: {executable}")
+    arguments = f'"{worker} $(Process)"' if args.condor_wrapper else "$(Process)"
+    submit_lines = [
+        "universe = vanilla",
+        f"executable = {executable}",
+        f"arguments = {arguments}",
+        "getenv = True",
+        (
+            'environment = "LFHCAL_BATCH_SYSTEM=condor '
+            'LFHCAL_CONDOR_CLUSTER=$(ClusterId) LFHCAL_CONDOR_PROCESS=$(ProcId) '
+            'LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)"'
+        ),
+        f"request_cpus = {args.request_cpus}",
+        f"request_memory = {args.request_memory}",
+        f"request_disk = {args.request_disk}",
+        f"log = {condor_dir}/campaign.log",
+        f"output = {condor_dir}/$(Process).out",
+        f"error = {condor_dir}/$(Process).err",
+        "should_transfer_files = NO",
+    ]
+    submit_lines.extend(f"{key} = {value}" for key, value in validate_condor_extra(args.condor_extra))
+    submit_lines.append(f"queue {len(jobs)}")
+    submit_path = campaign_dir / "condor.sub"
+    submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
+    if args.dry_run:
+        print(submit_path.read_text(encoding="utf-8"), end="")
+        campaign.update({"status": "dry_run", "condor_submit_file": str(submit_path)})
+        atomic_json(campaign_dir / "campaign.json", campaign)
+        return 0
+    if shutil.which("condor_submit") is None:
+        campaign.update(
+            {
+                "status": "submit_failed",
+                "condor_submit_file": str(submit_path),
+                "error": "condor_submit not found",
+            }
+        )
+        atomic_json(campaign_dir / "campaign.json", campaign)
+        print(f"lfhcal-run: condor_submit not found; submit file retained at {submit_path}", file=sys.stderr)
+        return 127
+    result = subprocess.run(
+        ("condor_submit", str(submit_path)),
+        cwd=invocation_cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    sys.stdout.write(result.stdout)
+    sys.stderr.write(result.stderr)
+    campaign.update(
+        {
+            "status": "submitted" if result.returncode == 0 else "submit_failed",
+            "submitted_at": utc_now(),
+            "condor_submit_file": str(submit_path),
+            "condor_submit_stdout": result.stdout,
+            "condor_submit_stderr": result.stderr,
+            "condor_submit_exit_code": result.returncode,
+        }
+    )
+    atomic_json(campaign_dir / "campaign.json", campaign)
+    return result.returncode
+
+
+def worker_main(argv: Sequence[str]) -> int:
+    parser = argparse.ArgumentParser(prog="lfhcal-run _worker", allow_abbrev=False)
+    parser.add_argument("--campaign", required=True)
+    parser.add_argument("index", type=int)
+    args = parser.parse_args(argv)
+    campaign_path = pathlib.Path(args.campaign).resolve()
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    jobs = [JobSpec.from_dict(item) for item in campaign["jobs"]]
+    if args.index < 0 or args.index >= len(jobs):
+        parser.error(f"job index {args.index} is out of range")
+    record = execute_job(
+        jobs[args.index],
+        args.index,
+        campaign["campaign_id"],
+        campaign_path.parent,
+        pathlib.Path(campaign["created_from"]),
+        stream_output=True,
+    )
+    return int(record["exit_code"])
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    values = list(sys.argv[1:] if argv is None else argv)
+    if values and values[0] == "_worker":
+        return worker_main(values[1:])
+    runner_values, payload = split_invocation(values)
+    parser = main_parser()
+    args = parser.parse_args(runner_values)
+    if args.condor:
+        args.backend = "condor"
+    invocation_cwd = pathlib.Path.cwd().resolve()
+    try:
+        if payload is not None:
+            if args.manifest:
+                parser.error("a manifest and a command after -- are mutually exclusive")
+            if not payload:
+                parser.error("no command after --")
+            jobs = [
+                JobSpec(
+                    name=args.name,
+                    command=payload,
+                    cwd=args.cwd,
+                    inputs=args.input,
+                    outputs=args.output,
+                )
+            ]
+        else:
+            if not args.manifest:
+                parser.error("provide a manifest or a command after --")
+            if args.input or args.output or args.name:
+                parser.error("put --name/--input/--output on each manifest line before its --")
+            manifest = normalized_path(args.manifest, invocation_cwd)
+            jobs = parse_manifest(manifest, args.cwd)
+        campaign_id, campaign_dir, campaign = create_campaign(jobs, args, invocation_cwd)
+        print(f"Campaign record: {campaign_dir}")
+        if not any(job.inputs or job.outputs for job in jobs):
+            print(
+                "No file lineage was declared. For richer provenance, use "
+                "--input [ROLE=]FILE and --output [ROLE=]FILE before --."
+            )
+        if args.backend == "condor":
+            return submit_condor(
+                jobs, args, campaign_id, campaign_dir, campaign, invocation_cwd
+            )
+        return run_local(jobs, args, campaign_id, campaign_dir, campaign, invocation_cwd)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
