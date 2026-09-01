@@ -15,7 +15,7 @@ from unittest import mock
 REPOSITORY = pathlib.Path(__file__).resolve().parents[1]
 TOOL = REPOSITORY / "tools" / "lfhcal-run"
 CONTAINER_WRAPPER = REPOSITORY / "tools" / "run-in-eic-container.sh"
-PARAMSCAN_DAG_GENERATOR = REPOSITORY / "tools" / "make-tb2026-paramscan-dag"
+PARAMSCAN_DAG_GENERATOR = REPOSITORY / "tools" / "make-tb2026-paramscan-campaign"
 
 
 def load_tool():

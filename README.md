@@ -46,6 +46,22 @@ New files are downloaded normally; existing partial files are resumed. See
 [`docs/fetch-tb2026-raw.md`](docs/fetch-tb2026-raw.md) for dry runs, remote
 listing, replacement behavior, and source configuration.
 
+## TB2026 campaign generators
+
+The tools below generate inspectable `lfhcal-run` manifests; they do not run or
+submit jobs themselves:
+
+- `make-tb2026-conversion-campaign`: convert any set of raw runs.
+- `make-tb2026-paramscan-campaign`: produce a calibration from one
+  pedestal/muon pair and analyze that muon run.
+- `make-tb2026-analysis-campaign`: use an existing final calibration and shared
+  configuration to convert, calibrate, and run waveform analysis on many data
+  runs.
+
+All accept `--help`. See the
+[`TB2026 campaign guide`](docs/tb2026-campaigns.md) and the dedicated
+[`parameter-scan guide`](docs/make-tb2026-paramscan-campaign.md).
+
 ## Reproducible job launcher (experimental)
 
 `tools/lfhcal-run` runs arbitrary analysis commands locally, in parallel, or

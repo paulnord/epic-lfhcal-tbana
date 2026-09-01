@@ -116,9 +116,9 @@ After a job exhausts its retries, its descendants are marked blocked and are
 not executed. This local scheduler implements only these portable graph
 semantics; it does not require Condor or attempt to reproduce Condor itself.
 
-### TB2026 parameter-scan end-to-end campaign
+### TB2026 campaign generators
 
-`tools/make-tb2026-paramscan-dag` turns one pedestal/muon pair into the
+`tools/make-tb2026-paramscan-campaign` turns one pedestal/muon pair into the
 established TB2026 Set-1 chain. It generates 12 jobs: workspace preparation,
 two parallel raw conversions, pedestal extraction, calibration transfer,
 initial muon calibration, MIP selection, three reduced refinement rounds,
@@ -127,7 +127,7 @@ application of the `Imp3R` calibration, and waveform analysis.
 For the smallest established Set-1 pair, pedestal 296 and muon 298:
 
 ```console
-python3 tools/make-tb2026-paramscan-dag \
+python3 tools/make-tb2026-paramscan-campaign \
   --pedestal-run 296 \
   --muon-run 298 \
   --raw-dir /path/to/2026TBdata \
@@ -145,6 +145,13 @@ can be inspected directly and submitted without relying on shell variables.
 Run the generated campaign locally with `-j 2`, or pass it to the Condor
 invocation below. Only the two conversions can overlap in this particular
 dependency graph; the calibration stages remain ordered.
+
+This command only writes the manifest; it never starts local jobs or submits
+Condor jobs. The older `make-tb2026-paramscan-dag` spelling remains as a
+compatibility alias. See the dedicated
+[`parameter-scan campaign guide`](make-tb2026-paramscan-campaign.md) and the
+[`campaign generator overview`](tb2026-campaigns.md), which also covers raw
+conversion and applying an existing calibration to many data runs.
 
 ### Fetching TB2026 raw files
 
