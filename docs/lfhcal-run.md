@@ -140,9 +140,8 @@ dependency graph; the calibration stages remain ordered.
 
 ### Fetching TB2026 raw files
 
-`tools/fetch-tb2026-raw` fetches selected `RunNNN.h2g` files from the
-JLab XRootD store. Run specifications may be individual numbers or inclusive
-ranges, and duplicates are removed while preserving order:
+Fetch individual runs or inclusive ranges from the JLab XRootD store before
+generating a campaign:
 
 ```console
 python3 tools/fetch-tb2026-raw \\
@@ -150,11 +149,10 @@ python3 tools/fetch-tb2026-raw \\
   137 138-149 153 159 165 178
 ```
 
-Downloads are resumable by default through `xrdcp --continue`. Use
-`--dry-run` to inspect every source and destination without creating a
-directory or downloading, and use `--force` only when an existing destination
-file should be replaced. `--source` can point the same command at a different
-XRootD directory.
+New destinations use a normal `xrdcp`; existing destinations use
+`xrdcp --continue`. The dedicated
+[`fetch-tb2026-raw` guide](fetch-tb2026-raw.md) documents dry runs, forced
+replacement, remote directory listing, and alternate sources.
 
 ## HTCondor
 
