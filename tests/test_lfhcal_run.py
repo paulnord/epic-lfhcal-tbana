@@ -28,6 +28,36 @@ def load_tool():
 
 
 class LFHCalRunTests(unittest.TestCase):
+    def test_condor_rejects_local_jobs_option(self):
+        for option in ("-j", "--jobs"):
+            with self.subTest(option=option), tempfile.TemporaryDirectory() as temporary:
+                work = pathlib.Path(temporary)
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(TOOL),
+                        "--condor",
+                        option,
+                        "4",
+                        "--dry-run",
+                        "--",
+                        sys.executable,
+                        "-c",
+                        "print('not submitted')",
+                    ],
+                    cwd=work,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(
+                    "-j/--jobs applies only to local execution",
+                    result.stderr,
+                )
+                self.assertFalse((work / "lfhcal-runs").exists())
+
     def test_tb2026_paramscan_generator_builds_full_imp3r_chain(self):
         tool = load_tool()
         with tempfile.TemporaryDirectory() as temporary:
@@ -511,8 +541,10 @@ class LFHCalRunTests(unittest.TestCase):
             self.assertEqual(len(submit_paths), 1)
             submit = submit_paths[0].read_text(encoding="utf-8")
             campaign_dir = submit_paths[0].parent
+            campaign = json.loads((campaign_dir / "campaign.json").read_text(encoding="utf-8"))
             worker = campaign_dir / "condor_worker.sh"
             archived_wrapper = campaign_dir / "environment" / "condor-wrapper.sh"
+            self.assertNotIn("max_parallel", campaign)
             self.assertIn("LFHCAL_CONDOR_JOB_ID=$(ClusterId).$(ProcId)", submit)
             self.assertIn(f"LFHCAL_CONTAINER_IMAGE={resolved_image}", submit)
             self.assertIn(f"executable = {archived_wrapper}", submit)
