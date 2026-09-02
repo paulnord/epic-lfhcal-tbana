@@ -1,6 +1,7 @@
 #include "HGCROC_Waveform_Analysis.h"
 #include <vector>
 #include "TROOT.h"
+#include "TSystem.h"
 #include <bitset>
 #ifdef __APPLE__
 #include <unistd.h>
@@ -147,7 +148,6 @@ bool HGCROC_Waveform_Analysis::CheckAndOpenIO(void){
 // ****************************************************************************
 bool HGCROC_Waveform_Analysis::Process(void){
   bool status = true;
-  ROOT::EnableImplicitMT();
   
   if (IsAnalyseWaveForm){
     status=AnalyseWaveForm();
@@ -160,9 +160,6 @@ bool HGCROC_Waveform_Analysis::Process(void){
   if (IsInvCrossTalk){
     status=InvestigateCrossTalk();
   }
-  
-  // Shut down ROOT's worker pool before file and analysis-object teardown.
-  ROOT::DisableImplicitMT();
 
   return status;
 }
@@ -463,6 +460,27 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
     }
   }
 
+  // The remaining work only uses the copied event, calibration, setup, and
+  // accumulated histograms. Release ROOT's input baskets and file caches
+  // before entering the memory-intensive plotting phase.
+  if (TdataIn) TdataIn->ResetBranchAddresses();
+  if (TcalibIn) TcalibIn->ResetBranchAddresses();
+  if (TsetupIn) TsetupIn->ResetBranchAddresses();
+
+  if (RootInput){
+    RootInput->Close();
+    delete RootInput;
+    RootInput = nullptr;
+  }
+  if (RootCalibInput){
+    RootCalibInput->Close();
+    delete RootCalibInput;
+    RootCalibInput = nullptr;
+  }
+  TdataIn = nullptr;
+  TcalibIn = nullptr;
+  TsetupIn = nullptr;
+
   //==================================================================================
   // Setup general plotting infos
   //==================================================================================    
@@ -677,7 +695,6 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   delete waveform_builder;
   waveform_builder = nullptr;
 
-  RootInput->Close();
   return true;
 }
 
