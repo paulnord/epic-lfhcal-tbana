@@ -744,7 +744,7 @@
   //__________________________________________________________________________________________________________
   inline void PlotCorr2DMediumTBLayer (TCanvas* canvas, TPad** pads, 
                           Double_t* topRCornerX,  Double_t* topRCornerY, Double_t* relSize8P, Int_t textSizePixel, 
-                          std::map<int,TileSpectra> spectra, int option,
+                          std::map<int,TileSpectra>& spectra, int option,
                           Double_t xMin, Double_t xMax, Double_t minY, Double_t maxY, int layer, TString nameOutput, RunInfo currRunInfo, bool noCalib = 0, int triggCh = -1 ){
                                   
     Setup* setupT = Setup::GetInstance();
