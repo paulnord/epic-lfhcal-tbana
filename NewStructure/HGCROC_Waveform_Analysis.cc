@@ -1,6 +1,7 @@
 #include "HGCROC_Waveform_Analysis.h"
 #include <vector>
 #include "TROOT.h"
+#include "TSystem.h"
 #include <bitset>
 #ifdef __APPLE__
 #include <unistd.h>
@@ -25,6 +26,18 @@
 #include "waveform_fitting/crystal_ball_fit.h"
 #include "waveform_fitting/max_sample_fit.h"
 #include "waveform_fitting/max_sample_fit_n_integ.h"
+
+namespace {
+void ReportWaveformMemory(const char* stage){
+  ProcInfo_t processInfo;
+  if (!gSystem || gSystem->GetProcInfo(&processInfo) != 0) return;
+
+  std::cout << "[waveform-memory] stage=" << stage
+            << " rss_mib=" << processInfo.fMemResident / 1024.0
+            << " virtual_mib=" << processInfo.fMemVirtual / 1024.0
+            << std::endl;
+}
+}
 
 // ****************************************************************************
 // Checking and opening input and output files
@@ -174,6 +187,7 @@ bool HGCROC_Waveform_Analysis::Process(void){
 bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   std::cout<<"Analyse Waveform"<<std::endl;
   int evts=TdataIn->GetEntries();
+  ReportWaveformMemory("start");
 
   std::map<int,RunInfo> ri=readRunInfosFromFile(RunListInputName.Data(),debug,0);
   
@@ -278,6 +292,7 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
       
     }
   }
+  ReportWaveformMemory("histograms-created");
   
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");  
   if (maxEvents == -1){
@@ -307,6 +322,8 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   //==================================================================================
   for(int i=0; i<evts && i < maxEvents ; i++){
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
+    if (i%50000 == 0 && i > 0 && debug > 0)
+      ReportWaveformMemory(Form("event-%d",i));
     if (debug > 2 ){
       std::cout << "************************************* NEW EVENT " << i << "  *********************************" << std::endl;
     }
@@ -462,6 +479,7 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
       }
     }
   }
+  ReportWaveformMemory("event-loop-complete");
 
   //==================================================================================
   // Setup general plotting infos
@@ -535,6 +553,7 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
                         it->second, 1, kFALSE, "colz",true, Form("Asic %d, Half %d",ro,h), -1);
     }
   }
+  ReportWaveformMemory("asic-summary-plots-complete");
   
   TCanvas* canvas1DSimple = new TCanvas("canvas1DSimple","",0,0,1450,1300);  // gives the page size
   DefaultCanvasSettings( canvas1DSimple, 0.08, 0.03, 0.03, 0.07);
@@ -544,6 +563,7 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   PlotSimple1D(canvas1DSimple, hSampleAboveTh, -10000, (double)it->second.samples, textSizeRel, Form("%s/NSampleAboveTh.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1);
   PlotSimple1D(canvas1DSimple, hSampleDiff, -10000, (double)it->second.samples, textSizeRel, Form("%s/NSampleDiff.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1);
   PlotSimple1D(canvas1DSimple, hSampleDiffMin, -10000, (double)it->second.samples, textSizeRel, Form("%s/NSampleDiffMin.%s", outputDirPlots.Data(), plotSuffix.Data()), it->second, 1);
+  ReportWaveformMemory("summary-plots-complete");
 
   // print general calib info
   calib.PrintGlobalInfo();  
@@ -560,18 +580,25 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   MultiCanvas panelPlot2D(detConf, "AnaWave2D");
   bool init2D = panelPlot2D.Initialize(2);
     
+  ReportWaveformMemory("correlation-plots-start");
   panelPlot2D.PlotCorr2DLayer(hSpectra, 1, -25, (it->second.samples)*25, 0, 300,
                               Form("%s/Waveform",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("waveform-plots-complete");
   panelPlot2D.PlotCorr2DLayer(hSpectra, 2, 0, 1024, 0, 300,
                               Form("%s/TOA_ADC",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("toa-adc-plots-complete");
   panelPlot2D.PlotCorr2DLayer(hSpectra, 3, 0, 1024, 0, it->second.samples,
                               Form("%s/TOA_Sample",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("toa-sample-plots-complete");
   panelPlot2D.PlotCorr2DLayer(hSpectraTrigg, 1, -25, (it->second.samples)*25, 0, 300,
                               Form("%s/WaveformSignal",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("triggered-waveform-plots-complete");
   panelPlot2D.PlotCorr2DLayer(hSpectraTrigg, 2, 0, 1024, 0, 300,
                               Form("%s/TOA_ADC_Signal",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("triggered-toa-adc-plots-complete");
   panelPlot2D.PlotCorr2DLayer(hSpectraTrigg, 3, 0, 1024, 0, it->second.samples,
                               Form("%s/TOA_Sample_Signal",outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib );
+  ReportWaveformMemory("triggered-toa-sample-plots-complete");
   if (ExtPlot > 1){
     panelPlot.PlotSpectra( hSpectra, 0, -100, 1024, 1.2,
                            Form("%s/Spectra_ADC" ,outputDirPlots.Data()), plotSuffix.Data(), it->second, &calib);
@@ -673,6 +700,7 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   RootOutputHist->cd();
   RootOutputHist->Write();
   RootOutputHist->Close();
+  ReportWaveformMemory("output-closed");
 
   delete waveform_builder;
   waveform_builder = nullptr;
