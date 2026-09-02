@@ -160,7 +160,6 @@ bool HGCROC_Waveform_Analysis::CheckAndOpenIO(void){
 // ****************************************************************************
 bool HGCROC_Waveform_Analysis::Process(void){
   bool status = true;
-  ROOT::EnableImplicitMT();
   
   if (IsAnalyseWaveForm){
     status=AnalyseWaveForm();
@@ -173,9 +172,6 @@ bool HGCROC_Waveform_Analysis::Process(void){
   if (IsInvCrossTalk){
     status=InvestigateCrossTalk();
   }
-  
-  // Shut down ROOT's worker pool before file and analysis-object teardown.
-  ROOT::DisableImplicitMT();
 
   return status;
 }
