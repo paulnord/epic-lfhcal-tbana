@@ -1123,7 +1123,7 @@ def submit_condor(
     submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
     finalize_submit_path = campaign_dir / "condor_finalize.sub"
     finalize_submit_lines = [
-        "universe = local",
+        "universe = scheduler",
         f"executable = {finalizer}",
         "getenv = True",
         f"log = {condor_dir}/finalize.log",

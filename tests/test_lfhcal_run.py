@@ -508,7 +508,7 @@ class LFHCalRunTests(unittest.TestCase):
                 dag,
             )
             self.assertIn(
-                "universe = local",
+                "universe = scheduler",
                 finalize_submit.read_text(encoding="utf-8"),
             )
             self.assertIn(
