@@ -6,11 +6,11 @@ They assume:
 
 - LFHCal has been built in `NewStructure/build`.
 - `yawl-run` is installed and on `PATH`.
-- Example input filenames have been replaced with real ROOT files, or suitable symlinks have been created.
+- Example input filenames have been replaced with real ROOT files, or suitable symlinks have been created where an example still uses placeholder inputs.
 
 Start with `hgcroc-study`, then compare it with the Condor version. `calibration-pair` demonstrates a simple dependency between pedestal extraction and MIP calibration.
 
-`full-scan` is the end-to-end TB2026 example. It starts from staged raw HGCROC files, fans out conversion, runs the pedestal/muon calibration chains through three refinement passes and waveform extraction, then fans back in to the five waveform-comparison products.
+`full-scan` is the end-to-end TB2026 example. It uses current Yawl `@env` and explicit/correlated `@each` bindings so the selected 44 raw runs and 22 pedestal/muon pairs live directly in the Yawlfile. It runs conversion, calibration/refinement, waveform extraction, and the five final comparison products.
 
 From an example directory:
 
