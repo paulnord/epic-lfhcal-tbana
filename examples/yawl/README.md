@@ -10,6 +10,8 @@ They assume:
 
 Start with `hgcroc-study`, then compare it with the Condor version. `calibration-pair` demonstrates a simple dependency between pedestal extraction and MIP calibration.
 
+`full-scan` is the end-to-end TB2026 example. It starts from staged raw HGCROC files, fans out conversion, runs the pedestal/muon calibration chains through three refinement passes and waveform extraction, then fans back in to the five waveform-comparison products.
+
 From an example directory:
 
 ```bash
@@ -24,6 +26,6 @@ Then start the campaign directory printed by `create`:
 yawl-run start campaigns/<campaign-id>
 ```
 
-The examples use `-L 1000` for quick smoke tests. Remove that limit for production processing.
+The small examples use `-L 1000` for quick smoke tests. Remove that limit for production processing.
 
-The Condor example assumes the executable, input data, campaign directory, and runtime environment are visible on worker nodes. A site/container `%wrapper` can be added when that environment is standardized.
+The Condor examples assume the executable, input data, campaign directory, and runtime environment are visible on worker nodes. `full-scan` uses the repository's EIC-container `%wrapper`.

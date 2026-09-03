@@ -1,0 +1,187 @@
+campaign lfhcal-tb2026-full-scan
+backend condor
+
+%cpus 1
+%memory 4GB
+%disk 8GB
+%getenv true
+%wrapper ../../../tools/run-in-eic-container.sh
+
+prepare:
+    /bin/mkdir -p work/converted work/pedestal work/transfer work/mip \
+        work/selected work/refine1 work/refine2 work/refine3 \
+        work/calibrated work/waveform work/comparison \
+        work/plots/pedestal work/plots/transfer work/plots/mip \
+        work/plots/refine1 work/plots/refine2 work/plots/refine3 \
+        work/plots/calibrated work/plots/waveform work/plots/comparison
+
+convert-{run}: prepare
+    @each raw raw/Run{run}.h2g
+    @input mapping ../../../configs/TB2026/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/converted/rawHGCROC_{run}.root
+    %memory 2GB
+    ../../../NewStructure/build/Convert -d 0 -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+converted: convert-{run}
+    /usr/bin/true
+
+pedestal-{ped}-{run}-{toa}: converted
+    @each pair pairs/ped{ped}_run{run}_toa{toa}.pair
+    @input raw work/converted/rawHGCROC_{ped}.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/pedestal/rawHGCROC_wPed_{ped}.root
+    @output calib work/pedestal/rawHGCROC_wPed_{ped}_calib.txt
+    @output hists work/pedestal/rawHGCROC_wPed_{ped}_Hists.root
+    @output plots work/plots/pedestal/Run{ped}
+    ../../../NewStructure/build/DataPrep -a -d 1 -p -i @input.raw \
+        -o @output.root -O @output.plots -r @input.rundb -F pdf
+
+transfer-{ped}-{run}-{toa}: pedestal-{ped}-{run}-{toa}
+    @input pedestal work/pedestal/rawHGCROC_wPed_{ped}.root
+    @input raw work/converted/rawHGCROC_{run}.root
+    @input bad ../../../configs/TB2026/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
+    @input toa ../../../configs/TB2026/ToAOffsets_TBSPS2026_ParamScan_{toa}.csv
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/transfer/rawHGCROC_wPed_wBC_{run}.root
+    @output plots work/plots/transfer/Run{run}
+    ../../../NewStructure/build/DataPrep -d 1 -e -P @input.pedestal \
+        -i @input.raw -o @output.root -O @output.plots \
+        -r @input.rundb -B @input.bad -G @input.toa
+
+mip-{ped}-{run}-{toa}: transfer-{ped}-{run}-{toa}
+    @input root work/transfer/rawHGCROC_wPed_wBC_{run}.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
+    @output calib work/mip/rawHGCROC_wPedwMuon_wBC_{run}_calib.txt
+    @output hists work/mip/rawHGCROC_wPedwMuon_wBC_{run}_Hists.root
+    @output plots work/plots/mip/Run{run}
+    ../../../NewStructure/build/DataPrep -a -d 1 -e -s -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+select-{ped}-{run}-{toa}: mip-{ped}-{run}-{toa}
+    @input root work/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
+    @output root work/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    ../../../NewStructure/build/DataPrep -d 1 -X -i @input.root -o @output.root
+
+refine1-{ped}-{run}-{toa}: select-{ped}-{run}-{toa}
+    @input root work/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
+    @output calib work/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_calib.txt
+    @output hists work/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_Hists.root
+    @output plots work/plots/refine1/Run{run}
+    ../../../NewStructure/build/DataPrep -a -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine2-{ped}-{run}-{toa}: refine1-{ped}-{run}-{toa}
+    @input root work/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
+    @output calib work/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_calib.txt
+    @output hists work/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_Hists.root
+    @output plots work/plots/refine2/Run{run}
+    ../../../NewStructure/build/DataPrep -a -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine3-{ped}-{run}-{toa}: refine2-{ped}-{run}-{toa}
+    @input root work/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
+    @output calib work/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_calib.txt
+    @output hists work/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_Hists.root
+    @output plots work/plots/refine3/Run{run}
+    ../../../NewStructure/build/DataPrep -a -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+calibrate-{ped}-{run}-{toa}: refine3-{ped}-{run}-{toa}
+    @input calibration work/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
+    @input raw work/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    @input bad ../../../configs/TB2026/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
+    @input toa ../../../configs/TB2026/ToAOffsets_TBSPS2026_ParamScan_{toa}.csv
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/calibrated/calibratedHGCROC_Run_{run}.root
+    @output plots work/plots/calibrated/Run{run}
+    ../../../NewStructure/build/DataPrep -e -d 1 -a -C @input.calibration \
+        -i @input.raw -o @output.root -O @output.plots -r @input.rundb \
+        -B @input.bad -G @input.toa
+
+waveform-{ped}-{run}-{toa}: calibrate-{ped}-{run}-{toa}
+    @input root work/calibrated/calibratedHGCROC_Run_{run}.root
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root work/waveform/calibratedHGCROC_wave_Run_{run}.root
+    @output hists work/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
+    @output plots work/plots/waveform/Run{run}
+    ../../../NewStructure/build/HGCROCStudy -d 1 -E 1 -w -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb -l @input.cells
+
+comparison-lists: waveform-{ped}-{run}-{toa}
+    @input calib work/calibrated/calibratedHGCROC_Run_{run}.root
+    @input hist work/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output all work/comparison/all.txt
+    @output rf work/comparison/rf.txt
+    @output cf work/comparison/cf.txt
+    @output cfcomp work/comparison/cfcomp.txt
+    @output cc work/comparison/cc.txt
+    ./make-comparison-lists.py --rundb @input.rundb \
+        --calib @input.calib --hist @input.hist \
+        --all @output.all --rf @output.rf --cf @output.cf \
+        --cfcomp @output.cfcomp --cc @output.cc
+
+compare-all: comparison-lists
+    @input list work/comparison/all.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @output root work/comparison/compWaveAll.root
+    @output plots work/plots/comparison/all
+    %memory 8GB
+    ../../../NewStructure/build/CompareWaveform -d 1 -e 1 -E 1 \
+        -I @input.list -o @output.root -O @output.plots \
+        -r @input.rundb -c @input.cells
+
+compare-rf: comparison-lists
+    @input list work/comparison/rf.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @output root work/comparison/compWaveRF.root
+    @output plots work/plots/comparison/rf
+    %memory 8GB
+    ../../../NewStructure/build/CompareWaveform -d 1 -e 1 -E 1 \
+        -I @input.list -o @output.root -O @output.plots \
+        -r @input.rundb -c @input.cells
+
+compare-cf: comparison-lists
+    @input list work/comparison/cf.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @output root work/comparison/compWaveCF.root
+    @output plots work/plots/comparison/cf
+    %memory 8GB
+    ../../../NewStructure/build/CompareWaveform -d 1 -e 1 -E 1 \
+        -I @input.list -o @output.root -O @output.plots \
+        -r @input.rundb -c @input.cells
+
+compare-cfcomp: comparison-lists
+    @input list work/comparison/cfcomp.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @output root work/comparison/compWaveCFComp.root
+    @output plots work/plots/comparison/cfcomp
+    %memory 8GB
+    ../../../NewStructure/build/CompareWaveform -d 1 -e 1 -E 1 \
+        -I @input.list -o @output.root -O @output.plots \
+        -r @input.rundb -c @input.cells
+
+compare-cc: comparison-lists
+    @input list work/comparison/cc.txt
+    @input rundb ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input cells ../../../configs/TB2026/activeCellsHGCROCParameterScan.txt
+    @output root work/comparison/compWaveCC.root
+    @output plots work/plots/comparison/cc
+    %memory 8GB
+    ../../../NewStructure/build/CompareWaveform -d 1 -e 1 -E 1 \
+        -I @input.list -o @output.root -O @output.plots \
+        -r @input.rundb -c @input.cells
