@@ -1,0 +1,19 @@
+campaign lfhcal-calibration-pair
+backend local
+
+pedestal:
+    @input raw pedestal-input.root
+    @output calibrated pedestal-calibrated.root
+    %cpus 1
+    %memory 4GB
+    ../../../NewStructure/build/DataPrep -p -L 1000 \
+        -i @input.raw -o @output.calibrated
+
+mip: pedestal
+    @input raw mip-input.root
+    @input pedestal pedestal-calibrated.root
+    @output calibrated mip-calibrated.root
+    %cpus 1
+    %memory 4GB
+    ../../../NewStructure/build/DataPrep -s -L 1000 \
+        -P @input.pedestal -i @input.raw -o @output.calibrated

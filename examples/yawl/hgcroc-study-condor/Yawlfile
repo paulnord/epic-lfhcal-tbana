@@ -1,0 +1,14 @@
+campaign lfhcal-hgcroc-study-condor
+backend condor
+
+%cpus 1
+%memory 4GB
+%disk 4GB
+%getenv true
+
+study:
+    @input raw input.root
+    @output root hgcroc-study-condor.root
+    @output plots hgcroc-study-condor-plots
+    ../../../NewStructure/build/HGCROCStudy -d 1 -L 1000 -w \
+        -i @input.raw -o @output.root -O @output.plots

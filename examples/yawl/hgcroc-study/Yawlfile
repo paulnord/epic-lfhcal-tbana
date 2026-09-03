@@ -1,0 +1,11 @@
+campaign lfhcal-hgcroc-study
+backend local
+
+study:
+    @input raw input.root
+    @output root hgcroc-study.root
+    @output plots hgcroc-study-plots
+    %cpus 1
+    %memory 4GB
+    ../../../NewStructure/build/HGCROCStudy -d 1 -L 1000 -w \
+        -i @input.raw -o @output.root -O @output.plots
