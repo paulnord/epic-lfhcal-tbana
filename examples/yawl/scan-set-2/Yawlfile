@@ -38,11 +38,24 @@ prepare:
         {WORK}/plots/calibrated \
         {WORK}/plots/waveform
 
-convert-{run}: prepare
+# Convert pedestal and muon runs as separate task families so each calibration
+# chain can start as soon as the files it actually needs are ready.
+convert-ped-{ped}: prepare
+    @each ped \
+        328 330 332 334 336 338 340 342 344 \
+        346 348 350 352 354 356 358 360
+    @input raw {LFHCAL_DATA}/Run{ped}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{ped}.root
+    %memory 2GB
+    {BUILD}/Convert -d 0 -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+convert-muon-{run}: prepare
     @each run \
-        328 329 330 331 332 333 334 335 336 337 338 339 \
-        340 341 342 343 344 345 346 347 348 349 350 351 \
-        352 353 354 355 356 357 358 359 360 361
+        329 331 333 335 337 339 341 343 345 \
+        347 349 351 353 355 357 359 361
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
@@ -51,10 +64,7 @@ convert-{run}: prepare
     {BUILD}/Convert -d 0 -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
-converted: convert-{run}
-    /usr/bin/true
-
-pedestal-{ped}-{run}: converted
+pedestal-{ped}-{run}: convert-ped-{ped}
     @each ped run: \
         328 329 \
         330 331 \
@@ -82,7 +92,7 @@ pedestal-{ped}-{run}: converted
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-{ped}-{run}: pedestal-{ped}-{run}
+transfer-{ped}-{run}: pedestal-{ped}-{run} convert-muon-{run}
     @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
     @input raw {WORK}/converted/rawHGCROC_{run}.root
     @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
