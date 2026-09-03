@@ -20,10 +20,10 @@ The scientific executables remain ordinary LFHCal programs. Yawl owns task depen
 
 ## Raw data location
 
-Set the site-specific raw-data directory before loading the Yawlfile. On the current BNL setup:
+Set the site-specific raw-data directory before loading the Yawlfile. On Paul's current BNL setup:
 
 ```tcsh
-setenv LFHCAL_RAW /work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw
+setenv LFHCAL_RAW /gpfs01/star/pwg/pnord/eic/2026TBdata
 ```
 
 `@env LFHCAL_RAW` is resolved when Yawl parses the workflow and the resolved paths are frozen into `campaign.json`. Changing the environment variable later does not change an already-created campaign.
