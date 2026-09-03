@@ -2,30 +2,49 @@
 
 These examples show how to run existing LFHCal executables with `yawl-run` without adding provenance code to the C++ applications.
 
-They assume:
+For the TB2026 HGCROC parameter study, the production analysis is split by scan set:
 
-- LFHCal has been built in `NewStructure/build`.
-- `yawl-run` is installed and on `PATH`.
-- Example input filenames have been replaced with real ROOT files, or suitable symlinks have been created where an example still uses placeholder inputs.
+- `scan-set-1/Yawlfile`: runs 296-310, using `ToAOffsets_TBSPS2026_ParamScan_1.csv`.
+- `scan-set-2/Yawlfile`: runs 328-361, using `ToAOffsets_TBSPS2026_ParamScan_2.csv`.
 
-Start with `hgcroc-study`, then compare it with the Condor version. `calibration-pair` demonstrates a simple dependency between pedestal extraction and MIP calibration.
+Each Yawlfile contains its own explicit pedestal/muon pairs and writes all products to a persistent GPFS work tree. Cross-scan waveform comparisons are intentionally not part of either production campaign; they can be a separate downstream campaign once both scan sets are complete.
 
-`full-scan` is the end-to-end TB2026 example. It uses current Yawl `@env` and explicit/correlated `@each` bindings so the selected 44 raw runs and 22 pedestal/muon pairs live directly in the Yawlfile. It runs conversion, calibration/refinement, waveform extraction, and the five final comparison products.
+On the current BNL setup:
 
-From an example directory:
+```tcsh
+setenv LFHCAL_RAW /work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw
+setenv LFHCAL_WORK /gpfs01/star/pwg/pnord/eic/2026TBdata/yawl
+```
 
-```bash
+The two campaigns then write under:
+
+```text
+/gpfs01/star/pwg/pnord/eic/2026TBdata/yawl/scan-set-1/
+/gpfs01/star/pwg/pnord/eic/2026TBdata/yawl/scan-set-2/
+```
+
+with subdirectories for converted, pedestal, transfer, MIP, refinement, calibrated, waveform, and plot products.
+
+Build LFHCal in `NewStructure/build`, then enter the desired scan-set directory and inspect the campaign:
+
+```tcsh
 yawl-run validate
 yawl-run plan
-yawl-run create
 ```
 
-Then start the campaign directory printed by `create`:
+For durable campaign provenance on the same GPFS area:
 
-```bash
-yawl-run start campaigns/<campaign-id>
+```tcsh
+mkdir -p $LFHCAL_WORK/campaigns
+yawl-run create --campaigns-dir $LFHCAL_WORK/campaigns
 ```
 
-The small examples use `-L 1000` for quick smoke tests. Remove that limit for production processing.
+Start the exact campaign directory printed by `create`:
 
-The Condor examples assume the executable, input data, campaign directory, and runtime environment are visible on worker nodes. `full-scan` uses the repository's EIC-container `%wrapper`.
+```tcsh
+yawl-run start $LFHCAL_WORK/campaigns/<campaign-id>
+```
+
+The Condor campaigns use `../../../tools/run-in-eic-container.sh` as their `%wrapper`.
+
+No LFHCal-specific provenance is embedded into ROOT files. Yawl keeps campaign, task, executable, input/output, scheduler, and attempt provenance in its JSON records.
