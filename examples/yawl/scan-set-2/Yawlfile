@@ -1,11 +1,12 @@
 campaign lfhcal-tb2026-scan-set-2
 backend condor
 
-# One site-specific root. Raw Run*.h2g files live here; Yawl products go
-# under {LFHCAL_DATA}/yawl/scan-set-2.
+# One site-specific root. Raw Run*.h2g files live here.
 @env LFHCAL_DATA
 
-@set WORK {LFHCAL_DATA}/yawl/scan-set-2
+# Production work products live on GPFS. Keep this value fully resolved because
+# yawl-run does not recursively expand placeholders inside @set values.
+@set WORK /gpfs01/star/pwg/pnord/eic/2026TBdata/yawl/scan-set-2
 @set BUILD ../../../NewStructure/build
 @set TB2026_CONFIG ../../../configs/TB2026
 @set TOA ../../../configs/TB2026/ToAOffsets_TBSPS2026_ParamScan_2.csv
