@@ -1,12 +1,14 @@
 campaign lfhcal-tb2026-scan-set-2
 backend condor
 
-@env LFHCAL_RAW
-@env LFHCAL_WORK
+# One site-specific root. Raw Run*.h2g files live here; Yawl products go
+# under {LFHCAL_DATA}/yawl/scan-set-2.
+@env LFHCAL_DATA
 
+@set WORK {LFHCAL_DATA}/yawl/scan-set-2
 @set BUILD ../../../NewStructure/build
-@set CONFIG ../../../configs/TB2026
-@set TOA {CONFIG}/ToAOffsets_TBSPS2026_ParamScan_2.csv
+@set TB2026_CONFIG ../../../configs/TB2026
+@set TOA ../../../configs/TB2026/ToAOffsets_TBSPS2026_ParamScan_2.csv
 
 %cpus 1
 %memory 4GB
@@ -14,38 +16,36 @@ backend condor
 %getenv true
 %wrapper ../../../tools/run-in-eic-container.sh
 
-# Scan set 2: seventeen pedestal/muon pairs. All products are written under
-# {LFHCAL_WORK}/scan-set-2.
 prepare:
     /bin/mkdir -p \
-        {LFHCAL_WORK}/scan-set-2/converted \
-        {LFHCAL_WORK}/scan-set-2/pedestal \
-        {LFHCAL_WORK}/scan-set-2/transfer \
-        {LFHCAL_WORK}/scan-set-2/mip \
-        {LFHCAL_WORK}/scan-set-2/selected \
-        {LFHCAL_WORK}/scan-set-2/refine1 \
-        {LFHCAL_WORK}/scan-set-2/refine2 \
-        {LFHCAL_WORK}/scan-set-2/refine3 \
-        {LFHCAL_WORK}/scan-set-2/calibrated \
-        {LFHCAL_WORK}/scan-set-2/waveform \
-        {LFHCAL_WORK}/scan-set-2/plots/pedestal \
-        {LFHCAL_WORK}/scan-set-2/plots/transfer \
-        {LFHCAL_WORK}/scan-set-2/plots/mip \
-        {LFHCAL_WORK}/scan-set-2/plots/refine1 \
-        {LFHCAL_WORK}/scan-set-2/plots/refine2 \
-        {LFHCAL_WORK}/scan-set-2/plots/refine3 \
-        {LFHCAL_WORK}/scan-set-2/plots/calibrated \
-        {LFHCAL_WORK}/scan-set-2/plots/waveform
+        {WORK}/converted \
+        {WORK}/pedestal \
+        {WORK}/transfer \
+        {WORK}/mip \
+        {WORK}/selected \
+        {WORK}/refine1 \
+        {WORK}/refine2 \
+        {WORK}/refine3 \
+        {WORK}/calibrated \
+        {WORK}/waveform \
+        {WORK}/plots/pedestal \
+        {WORK}/plots/transfer \
+        {WORK}/plots/mip \
+        {WORK}/plots/refine1 \
+        {WORK}/plots/refine2 \
+        {WORK}/plots/refine3 \
+        {WORK}/plots/calibrated \
+        {WORK}/plots/waveform
 
 convert-{run}: prepare
     @each run \
         328 329 330 331 332 333 334 335 336 337 338 339 \
         340 341 342 343 344 345 346 347 348 349 350 351 \
         352 353 354 355 356 357 358 359 360 361
-    @input raw {LFHCAL_RAW}/Run{run}.h2g
-    @input mapping {CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/converted/rawHGCROC_{run}.root
+    @input raw {LFHCAL_DATA}/Run{run}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{run}.root
     %memory 2GB
     {BUILD}/Convert -d 0 -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
@@ -72,90 +72,90 @@ pedestal-{ped}-{run}: converted
         356 357 \
         358 359 \
         360 361
-    @input raw {LFHCAL_WORK}/scan-set-2/converted/rawHGCROC_{ped}.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/pedestal/rawHGCROC_wPed_{ped}.root
-    @output calib {LFHCAL_WORK}/scan-set-2/pedestal/rawHGCROC_wPed_{ped}_calib.txt
-    @output hists {LFHCAL_WORK}/scan-set-2/pedestal/rawHGCROC_wPed_{ped}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/pedestal/Run{ped}
+    @input raw {WORK}/converted/rawHGCROC_{ped}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output calib {WORK}/pedestal/rawHGCROC_wPed_{ped}_calib.txt
+    @output hists {WORK}/pedestal/rawHGCROC_wPed_{ped}_Hists.root
+    @output plots {WORK}/plots/pedestal/Run{ped}
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
 transfer-{ped}-{run}: pedestal-{ped}-{run}
-    @input pedestal {LFHCAL_WORK}/scan-set-2/pedestal/rawHGCROC_wPed_{ped}.root
-    @input raw {LFHCAL_WORK}/scan-set-2/converted/rawHGCROC_{run}.root
-    @input bad {CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
+    @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @input raw {WORK}/converted/rawHGCROC_{run}.root
+    @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
     @input toa {TOA}
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/transfer/rawHGCROC_wPed_wBC_{run}.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/transfer/Run{run}
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/transfer/rawHGCROC_wPed_wBC_{run}.root
+    @output plots {WORK}/plots/transfer/Run{run}
     {BUILD}/DataPrep -d 1 -e -P @input.pedestal \
         -i @input.raw -o @output.root -O @output.plots \
         -r @input.rundb -B @input.bad -G @input.toa
 
 mip-{ped}-{run}: transfer-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/transfer/rawHGCROC_wPed_wBC_{run}.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
-    @output calib {LFHCAL_WORK}/scan-set-2/mip/rawHGCROC_wPedwMuon_wBC_{run}_calib.txt
-    @output hists {LFHCAL_WORK}/scan-set-2/mip/rawHGCROC_wPedwMuon_wBC_{run}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/mip/Run{run}
+    @input root {WORK}/transfer/rawHGCROC_wPed_wBC_{run}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
+    @output calib {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{run}_calib.txt
+    @output hists {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{run}_Hists.root
+    @output plots {WORK}/plots/mip/Run{run}
     {BUILD}/DataPrep -a -d 1 -e -s -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb
 
 select-{ped}-{run}: mip-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
-    @output root {LFHCAL_WORK}/scan-set-2/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    @input root {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{run}.root
+    @output root {WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
     {BUILD}/DataPrep -d 1 -X -i @input.root -o @output.root
 
 refine1-{ped}-{run}: select-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
-    @output calib {LFHCAL_WORK}/scan-set-2/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_calib.txt
-    @output hists {LFHCAL_WORK}/scan-set-2/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/refine1/Run{run}
+    @input root {WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
+    @output calib {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_calib.txt
+    @output hists {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}_Hists.root
+    @output plots {WORK}/plots/refine1/Run{run}
     {BUILD}/DataPrep -a -d 1 -S -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb
 
 refine2-{ped}-{run}: refine1-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
-    @output calib {LFHCAL_WORK}/scan-set-2/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_calib.txt
-    @output hists {LFHCAL_WORK}/scan-set-2/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/refine2/Run{run}
+    @input root {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{run}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
+    @output calib {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_calib.txt
+    @output hists {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}_Hists.root
+    @output plots {WORK}/plots/refine2/Run{run}
     {BUILD}/DataPrep -a -d 1 -S -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb
 
 refine3-{ped}-{run}: refine2-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
-    @output calib {LFHCAL_WORK}/scan-set-2/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_calib.txt
-    @output hists {LFHCAL_WORK}/scan-set-2/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/refine3/Run{run}
+    @input root {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{run}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
+    @output calib {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_calib.txt
+    @output hists {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}_Hists.root
+    @output plots {WORK}/plots/refine3/Run{run}
     {BUILD}/DataPrep -a -d 1 -S -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb
 
 calibrate-{ped}-{run}: refine3-{ped}-{run}
-    @input calibration {LFHCAL_WORK}/scan-set-2/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
-    @input raw {LFHCAL_WORK}/scan-set-2/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
-    @input bad {CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
+    @input calibration {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{run}.root
+    @input raw {WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_{run}.root
+    @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
     @input toa {TOA}
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/calibrated/calibratedHGCROC_Run_{run}.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/calibrated/Run{run}
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/calibrated/calibratedHGCROC_Run_{run}.root
+    @output plots {WORK}/plots/calibrated/Run{run}
     {BUILD}/DataPrep -e -d 1 -a -C @input.calibration \
         -i @input.raw -o @output.root -O @output.plots -r @input.rundb \
         -B @input.bad -G @input.toa
 
 waveform-{ped}-{run}: calibrate-{ped}-{run}
-    @input root {LFHCAL_WORK}/scan-set-2/calibrated/calibratedHGCROC_Run_{run}.root
-    @input cells {CONFIG}/activeCellsHGCROCParameterScan.txt
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-2/waveform/calibratedHGCROC_wave_Run_{run}.root
-    @output hists {LFHCAL_WORK}/scan-set-2/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
-    @output plots {LFHCAL_WORK}/scan-set-2/plots/waveform/Run{run}
+    @input root {WORK}/calibrated/calibratedHGCROC_Run_{run}.root
+    @input cells {TB2026_CONFIG}/activeCellsHGCROCParameterScan.txt
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/waveform/calibratedHGCROC_wave_Run_{run}.root
+    @output hists {WORK}/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
+    @output plots {WORK}/plots/waveform/Run{run}
     {BUILD}/HGCROCStudy -d 1 -E 1 -w -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb -l @input.cells
