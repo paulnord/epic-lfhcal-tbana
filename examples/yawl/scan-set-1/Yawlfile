@@ -38,8 +38,20 @@ prepare:
         {WORK}/plots/calibrated \
         {WORK}/plots/waveform
 
-convert-{run}: prepare
-    @each run 296 298 299 300 303 304 307 308 309 310
+# Convert pedestal and muon runs as separate task families so each calibration
+# chain can start as soon as the files it actually needs are ready.
+convert-ped-{ped}: prepare
+    @each ped 296 299 303 307 309
+    @input raw {LFHCAL_DATA}/Run{ped}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{ped}.root
+    %memory 2GB
+    {BUILD}/Convert -d 0 -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+convert-muon-{run}: prepare
+    @each run 298 300 304 308 310
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
@@ -48,10 +60,7 @@ convert-{run}: prepare
     {BUILD}/Convert -d 0 -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
-converted: convert-{run}
-    /usr/bin/true
-
-pedestal-{ped}-{run}: converted
+pedestal-{ped}-{run}: convert-ped-{ped}
     @each ped run: \
         296 298 \
         299 300 \
@@ -67,7 +76,7 @@ pedestal-{ped}-{run}: converted
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-{ped}-{run}: pedestal-{ped}-{run}
+transfer-{ped}-{run}: pedestal-{ped}-{run} convert-muon-{run}
     @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
     @input raw {WORK}/converted/rawHGCROC_{run}.root
     @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
