@@ -164,20 +164,32 @@ waveform-{ped}-{run}-{toa}: calibrate-{ped}-{run}-{toa}
     {BUILD}/HGCROCStudy -d 1 -E 1 -w -i @input.root \
         -o @output.root -O @output.plots -r @input.rundb -l @input.cells
 
-# Build the input subsets for the five native comparison products.
+# CompareWaveform still consumes a two-column text file.  Generate those five
+# interface files directly here so the comparison membership remains part of
+# the frozen Yawlfile rather than being recomputed by a separate script.
 comparison-lists: waveform-{ped}-{run}-{toa}
     @input calib work/calibrated/calibratedHGCROC_Run_{run}.root
     @input hist work/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
-    @input rundb {CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output all work/comparison/all.txt
     @output rf work/comparison/rf.txt
     @output cf work/comparison/cf.txt
     @output cfcomp work/comparison/cfcomp.txt
     @output cc work/comparison/cc.txt
-    ./make-comparison-lists.py --rundb @input.rundb \
-        --calib @input.calib --hist @input.hist \
-        --all @output.all --rf @output.rf --cf @output.cf \
-        --cfcomp @output.cfcomp --cc @output.cc
+    ! for run in 298 300 304 308 310 329 331 333 335 337 339 341 343 345 347 349 351 353 355 357 359 361; do \
+        printf 'work/calibrated/calibratedHGCROC_Run_%s.root work/waveform/calibratedHGCROC_wave_Run_%s_Hists.root\n' "$run" "$run"; \
+      done > @output.all; \
+      for run in 298 300 304 308 310 329 331 333 335 337 339 341 343 345; do \
+        printf 'work/calibrated/calibratedHGCROC_Run_%s.root work/waveform/calibratedHGCROC_wave_Run_%s_Hists.root\n' "$run" "$run"; \
+      done > @output.rf; \
+      for run in 298 355 361; do \
+        printf 'work/calibrated/calibratedHGCROC_Run_%s.root work/waveform/calibratedHGCROC_wave_Run_%s_Hists.root\n' "$run" "$run"; \
+      done > @output.cf; \
+      for run in 355 357 359; do \
+        printf 'work/calibrated/calibratedHGCROC_Run_%s.root work/waveform/calibratedHGCROC_wave_Run_%s_Hists.root\n' "$run" "$run"; \
+      done > @output.cfcomp; \
+      for run in 298 347 349 351 353; do \
+        printf 'work/calibrated/calibratedHGCROC_Run_%s.root work/waveform/calibratedHGCROC_wave_Run_%s_Hists.root\n' "$run" "$run"; \
+      done > @output.cc
 
 compare-all: comparison-lists
     @input list work/comparison/all.txt
