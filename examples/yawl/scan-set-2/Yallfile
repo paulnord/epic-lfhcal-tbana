@@ -5,7 +5,7 @@ backend condor
 @env LFHCAL_DATA
 
 # Production work products live on GPFS. Keep this value fully resolved because
-# yawl-run does not recursively expand placeholders inside @set values.
+# yall-run does not recursively expand placeholders inside @set values.
 @set WORK /gpfs01/star/pwg/pnord/eic/2026TBdata/yawl/scan-set-2
 @set BUILD ../../../NewStructure/build
 @set TB2026_CONFIG ../../../configs/TB2026
