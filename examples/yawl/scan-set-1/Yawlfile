@@ -149,8 +149,8 @@ waveform-{ped}-{run}: calibrate-{ped}-{run}
     @input root {WORK}/calibrated/calibratedHGCROC_Run_{run}.root
     @input cells {TB2026_CONFIG}/activeCellsHGCROCParameterScan.txt
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {WORK}/waveform/calibratedHGCROC_wave_Run_{run}.root
     @output hists {WORK}/waveform/calibratedHGCROC_wave_Run_{run}_Hists.root
     @output plots {WORK}/plots/waveform/Run{run}
     {BUILD}/HGCROCStudy -d 1 -E 1 -w -i @input.root \
-        -o @output.root -O @output.plots -r @input.rundb -l @input.cells
+        -o {WORK}/waveform/calibratedHGCROC_wave_Run_{run}.root \
+        -O @output.plots -r @input.rundb -l @input.cells
