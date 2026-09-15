@@ -1,11 +1,12 @@
 campaign lfhcal-hgcroc-study-condor
 backend condor
 
+@env EIC_SHELL
 %cpus 1
 %memory 4GB
 %disk 4GB
 %getenv true
-%wrapper ../../../tools/run-in-eic-container.sh
+%wrapper {EIC_SHELL} -- /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
 study:
     @input raw input.root
