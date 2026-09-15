@@ -1,0 +1,60 @@
+campaign lfhcal-simple
+backend local
+
+# Raw TB2026 files live here.
+@env LFHCAL_DATA
+
+@set WORK ./work
+@set BUILD ../../../NewStructure/build
+@set TB2026_CONFIG ../../../configs/TB2026
+
+prepare:
+    /bin/mkdir -p \
+        {WORK}/converted \
+        {WORK}/pedestal \
+        {WORK}/calibration \
+        {WORK}/summary \
+        {WORK}/plots/pedestal \
+        {WORK}/plots/summary
+
+# Pattern 1: run the same command for a list of runs.
+convert-{run}: prepare
+    @each run 296 298 299 300 303 304
+    @input raw {LFHCAL_DATA}/Run{run}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{run}.root
+    {BUILD}/Convert -d 0 -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+# Keep the introductory dependency simple: wait until the conversions are done.
+converted: convert-{run}
+    /usr/bin/true
+
+# Pattern 2: run over a list of correlated pedestal/MIP pairs.
+pedestal-{ped}-{mip}: converted
+    @each ped mip: \
+        296 298 \
+        299 300 \
+        303 304
+    @input raw {WORK}/converted/rawHGCROC_{ped}.root
+    @output root {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output plots {WORK}/plots/pedestal/Run{ped}
+    {BUILD}/DataPrep -p -L 1000 -i @input.raw \
+        -o @output.root -O @output.plots
+
+calibration-{ped}-{mip}: pedestal-{ped}-{mip}
+    @input raw {WORK}/converted/rawHGCROC_{mip}.root
+    @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output root {WORK}/calibration/rawHGCROC_wPedwMuon_{mip}.root
+    {BUILD}/DataPrep -s -L 1000 -P @input.pedestal \
+        -i @input.raw -o @output.root
+
+# Pattern 3: run another analysis for a separate list of runs.
+summary-{run}: converted
+    @each run 298 300 304
+    @input root {WORK}/converted/rawHGCROC_{run}.root
+    @output root {WORK}/summary/hgcroc-study_{run}.root
+    @output plots {WORK}/plots/summary/Run{run}
+    {BUILD}/HGCROCStudy -d 1 -L 1000 -w -i @input.root \
+        -o @output.root -O @output.plots
