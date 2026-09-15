@@ -13,7 +13,7 @@ backend condor
 %memory 4GB
 %disk 8GB
 %getenv true
-%wrapper {EIC_SHELL} -- /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
 prepare:
     /bin/mkdir -p \
