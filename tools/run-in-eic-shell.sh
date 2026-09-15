@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LXPLUS exports a `which` shell function that calls the host's GNU which
+# with long options.  When inherited by the EIC container, that function can
+# shadow the container's simpler /usr/bin/which and produce "Illegal option"
+# errors.  Drop only the inherited function; the container's which remains
+# available normally.
+unset -f which 2>/dev/null || true
+
 if [[ "$#" -lt 2 ]]; then
     echo "Usage: $0 EIC_SHELL COMMAND [ARGUMENT ...]" >&2
     exit 2
