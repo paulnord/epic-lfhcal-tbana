@@ -65,18 +65,26 @@ For tcsh:
 setenv EIC_SHELL "$HOME/eic/eic-shell"
 ```
 
-The Condor Yallfiles use that launcher directly. They also set the ROOT/OpenMP thread limits inside the environment to match their one-CPU requests:
+Before submitting work, verify the launcher's reliable non-interactive interface:
+
+```bash
+echo 'root-config --version' | "$EIC_SHELL"
+echo 'python3 --version' | "$EIC_SHELL"
+```
+
+The current container-side `eic-shell` runs argv-style commands through `bash -c "$@"`, which does not preserve ordinary multi-argument commands. The Condor Yallfiles therefore use the portable `tools/run-in-eic-shell.sh` adapter. It shell-quotes the worker argv and sends one complete command to `eic-shell` on standard input.
+
+The production workflows also set the ROOT/OpenMP thread limits inside the EIC environment to match their one-CPU requests:
 
 ```text
 @env EIC_SHELL
-%wrapper {EIC_SHELL} -- /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} \
+    /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 ```
 
-There is no additional LFHCal container-wrapper script or separate image-path setting. To change the example's thread limits, edit the wrapper arguments along with the CPU request.
+Yall archives the adapter and freezes the selected `EIC_SHELL` path and thread-limit arguments. The selected launcher itself must remain visible on the worker nodes and must reference a container runtime, installation, image and bind paths available there. The campaign directory, raw data, work area and LFHCal build must also be visible there. Do not use host-local `/tmp` for a Condor campaign or its products.
 
-Yall copies the installed launcher into the campaign and freezes its arguments. The launcher must reference a container runtime, installation, image and bind paths available on the worker nodes. The campaign directory, raw data, work area and LFHCal build must also be visible there. Do not use host-local `/tmp` for a Condor campaign or its products.
-
-Archiving `eic-shell` does not snapshot its container image. Select a fixed image for reproducible work, and use that same environment for compilation and worker execution. A launcher that points to `nightly` still uses a moving image.
+Archiving the adapter does not snapshot the container image. Select a fixed image for reproducible work, and use that same environment for compilation and worker execution. A launcher that points to `nightly` still uses a moving image.
 
 Before a large campaign, run the small `examples/eic-shell` smoke example in the yall-run repository to check the launcher on your batch nodes. CERN execution still needs site testing.
 
