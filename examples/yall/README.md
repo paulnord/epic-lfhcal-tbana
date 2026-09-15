@@ -2,7 +2,7 @@
 
 These examples show how to run existing LFHCal executables with `yall-run` without adding provenance code to the C++ applications.
 
-These examples target **yall-run 0.8.1**.
+The Condor examples require **yall-run 0.9.0 or newer** for wrapper arguments.
 
 ## Where to start
 
@@ -51,21 +51,40 @@ The production scan-set workflows write products under:
 
 Configuration paths and build paths are Yall `@set` values inside each Yallfile.
 
-## Condor container
+## Condor environment
 
-The Condor examples use `tools/run-in-eic-container.sh`.
+Use the same installed `eic-shell` launcher that you use to build LFHCal. Set its path on the **host**, outside the container:
 
-Set `EIC_CONTAINER_IMAGE` to the pinned EIC container image that the campaign should use:
-
-```tcsh
-setenv EIC_CONTAINER_IMAGE /path/to/pinned/eic-container
+```bash
+export EIC_SHELL="$HOME/eic/eic-shell"
 ```
 
-The wrapper deliberately does not default to a moving `nightly` image. This keeps the execution environment an explicit part of the campaign setup.
+For tcsh:
+
+```tcsh
+setenv EIC_SHELL "$HOME/eic/eic-shell"
+```
+
+The Condor Yallfiles use that launcher directly. They also set the ROOT/OpenMP thread limits inside the environment to match their one-CPU requests:
+
+```text
+@env EIC_SHELL
+%wrapper {EIC_SHELL} -- /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+```
+
+There is no additional LFHCal container-wrapper script or separate image-path setting. To change the example's thread limits, edit the wrapper arguments along with the CPU request.
+
+Yall copies the installed launcher into the campaign and freezes its arguments. The launcher must reference a container runtime, installation, image and bind paths available on the worker nodes. The campaign directory, raw data, work area and LFHCal build must also be visible there. Do not use host-local `/tmp` for a Condor campaign or its products.
+
+Archiving `eic-shell` does not snapshot its container image. Select a fixed image for reproducible work, and use that same environment for compilation and worker execution. A launcher that points to `nightly` still uses a moving image.
+
+Before a large campaign, run the small `examples/eic-shell` smoke example in the yall-run repository to check the launcher on your batch nodes. CERN execution still needs site testing.
 
 ## Inspect and run
 
-Build LFHCal in `NewStructure/build`, enter an example directory, then:
+Build LFHCal in `NewStructure/build` inside `eic-shell`. Run local examples inside that environment; create and submit Condor campaigns from the **host shell**.
+
+Enter an example directory, then:
 
 ```tcsh
 yall-run validate
@@ -85,6 +104,14 @@ mkdir -p $LFHCAL_WORK/campaigns
 yall-run create --campaigns-dir $LFHCAL_WORK/campaigns
 ```
 
-Start the exact campaign directory printed by `create`.
+Start the exact campaign directory printed by `create`. In bash, the complete creation/submission sequence is:
 
-The Condor examples use `tools/run-in-eic-container.sh` as their `%wrapper`. No LFHCal-specific provenance is embedded into ROOT files; yall-run keeps campaign, task, executable, input/output, scheduler, and attempt provenance in its campaign records.
+```bash
+CAMPAIGN=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns") &&
+yall-run start "$CAMPAIGN" &&
+yall-run status "$CAMPAIGN"
+```
+
+Use a fresh `LFHCAL_WORK` for a new production run. A new campaign ID does not change the output paths; existing declared outputs are protected by default.
+
+No LFHCal-specific provenance is embedded into ROOT files; yall-run keeps campaign, task, executable, input/output, scheduler, and attempt provenance in its campaign records.

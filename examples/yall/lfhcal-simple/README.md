@@ -25,6 +25,6 @@ yall-run validate
 yall-run plan
 ```
 
-The campaign uses the local backend so the example stays focused on Yall syntax. Use `--backend condor` at campaign creation time when you want to exercise the Condor backend.
+The campaign uses the local backend so the example stays focused on Yall syntax. Run it inside your EIC software environment. This Yallfile has no container wrapper; overriding the backend alone does not supply one. For host-side Condor submission with an installed `eic-shell` wrapper, use `hgcroc-study-condor` or the production scan-set examples and follow the parent README.
 
 The example processes only the first 1000 events in the `DataPrep` and `HGCROCStudy` tasks. Raw conversion still converts the selected input runs normally.
