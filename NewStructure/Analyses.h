@@ -74,6 +74,20 @@ class Analyses{
   inline bool GetHGCROCTrunctation(void)        const {return truncateHGCROC;};
   inline int GetHGCROCNSampleInteg(void)        const {return nSampleHGCROCInt;};
   inline int GetHGCROCOptInteg(void)            const {return optHGCROCInt;};
+
+  inline bool CheckOutputWriteStatus(void){
+    bool status = true;
+    TFile* outputFiles[] = {RootOutput, RootOutputHist, RootCalibOutput};
+    for (TFile* output : outputFiles){
+      if (!output) continue;
+      if (output->IsOpen()) output->Flush();
+      if (output->TestBit(TFile::kWriteError)){
+        std::cerr << "ROOT write error detected for " << output->GetName() << std::endl;
+        status = false;
+      }
+    }
+    return status;
+  };
   
   //setter methods
   //Overload method for boolean...or is it too dangerous?
@@ -94,18 +108,18 @@ class Analyses{
   
   inline void IsToSaveNoiseOnly(bool b)          {SaveNoiseOnly = b;};
   inline void IsToSaveMipsOnly(bool b)           {SaveMipsOnly = b;};
-  inline void IsToEvalLocalTrigg(bool b)         {EvalLocalTriggers = b;};
+  inline void IsToEvalLocalTrigg(bool b)          {EvalLocalTriggers = b;};
   inline void DisableRecalcTriggPrimitives()     {EvalTriggerPrimitives = false;};
   inline void IsToSaveCalibOnly(bool b)          {SaveCalibOnly = b;};
   inline void IsToSkimHGCROC(bool b)             {SkimHGCROC = b;};
-  inline void UseLocTriggFromFile(bool b)        {LocTriggFile = b;};
+  inline void UseLocTriggFromFile(bool b)         {LocTriggFile = b;};
   inline void SetCalcBadChannel(short b)         {CalcBadChannel = b;};
   inline void SetOverWriteCalib(bool b)          {OverWriteCalib = b;};
-  inline void SetOverWriteSetup(bool b)          {OverWriteSetup = b;};
+  inline void SetOverWriteSetup(bool b)           {OverWriteSetup = b;};
   inline void SetExtPlotting(short b)            {ExtPlot = b;};
-  inline void SetCleanupEvents(short b)          {EventCleanup = b;};
+  inline void SetCleanupEvents(short b)           {EventCleanup = b;};
   inline void EnableDebug(int i)                 {debug=i;};
-  inline void SetHGCROCTruncation(bool b)        {truncateHGCROC = b;};
+  inline void SetHGCROCTruncation(bool b)        {truncateHGCROC=b;};
   inline void SetHGCROCNSampleInteg(int n)       {optHGCROCInt      = 1; 
                                                   nSampleHGCROCInt  = n;
                                                   };
