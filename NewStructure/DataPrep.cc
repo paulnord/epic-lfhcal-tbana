@@ -271,7 +271,12 @@ int main(int argc, char* argv[]){
     return -1;
   }
 
-  AnAnalysis.Process();
+  bool status = AnAnalysis.Process();
+  if(!AnAnalysis.CheckOutputWriteStatus()) status = false;
+  if(!status){
+    std::cerr<<"DataPrep: processing or output write failed"<<std::endl;
+    return -1;
+  }
   std::cout<<"Exiting"<<std::endl;
   return 0;
 }

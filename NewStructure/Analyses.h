@@ -74,6 +74,20 @@ class Analyses{
   inline bool GetHGCROCTrunctation(void)        const {return truncateHGCROC;};
   inline int GetHGCROCNSampleInteg(void)        const {return nSampleHGCROCInt;};
   inline int GetHGCROCOptInteg(void)            const {return optHGCROCInt;};
+
+  inline bool CheckOutputWriteStatus(void){
+    bool status = true;
+    TFile* outputFiles[] = {RootOutput, RootOutputHist, RootCalibOutput};
+    for (TFile* output : outputFiles){
+      if (!output) continue;
+      if (output->IsOpen()) output->Flush();
+      if (output->TestBit(TFile::kWriteError)){
+        std::cerr << "ROOT write error detected for " << output->GetName() << std::endl;
+        status = false;
+      }
+    }
+    return status;
+  };
   
   //setter methods
   //Overload method for boolean...or is it too dangerous?
