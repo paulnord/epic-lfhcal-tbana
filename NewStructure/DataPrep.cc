@@ -61,9 +61,9 @@ void PrintHelp(char* exe){
   std::cout<<"-R mmm   Replace setup with mapping file specified as argument "<<std::endl;
   std::cout<<"-s       extract scaling constant from input data"<<std::endl;
   std::cout<<"-S       extract scaling constant from input data in 2nd iteration based on pretriggered data"<<std::endl;
-  std::cout<<"-t       use local trigger eval from existing input, don't redo in calibrate"<<std::endl;
+  std::cout<<"-t       use local trigger eval from existing input, don't redo in calibrate" <<std::endl;
   std::cout<<"-T ttt   evaluate local triggers before calibrating, use external calib file ttt"<<std::endl;
-  std::cout<<"-u       disable trigger primitive calc" <<std::endl;
+  std::cout<<"-u       disable trigger primitive calc"<<std::endl;
   std::cout<<"-w       Visualize waveform of HGCROC data"<<std::endl;
   std::cout<<"-x       turn off event writing for improved mip calibration"<<std::endl;
   std::cout<<"-X       skim HGCROC events to a new file where there is at least a signal in the TOA "<<std::endl;
