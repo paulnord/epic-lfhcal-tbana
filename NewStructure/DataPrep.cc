@@ -38,7 +38,7 @@ void PrintHelp(char* exe){
   std::cout<<"-D       switch on event rejection due to data corruption"<<std::endl;
   std::cout<<"-e       extended plotting = 1"<<std::endl;
   std::cout<<"-E [1-3] extended plotting set to whatever value you specify"<<std::endl;
-  std::cout<<"-f       Force to write output if already exist it will be overwritten"<<std::endl;
+  std::cout<<"-f       Force to write output if already exist"<<std::endl;
   std::cout<<"-F fff   set explicit plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-g ggg   extract toA offset with pedestal calib taken from ggg file "<<std::endl;
   std::cout<<"-G GGG   use external ToA phase calib from GGG file "<<std::endl;
@@ -63,7 +63,7 @@ void PrintHelp(char* exe){
   std::cout<<"-S       extract scaling constant from input data in 2nd iteration based on pretriggered data"<<std::endl;
   std::cout<<"-t       use local trigger eval from existing input, don't redo in calibrate"<<std::endl;
   std::cout<<"-T ttt   evaluate local triggers before calibrating, use external calib file ttt"<<std::endl;
-  std::cout<<"-u       disable trigger primitive calc"<<std::endl;
+  std::cout<<"-u       disable trigger primitive calc" <<std::endl;
   std::cout<<"-w       Visualize waveform of HGCROC data"<<std::endl;
   std::cout<<"-x       turn off event writing for improved mip calibration"<<std::endl;
   std::cout<<"-X       skim HGCROC events to a new file where there is at least a signal in the TOA "<<std::endl;
