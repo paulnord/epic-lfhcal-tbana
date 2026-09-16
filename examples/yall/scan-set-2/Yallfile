@@ -12,6 +12,8 @@ backend condor
 %cpus 1
 %memory 4GB
 %disk 8GB
+# Per-job runtime request; Condor uses site-defined MaxRuntime, not allowed_execute_duration.
+%time 2h
 %getenv true
 %wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
