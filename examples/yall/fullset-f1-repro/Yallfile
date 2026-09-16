@@ -28,7 +28,6 @@ backend condor
 %memory 4GB
 %disk 8GB
 %time 2h
-%startup-retry 2
 %getenv true
 %wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
