@@ -24,9 +24,11 @@ fi
 # The container-side eic-shell accepts a command reliably through stdin.
 # Quote every argv element as a single-quoted shell word.  Use the
 # '"'"' spelling for an embedded apostrophe so the generated command line
-# contains no escape backslashes for eic-shell's `read` loop to consume.
+# is safe for the inner shell. Double literal backslashes for eic-shell's
+# outer `read` loop (without -r), which consumes one transport-escape layer.
 quote_word() {
     local value=$1
+    value=${value//\\/\\\\}
     local apostrophe="'\"'\"'"
     value=${value//\'/$apostrophe}
     printf "'%s'" "$value"
