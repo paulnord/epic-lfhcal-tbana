@@ -108,18 +108,18 @@ class Analyses{
   
   inline void IsToSaveNoiseOnly(bool b)          {SaveNoiseOnly = b;};
   inline void IsToSaveMipsOnly(bool b)           {SaveMipsOnly = b;};
-  inline void IsToEvalLocalTrigg(bool b)          {EvalLocalTriggers = b;};
+  inline void IsToEvalLocalTrigg(bool b)         {EvalLocalTriggers = b;};
   inline void DisableRecalcTriggPrimitives()     {EvalTriggerPrimitives = false;};
   inline void IsToSaveCalibOnly(bool b)          {SaveCalibOnly = b;};
   inline void IsToSkimHGCROC(bool b)             {SkimHGCROC = b;};
-  inline void UseLocTriggFromFile(bool b)         {LocTriggFile = b;};
+  inline void UseLocTriggFromFile(bool b)        {LocTriggFile = b;};
   inline void SetCalcBadChannel(short b)         {CalcBadChannel = b;};
   inline void SetOverWriteCalib(bool b)          {OverWriteCalib = b;};
-  inline void SetOverWriteSetup(bool b)           {OverWriteSetup = b;};
+  inline void SetOverWriteSetup(bool b)          {OverWriteSetup = b;};
   inline void SetExtPlotting(short b)            {ExtPlot = b;};
-  inline void SetCleanupEvents(short b)           {EventCleanup = b;};
+  inline void SetCleanupEvents(short b)          {EventCleanup = b;};
   inline void EnableDebug(int i)                 {debug=i;};
-  inline void SetHGCROCTruncation(bool b)        {truncateHGCROC=b;};
+  inline void SetHGCROCTruncation(bool b)        {truncateHGCROC = b;};
   inline void SetHGCROCNSampleInteg(int n)       {optHGCROCInt      = 1; 
                                                   nSampleHGCROCInt  = n;
                                                   };
