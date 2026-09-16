@@ -157,7 +157,7 @@ int main(int argc, char* argv[]){
       AnAnalysis.SetOverWriteCalib(true);
       break;
     case 'K':
-      std::cout<<"DataPrep: enable reextraction of LG-HG corr: "<< optarg<<std::endl;
+      std::cout<<"DataPrep: enable reextraction of LG-HG corr: "<< optarg <<std::endl;
       AnAnalysis.IsToReextractLGHGCorr(true);
       AnAnalysis.SetRootPedestalInput(Form("%s",optarg));
       break;
