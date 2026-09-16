@@ -2,7 +2,7 @@
 
 These examples show how to run existing LFHCal executables with `yall-run` without adding provenance code to the C++ applications.
 
-The Condor examples require **yall-run 0.9.0 or newer** for wrapper arguments.
+The Condor examples require **yall-run with `%time` support**, introduced in [yall-run PR #19](https://github.com/paulnord/yall-run/pull/19), in addition to the wrapper-argument support introduced in 0.9.0. An older 0.9.0 checkout without that feature is not sufficient. Update yall-run before validating or creating these workflows; while PR #19 is unmerged, use its `feat/portable-wall-time` branch.
 
 ## Where to start
 
@@ -87,6 +87,42 @@ Yall archives the adapter and freezes the selected `EIC_SHELL` path and thread-l
 Archiving the adapter does not snapshot the container image. Select a fixed image for reproducible work, and use that same environment for compilation and worker execution. A launcher that points to `nightly` still uses a moving image.
 
 Before a large campaign, run the small `examples/eic-shell` smoke example in the yall-run repository to check the launcher on your batch nodes. CERN execution still needs site testing.
+
+## Runtime requests and CERN
+
+The two production scan-set Yallfiles and `hgcroc-study-condor/Yallfile` now set
+an explicit campaign default:
+
+```text
+%time 2h
+```
+
+This requests two hours **per scheduled task job**, including container setup,
+not two hours for the entire workflow. It is an initial allocation, not a
+measurement or a guarantee that every run finishes within two hours. Adjust it,
+or add an indented task/family override, before creating the campaign when a
+stage needs a different budget. Run `yall-run validate` and `yall-run plan` on
+the host to check parser support and the effective requests before submission.
+
+For Condor this renders `+MaxRuntime = 7200`. CERN uses that site-defined
+attribute for runtime policy, including enforcing the maximum, rather than
+leaving these tasks at its documented default of 1,200 seconds. This convention
+is not CERN-only, but not every Condor pool honors it: without supporting site
+policy it is only job metadata and the pool's other limits still apply.
+
+**This does not set HTCondor's separate `allowed_execute_duration` timeout.**
+That built-in option places a job on hold when its execution-duration limit is
+exceeded; it is neither an alias for `MaxRuntime` nor a way to override a
+shorter site limit. No built-in timeout or CERN `JobFlavour` is added by these
+examples. See [CERN/LHCb runtime guidance](https://lhcb.github.io/starterkit-lessons/self-guided-lessons/htcondor-more-options.html#resources-and-requirements),
+[HTCondor's submit-language documentation](https://htcondor.readthedocs.io/en/latest/man-pages/htcondor-jdl.html),
+and the resource documentation in [yall-run PR #19](https://github.com/paulnord/yall-run/pull/19).
+
+**Pulling this update does not change existing campaigns or queued jobs.**
+Their resource requests and rendered submit files were frozen at creation;
+`yall-run resume` reuses those requests. Create a new campaign to use the new
+time budget, choosing a fresh `LFHCAL_WORK` to protect earlier products. Do not
+assume resuming an old campaign gives it the new two-hour limit.
 
 ## Inspect and run
 
