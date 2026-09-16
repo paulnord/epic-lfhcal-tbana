@@ -55,13 +55,13 @@ void PrintHelp(char* exe){
   std::cout<<"-Q q     switch HGCROC signal to $q samples surrounding max sample, force signal reevaluation "<<std::endl;
   std::cout<<"-o vvv   Output file name (mandatory)"<<std::endl;
   std::cout<<"-O kkk   Output directory name for plots (mandatory)"<<std::endl;
-  std::cout<<"-p       Extract pedestal from input file and store it in output file"<<std::endl;
+  std::cout<<"-p       Extract pedestal from input data and store it in output file"<<std::endl;
   std::cout<<"-P zzz   Correct pedestals stored in zzz root file and applied to input file"<<std::endl;
   std::cout<<"-r rrr   Name of run list file  2024 PS TB [../configs/DataTakingDB_202409_CAEN.csv] "<<std::endl;
   std::cout<<"-R mmm   Replace setup with mapping file specified as argument "<<std::endl;
   std::cout<<"-s       extract scaling constant from input data"<<std::endl;
   std::cout<<"-S       extract scaling constant from input data in 2nd iteration based on pretriggered data"<<std::endl;
-  std::cout<<"-t       use local trigger eval from existing input, don't redo in calibrate" <<std::endl;
+  std::cout<<"-t       use local trigger eval from existing input, don't redo in calibrate"<<std::endl;
   std::cout<<"-T ttt   evaluate local triggers before calibrating, use external calib file ttt"<<std::endl;
   std::cout<<"-u       disable trigger primitive calc"<<std::endl;
   std::cout<<"-w       Visualize waveform of HGCROC data"<<std::endl;
