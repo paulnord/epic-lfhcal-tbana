@@ -34,6 +34,12 @@ waveform-summary work because the bounded sample is not intended to populate
 those fits and histograms reliably. The pair table is retained so the smoke test
 still exercises shared conversion and dependency expansion.
 
+The `calibration-pair`, `hgcroc-study`, and `hgcroc-study-condor` directories each
+contain a README describing the input file that must be supplied. They do not
+ship example ROOT data. The notes use TB2026 runs `296/298` as an example
+pedestal/MIP pair and run `298` as an example HGCROC study input; those run
+numbers are examples rather than hard requirements.
+
 These older local recipes have their own input assumptions and do not
 automatically acquire a container wrapper or switch to scratch output just by
 sourcing an environment file. Do not run them as heavy work on a login node.
@@ -57,7 +63,7 @@ This checks graph expansion without ROOT, raw data or scheduler submission.
 Conversions visit the ordered union of pedestal and muon columns once each;
 shared pedestal runs do not produce duplicate output owners. Reusing the same
 muon run with different pedestal choices still requires separate work areas
-or explicitly pair-specific output paths in the production scan workflows.
+or explicitly pair-specific output paths.
 
 ## Execution boundary
 
