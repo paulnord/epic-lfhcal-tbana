@@ -42,18 +42,20 @@ convert-{run}: prepare
 pedestal-{ped}: convert-{ped}
     @each ped in pairs.ped
     @input raw {WORK}/converted/rawHGCROC_{ped}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output root {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
     @output plots {WORK}/plots/pedestal/Run{ped}
     {BUILD}/DataPrep -p -L 1000 -i @input.raw \
-        -o @output.root -O @output.plots
+        -o @output.root -O @output.plots -r @input.rundb
 
 calibration-{ped}-{mip}: pedestal-{ped} convert-{mip}
     @each ped mip in pairs
     @input raw {WORK}/converted/rawHGCROC_{mip}.root
     @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output root {WORK}/calibration/rawHGCROC_wPedwMuon_{mip}.root
     {BUILD}/DataPrep -s -L 1000 -P @input.pedestal \
-        -i @input.raw -o @output.root
+        -i @input.raw -o @output.root -r @input.rundb
 
 # Pattern 3: summarize each MIP run without repeating its list.
 summary-{run}: convert-{run}
