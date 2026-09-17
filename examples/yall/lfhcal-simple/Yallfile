@@ -1,12 +1,18 @@
 campaign lfhcal-simple
 backend local
 
-# Raw TB2026 files live here.
+# Shared raw TB2026 input and the user's writable scratch work area.
 @env LFHCAL_DATA
+@env LFHCAL_WORK
+@env EIC_SHELL
 
-@set WORK ./work
+@set WORK {LFHCAL_WORK}/lfhcal-simple
 @set BUILD ../../../NewStructure/build
 @set TB2026_CONFIG ../../../configs/TB2026
+
+# Stay in the normal host shell. Each scientific payload enters eic-shell
+# through the same adapter used by the production Condor workflows.
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
 # Scientific configuration: pedestal / MIP run pairs, declared once.
 @table pairs ped mip:
@@ -24,13 +30,14 @@ prepare:
         {WORK}/plots/summary
 
 # Pattern 1: one conversion per unique run from either column.
+# Limit conversion too, so this remains a quick local smoke analysis.
 convert-{run}: prepare
     @each run in pairs.ped pairs.mip
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output root {WORK}/converted/rawHGCROC_{run}.root
-    {BUILD}/Convert -d 0 -w -c @input.raw \
+    {BUILD}/Convert -d 0 -L 1000 -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
 # Pattern 2: fit each unique pedestal, then apply it to its paired MIP runs.
