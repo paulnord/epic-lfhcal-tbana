@@ -4,15 +4,13 @@ backend local
 # Shared raw TB2026 input and the user's writable scratch work area.
 @env LFHCAL_DATA
 @env LFHCAL_WORK
-@env EIC_SHELL
 
 @set WORK {LFHCAL_WORK}/lfhcal-simple
 @set BUILD ../../../NewStructure/build
 @set TB2026_CONFIG ../../../configs/TB2026
 
-# Stay in the normal host shell. Each scientific payload enters eic-shell
-# through the same adapter used by the production Condor workflows.
-%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+# This local example is intentionally wrapper-free. Run yall-run from inside
+# eic-shell so Convert, DataPrep, HGCROCStudy and ROOT are already available.
 
 # Scientific configuration: pedestal / MIP run pairs, declared once.
 @table pairs ped mip:
