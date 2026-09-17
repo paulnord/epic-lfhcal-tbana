@@ -13,7 +13,7 @@ from unittest.mock import patch
 from yall_run.model import load_spec
 
 EXAMPLES = Path(__file__).resolve().parent
-EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 16}
+EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 10}
 RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
 
 
@@ -55,17 +55,20 @@ class SharedConversionTests(unittest.TestCase):
             self.assertEqual(tasks['convert-' + run].parents, ('prepare',))
         for ped in pedestals:
             self.assertEqual(tasks['pedestal-' + ped].parents, ('convert-' + ped,))
-        stage = 'calibration' if which == 'lfhcal-simple' else 'transfer'
-        self.assertEqual([n for n in tasks if n.startswith(stage + '-')],
-                         [f'{stage}-{p}-{m}' for p, m in pairs])
-        for ped, muon in pairs:
-            self.assertEqual(tasks[f'{stage}-{ped}-{muon}'].parents,
-                             (f'pedestal-{ped}', f'convert-{muon}'))
-            if which == 'lfhcal-simple':
-                self.assertEqual(tasks[f'summary-{muon}'].parents, (f'convert-{muon}',))
-            else:
+
+        if which == 'lfhcal-simple':
+            self.assertFalse(any(n.startswith('calibration-') for n in tasks))
+            self.assertFalse(any(n.startswith('summary-') for n in tasks))
+        else:
+            stage = 'transfer'
+            self.assertEqual([n for n in tasks if n.startswith(stage + '-')],
+                             [f'{stage}-{p}-{m}' for p, m in pairs])
+            for ped, muon in pairs:
+                self.assertEqual(tasks[f'{stage}-{ped}-{muon}'].parents,
+                                 (f'pedestal-{ped}', f'convert-{muon}'))
                 self.assertEqual(tasks[f'mip-{ped}-{muon}'].parents,
                                  (f'transfer-{ped}-{muon}',))
+
         # Every produced input has an upstream producer, never a hidden race.
         owners = {ref.path: t.name for t in tasks.values() for ref in t.outputs}
         def ancestors(name):
@@ -109,7 +112,7 @@ class SharedConversionTests(unittest.TestCase):
                 self.assertEqual(len(self.check_graph(which, text)), count - 1)
 
     def test_run_based_output_names_still_reject_multiple_calibrations_of_one_muon(self):
-        for which in EXPECTED:
+        for which in ('scan-set-1', 'scan-set-2'):
             with self.subTest(example=which):
                 text = (EXAMPLES / which / 'Yallfile').read_text()
                 match, rows = pair_rows(text)
@@ -118,9 +121,9 @@ class SharedConversionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'owned by both'):
                     self.load_text(text)
 
-    def test_dataprep_calibration_stages_pass_run_database(self):
+    def test_dataprep_stages_pass_run_database(self):
         cases = {
-            'lfhcal-simple': ('pedestal-296', 'calibration-296-298'),
+            'lfhcal-simple': ('pedestal-296',),
             'calibration-pair': ('pedestal', 'mip'),
         }
         for which, names in cases.items():

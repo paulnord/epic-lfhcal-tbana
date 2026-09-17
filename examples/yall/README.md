@@ -27,13 +27,19 @@ own scratch area too.
 ## Teaching examples
 
 `hgcroc-study` is a one-task local example. `calibration-pair` demonstrates two
-dependent tasks. `lfhcal-simple` demonstrates conversion, calibration and
-summaries using a table of pedestal/MIP pairs. These older local recipes have
-their own input assumptions and do not automatically acquire a container
-wrapper or switch to scratch output just by sourcing an environment file.
-Do not run them as heavy work on a login node. `hgcroc-study-condor` is a small
-batch example with a pre-existing converted input. For a fresh BNL installation,
-use the no-data EIC/Condor test in SETUP.md instead.
+calibration tasks using pre-existing ROOT inputs. `lfhcal-simple` is the bounded
+local smoke test: it converts three pedestal/MIP pairs and extracts the three
+pedestals with a 1000-event limit. It deliberately stops before MIP scaling and
+waveform-summary work because the bounded sample is not intended to populate
+those fits and histograms reliably. The pair table is retained so the smoke test
+still exercises shared conversion and dependency expansion.
+
+These older local recipes have their own input assumptions and do not
+automatically acquire a container wrapper or switch to scratch output just by
+sourcing an environment file. Do not run them as heavy work on a login node.
+`hgcroc-study-condor` is a small batch example with a pre-existing converted
+input. For a fresh BNL installation, use the no-data EIC/Condor test in SETUP.md
+instead.
 
 ## Runner version and graph checks
 
@@ -51,7 +57,7 @@ This checks graph expansion without ROOT, raw data or scheduler submission.
 Conversions visit the ordered union of pedestal and muon columns once each;
 shared pedestal runs do not produce duplicate output owners. Reusing the same
 muon run with different pedestal choices still requires separate work areas
-or explicitly pair-specific output paths.
+or explicitly pair-specific output paths in the production scan workflows.
 
 ## Execution boundary
 
