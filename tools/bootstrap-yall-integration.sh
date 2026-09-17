@@ -2,29 +2,43 @@
 set -euo pipefail
 
 # One-shot installer for the LFHCal yall-integration environment.
+# Run from a user-created workspace, for example:
+#   mkdir my_eic_work_with_LFHCAL && cd my_eic_work_with_LFHCAL
+#   curl -fsSL <bootstrap-url> | bash
 #
-# Default layout:
-#   ~/eic-2026/eic-shell
-#   ~/eic-2026/yall-run
-#   ~/eic-2026/epic-lfhcal-tbana
-#   ~/eic-2026/.venv-yall
-#   ~/eic-2026/data/TB2026
-#   ~/eic-2026/work
-#
-# Override the install root before invoking the script:
-#   LFHCAL_HOME=/path/to/eic-2026 bash bootstrap-yall-integration.sh
+# Everything goes directly in that directory: eic-shell, yall-run,
+# epic-lfhcal-tbana, .venv-yall, activation files, data/TB2026 and work.
+# An existing LFHCAL_HOME from an activated environment does not redirect
+# installation. To select another destination, use bash -s -- --prefix PATH.
 
-LFHCAL_HOME=${LFHCAL_HOME:-"$HOME/eic-2026"}
+install_root=$PWD
+while (($#)); do
+    case "$1" in
+        --prefix)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo "--prefix requires an installation directory." >&2
+                exit 2
+            fi
+            install_root=$2
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: bash bootstrap-yall-integration.sh [--prefix PATH]"
+            echo "Default destination: the current working directory."
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1 (use --help)." >&2
+            exit 2
+            ;;
+    esac
+done
+
 YALL_REPO_URL=${YALL_REPO_URL:-"https://github.com/paulnord/yall-run.git"}
 LFHCAL_REPO_URL=${LFHCAL_REPO_URL:-"https://github.com/paulnord/epic-lfhcal-tbana.git"}
 YALL_BRANCH=${YALL_BRANCH:-main}
 LFHCAL_BRANCH=${LFHCAL_BRANCH:-yall-integration}
 LFHCAL_BUILD_JOBS=${LFHCAL_BUILD_JOBS:-2}
-
-YALL_DIR="$LFHCAL_HOME/yall-run"
-LFHCAL_DIR="$LFHCAL_HOME/epic-lfhcal-tbana"
-VENV_DIR="$LFHCAL_HOME/.venv-yall"
-EIC_SHELL="$LFHCAL_HOME/eic-shell"
 
 say() {
     printf '\n==> %s\n' "$*"
@@ -57,7 +71,16 @@ need git
 need curl
 need python3
 
-mkdir -p "$LFHCAL_HOME"
+mkdir -p -- "$install_root"
+# Resolve once, before deriving paths or entering installer/build directories.
+# In particular, --prefix ./workspace must not become relative to eic-shell.
+LFHCAL_HOME=$(cd -- "$install_root" && pwd -P)
+YALL_DIR="$LFHCAL_HOME/yall-run"
+LFHCAL_DIR="$LFHCAL_HOME/epic-lfhcal-tbana"
+VENV_DIR="$LFHCAL_HOME/.venv-yall"
+EIC_SHELL="$LFHCAL_HOME/eic-shell"
+
+say "Installation root: $LFHCAL_HOME"
 
 if [[ ! -x "$EIC_SHELL" ]]; then
     say "Installing eic-shell"
@@ -80,6 +103,7 @@ fi
 
 update_checkout "$YALL_REPO_URL" "$YALL_BRANCH" "$YALL_DIR"
 update_checkout "$LFHCAL_REPO_URL" "$LFHCAL_BRANCH" "$LFHCAL_DIR"
+git -C "$LFHCAL_DIR" submodule update --init --recursive
 
 say "Installing yall-run in a host-side virtual environment"
 if [[ ! -x "$VENV_DIR/bin/python" ]]; then
@@ -97,7 +121,7 @@ say "Building LFHCal"
     cmake --build "$LFHCAL_DIR/NewStructure/build" -j"$LFHCAL_BUILD_JOBS"
 
 # Site storage is deliberately kept outside git. The first installation gets
-# safe home-directory defaults. Edit these two files once at a site such as
+# workspace-local defaults. Edit these two files once at a site such as
 # BNL or CERN to point at shared/scratch storage. Re-running this installer
 # preserves local edits. Explicit shell variables override the defaults.
 if [[ ! -f "$LFHCAL_HOME/site-env.sh" ]]; then
@@ -156,5 +180,6 @@ printf 'Install root: %s\n' "$LFHCAL_HOME"
 printf 'LFHCal:       %s (%s)\n' "$LFHCAL_DIR" "$LFHCAL_BRANCH"
 printf 'yall-run:     %s (%s)\n' "$YALL_DIR" "$YALL_BRANCH"
 printf 'eic-shell:    %s\n' "$EIC_SHELL"
-printf '\nFor tcsh:\n  source %s/activate.tcsh\n' "$LFHCAL_HOME"
-printf 'Then enter an example and source its env.tcsh before running yall-run.\n'
+printf '\nFor bash:\n  source "%s/activate.sh"\n' "$LFHCAL_HOME"
+printf '\nFor tcsh:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
+printf 'Then enter an example and source its env.sh or env.tcsh before running yall-run.\n'
