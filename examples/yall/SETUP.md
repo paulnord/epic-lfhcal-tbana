@@ -1,29 +1,41 @@
-# One-command yall-integration setup
+# BNL yall-integration setup
+
+Run this from your **normal BNL login/submit shell**, outside `eic-shell` or a
+Python virtual environment. It uses the Python and Condor already provided by
+BNL. ROOT and the LFHCal build tools come from `eic-shell`.
 
 Choose a workspace, enter it, and run the installer. **The current directory
 is the installation root**; no extra `eic-2026` directory is added.
 
-```bash
+```tcsh
 mkdir my_eic_work_with_LFHCAL
 cd my_eic_work_with_LFHCAL
 curl -fsSL https://raw.githubusercontent.com/paulnord/epic-lfhcal-tbana/yall-integration/tools/bootstrap-yall-integration.sh | bash
 ```
 
-These three commands also work from a tcsh terminal: the installer itself runs
-under bash. To inspect the script before executing it, download it with
-`curl -fsSL -o bootstrap-yall-integration.sh` followed by the same URL, review
-it, and run `bash bootstrap-yall-integration.sh` from the chosen workspace.
+These commands also work from bash. The installer runs as a bash subprocess;
+it does not replace your login shell or enter an interactive container.
+To inspect it first, download the same URL with `curl -fsSL -o
+bootstrap-yall-integration.sh`, review it, and run
+`bash bootstrap-yall-integration.sh` from the workspace.
 
 The bootstrap script:
 
 - installs `eic-shell` using the official `https://get.epic-eic.org` installer;
 - clones or updates `paulnord/yall-run` on `main`;
-- installs `yall-run` into the workspace's `.venv-yall`;
-- clones or updates `paulnord/epic-lfhcal-tbana` on `yall-integration`, including submodules;
+- installs it with `python3 -m pip install --user -e <workspace>/yall-run`;
+- clones or updates LFHCal on `yall-integration`, including submodules;
 - configures and builds `NewStructure` inside `eic-shell`;
-- checks for the `Convert` and `DataPrep` executables;
-- writes bash and tcsh activation files; and
-- creates default raw-data and work directories.
+- checks `Convert`, `DataPrep`, ROOT and the host-side runner; and
+- writes bash/tcsh environment files and creates data/work directories.
+
+There is **no virtual environment**, Python installation, Condor installation,
+or pip upgrade. The editable user installation points to the `yall-run` source
+in this workspace. Its command normally lives in `~/.local/bin`; the generated
+environment files add the actual Python user-bin directory to `PATH`.
+This is one user installation for that host Python, not a separate runner per
+workspace: installing from another checkout switches the user installation to
+that checkout.
 
 The resulting layout is:
 
@@ -32,7 +44,6 @@ my_eic_work_with_LFHCAL/
     eic-shell
     yall-run/
     epic-lfhcal-tbana/
-    .venv-yall/
     activate.sh
     activate.tcsh
     site-env.sh
@@ -42,70 +53,41 @@ my_eic_work_with_LFHCAL/
 ```
 
 The official EIC installer may create additional environment files/directories
-under this root. Raw test-beam data are not automatically downloaded, and no
-campaigns are created or submitted by the bootstrap.
+under this root. Raw data are not automatically downloaded, and no campaigns
+are created or submitted by the bootstrap.
 
-To install somewhere other than the current directory, explicitly pass a
-prefix (this syntax also works from tcsh):
+To select a destination explicitly instead of the current folder:
 
-```bash
+```tcsh
 curl -fsSL https://raw.githubusercontent.com/paulnord/epic-lfhcal-tbana/yall-integration/tools/bootstrap-yall-integration.sh \
   | bash -s -- --prefix /path/to/my_eic_work_with_LFHCAL
 ```
 
-Relative prefixes are resolved against the directory in which the installer
-starts. `LFHCAL_HOME` is set by activation; it no longer selects the installer
-destination. Thus an older active environment cannot silently redirect a new
-installation to its directory. This replaces the former `LFHCAL_HOME=... bash`
-installer override.
+Relative prefixes are resolved against the installer's starting directory.
+An inherited `LFHCAL_HOME` does not redirect installation.
 
-## Site storage
+## Data and work directories
 
-The installer creates `site-env.sh` and `site-env.tcsh` in the workspace and
-does not overwrite them on later runs. Edit the file for the shell you use
-(or both files when using both shells).
-
-Their defaults are:
+Edit `site-env.tcsh` (or `site-env.sh` for bash) in the workspace to choose your
+storage paths. The installer preserves these files on later runs. Defaults:
 
 ```text
 LFHCAL_DATA=<workspace>/data/TB2026
 LFHCAL_WORK=<workspace>/work
 ```
 
-`LFHCAL_DATA` is the directory into which raw `Run<run>.h2g` files are imported.
-`LFHCAL_WORK` is the common writable root for campaign products. Explicit
-storage environment variables override the generated defaults. On a batch
-site, use shared storage visible to worker nodes for the installation,
-campaign records and products; the raw-data directory must also be visible.
+`LFHCAL_DATA` holds imported raw `Run<run>.h2g` files. `LFHCAL_WORK` is the
+common root for analysis products. Each production Yallfile appends its own
+example name, so do not also append that name to the common work root.
+Explicit storage environment variables override the generated defaults.
 
-## Fresh terminal
+For batch work, choose shared storage visible to the worker nodes for the
+installation, raw data, work area and campaign records. Set your own permitted
+BNL storage paths, not another user's STAR/GPFS directory.
 
-From your workspace, for tcsh:
+## Fresh terminal and example setup
 
-```tcsh
-source ./activate.tcsh
-```
-
-For bash:
-
-```bash
-source ./activate.sh
-```
-
-Or source the activation file by its full path from another directory.
-Activation sets `LFHCAL_HOME`, `LFHCAL_REPO`, `YALL_RUN_REPO`, `EIC_SHELL`, puts
-the host-side yall virtual environment on `PATH`, and loads the site storage
-configuration. It does not change your current directory.
-
-## Example environments
-
-Each LFHCal Yall example has `env.tcsh` and `env.sh`. Enter the example
-directory and source the matching file. It finds the installation in the
-checkout's parent directory, activates it, prepares the data and example work
-directories, and prints the effective paths. There is no fixed home-directory
-assumption, and you do not need to source the top-level activation first.
-
-From your workspace, on tcsh:
+From the workspace, enter the example and source its environment file:
 
 ```tcsh
 cd epic-lfhcal-tbana/examples/yall/fullset-f2-repro
@@ -114,32 +96,41 @@ yall-run validate
 yall-run plan
 ```
 
-The corresponding bash form is:
+For bash, use `source env.sh` instead. The example discovers the installation
+in the checkout's parent directory, loads its environment, prepares the example
+work directory and prints the paths. No top-level activation is required first.
 
-```bash
-cd epic-lfhcal-tbana/examples/yall/fullset-f2-repro
-source env.sh
-yall-run validate
-yall-run plan
+**Stay in the normal login shell to create, start and inspect Condor campaigns.**
+The Condor Yallfile wraps the scientific commands in `eic-shell` automatically;
+Python, Yall and Condor remain on the host.
+
+The top-level `activate.tcsh` and `activate.sh` are simply path/storage setup
+scripts, not virtual-environment activation. They can also be sourced directly:
+
+```tcsh
+source /path/to/my_eic_work_with_LFHCAL/activate.tcsh
 ```
 
-For a checkout located outside the installed workspace, set `LFHCAL_HOME` to
-an existing installation before sourcing the example environment. A local
-workspace activation file takes precedence over that fallback.
+They set `LFHCAL_HOME`, `LFHCAL_REPO`, `YALL_RUN_REPO`, `EIC_SHELL` and the
+storage variables, add the user-bin directory to `PATH`, and do not change the
+current directory. The tcsh version also runs `rehash`.
 
-The production Yallfiles use the common `LFHCAL_WORK` root and append their own
-named subdirectories, for example `<workspace>/work/fullset-f2-repro`. Choose a
-fresh work root when rerunning a production analysis; a new campaign ID alone
-does not make its output paths unique.
+For a checkout outside the workspace, set `LFHCAL_HOME` to an existing
+installation before sourcing the example environment. A local workspace
+activation file takes precedence over that fallback.
 
-## Updating an existing installation
+## Updating
 
-Enter the existing workspace before rerunning the installer, or use
-`--prefix` with that workspace's path. For an existing `~/eic-2026` installation,
-that means `cd ~/eic-2026` first. Existing site configuration files are retained;
-this change does not relocate earlier data, products, or campaigns. Avoid
-updating or rebuilding the shared checkout while jobs are using it.
+Enter the existing workspace before rerunning the installer, or use `--prefix`.
+Existing site files and products are retained. Avoid updating or rebuilding the
+shared checkout while jobs are using it. Use a fresh work root for a new
+production analysis; a new campaign ID alone does not make output paths unique.
+
+When replacing an earlier virtual-environment-based installation, rerun from a
+fresh normal BNL terminal. The installer rewrites the activation files for the
+user installation but does not delete the old `.venv-yall` directory or alter
+already-created campaigns.
 
 Installation paths are recorded as absolute paths in generated files and build
-products. Choosing a custom directory is supported; moving an already installed
-workspace or frozen campaign is not made safe by this change.
+products. Moving an already installed workspace or frozen campaign is not
+supported by these setup scripts.
