@@ -1,19 +1,23 @@
 campaign lfhcal-calibration-pair
 backend local
 
+@set TB2026_CONFIG ../../../configs/TB2026
+
 pedestal:
     @input raw pedestal-input.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output calibrated pedestal-calibrated.root
     %cpus 1
     %memory 4GB
     ../../../NewStructure/build/DataPrep -p -L 1000 \
-        -i @input.raw -o @output.calibrated
+        -i @input.raw -o @output.calibrated -r @input.rundb
 
 mip: pedestal
     @input raw mip-input.root
     @input pedestal pedestal-calibrated.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output calibrated mip-calibrated.root
     %cpus 1
     %memory 4GB
     ../../../NewStructure/build/DataPrep -s -L 1000 \
-        -P @input.pedestal -i @input.raw -o @output.calibrated
+        -P @input.pedestal -i @input.raw -o @output.calibrated -r @input.rundb
