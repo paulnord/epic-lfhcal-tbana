@@ -4,7 +4,9 @@ set -euo pipefail
 # BNL setup, launched from the normal tcsh login/submit session.
 # Bash executes this installer and the EIC wrapper; it is not a second
 # interactive environment. Condor stays on the host. yall-run is installed
-# only for the host Python used to create and submit campaigns.
+# for the host Python used to create and submit queued campaigns; the
+# wrapper-free local LFHCal example runs the checked-out Yall source directly
+# with the EIC Python.
 # Software is installed in the current folder (or --prefix PATH).
 
 install_root=$PWD
@@ -151,6 +153,9 @@ say "Building LFHCal"
 say "Smoke tests (no batch jobs submitted)"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" root-config --version
 "$YALL_USER_BIN/yall-run" --help >/dev/null
+# Exercise the same source-checkout setup used interactively by lfhcal-simple.
+"$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
+    /bin/bash -lc "cd '$LFHCAL_DIR/examples/yall/lfhcal-simple' && source ./env-eic.sh >/dev/null && yall-run --version"
 test -x "$LFHCAL_DIR/NewStructure/build/Convert"
 test -x "$LFHCAL_DIR/NewStructure/build/DataPrep"
 if [[ -f "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" ]]; then
@@ -161,5 +166,6 @@ say "Ready"
 printf 'Install root: %s\n' "$LFHCAL_HOME"
 printf 'Host command: %s/yall-run\n' "$YALL_USER_BIN"
 printf '\nIn your normal tcsh session:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
-printf 'Run Condor examples such as scan-set-1 from the host session.\n'
+printf 'For lfhcal-simple, enter eic-shell and source env-eic.sh; it runs Yall directly from the checkout.\n'
+printf 'Return to the host for Condor examples such as scan-set-1.\n'
 printf 'Instructions: %s/examples/yall/SETUP.md\n' "$LFHCAL_DIR"

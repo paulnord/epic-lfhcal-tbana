@@ -33,11 +33,12 @@ $EIC_SHELL
 source ./env-eic.sh
 ```
 
-That restores the LFHCal/Yall paths inside the container, sets the same BNL data/work defaults used by the host setup, adds the EIC Python user-bin directory to `PATH`, creates the user's scratch work directories, and verifies that `yall-run` is visible.
+That restores the LFHCal/Yall paths inside the container, sets the same BNL data/work defaults used by the host setup, and exposes the checked-out `yall-run` source directly to the EIC Python through `PYTHONPATH`. It defines a `yall-run` shell function that executes `python3 -m yall_run.cli`, so no second pip installation is needed inside `eic-shell`. A `git pull` of the shared Yall checkout is immediately visible to local-mode runs.
 
 Then run:
 
 ```bash
+yall-run --version
 yall-run validate
 yall-run plan
 C=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j4)
