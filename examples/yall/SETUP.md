@@ -74,7 +74,7 @@ create or write your work directory stops setup rather than falling back to
 someone else's directory. Do not append `scan-set-1` to `LFHCAL_WORK` itself:
 the Yallfile already adds it.
 
-## 1. Small host and container checks
+## 1. Preflight checks
 
 After installation, from the software workspace:
 
@@ -91,13 +91,55 @@ python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 All should succeed. The graph test uses no raw data and submits nothing.
 `activate.tcsh` sets paths and storage variables, not a virtual environment.
 
-## 2. Small Condor test, with no test-beam data
+Before using the LFHCal workflows, it is worth spending a few minutes with the
+[yall-run Quick start](https://github.com/paulnord/yall-run/blob/main/docs/QUICKSTART.md).
+It explains the `validate -> plan -> create -> start -> status` lifecycle and
+the distinction between a reusable Yallfile and a frozen campaign.
 
-Use the existing three-task EIC smoke test before starting an analysis:
+## 2. Small local Yall test: calculate e
+
+The [`e` example](https://github.com/paulnord/yall-run/tree/main/examples/e) is
+a good local test because its Yallfile is deliberately `backend local`, needs
+only the host Python, and exercises a nontrivial dependency graph: eight
+independent exact partial sums followed by a balanced reduction tree and a
+final numerical check. It is more useful here than merely printing `hello`.
+
+```tcsh
+cd "$YALL_RUN_REPO/examples/e"
+yall-run validate
+yall-run plan
+set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 4`
+echo "$C"
+yall-run start "$C"
+yall-run status "$C"
+cat e-work/e.txt
+```
+
+The final value should be approximately `2.718281828459045`. This test does not
+use Condor, ROOT, `eic-shell`, or LFHCal data. It establishes that Yall itself,
+its local backend, dependencies, campaign records, and host Python are working.
+
+The example protects its declared outputs. If you intentionally rerun this
+local smoke test, remove its tiny test output first with `rm -rf e-work`, then
+create a new campaign.
+
+The `pi` example is also a useful map/fan-in demonstration, but it declares
+Condor as its default backend and uses a deliberately slow numerical series.
+The `e` reduction-tree example is the cleaner first local check.
+
+Use **`set C = ...`**, not `setenv C`, for campaign handles in tcsh.
+
+## 3. Small Condor + EIC test, with no test-beam data
+
+Next use Yall's purpose-built
+[`eic-shell` example](https://github.com/paulnord/yall-run/tree/main/examples/eic-shell).
+It tests the part the local `e` example intentionally does not: DAGMan,
+execution on batch nodes, and the EIC payload wrapper.
 
 ```tcsh
 cd "$YALL_RUN_REPO/examples/eic-shell"
 yall-run validate
+yall-run plan
 set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns"`
 echo "$C"
 yall-run start "$C"
@@ -107,11 +149,13 @@ yall-run status "$C"
 It checks ROOT and Python inside the EIC environment on batch nodes, then runs
 a final dependency check. Wait for all three tasks to complete before moving
 on. Repeat `yall-run status "$C"` to inspect progress. This tests the scheduler
-and container path, not the physics calibration.
+and container path, not the physics calibration, and downloads no test-beam
+data.
 
-Use **`set C = ...`**, not `setenv C`, for the campaign handle in tcsh.
+## 4. Scan set 1
 
-## 3. Scan set 1
+Only after both small Yall tests work, move on to the first LFHCal production
+workflow:
 
 ```tcsh
 cd "$LFHCAL_REPO/examples/yall/scan-set-1"
@@ -149,9 +193,9 @@ by this BNL startup sequence.
 
 ## Fresh terminal or existing installation
 
-In a fresh terminal, enter an example directory and `source env.tcsh`.
+In a fresh terminal, enter an LFHCal example directory and `source env.tcsh`.
 It locates and sources the workspace's `activate.tcsh` automatically.
-For the generic Yall smoke test, source the top-level `activate.tcsh` first.
+For the generic Yall examples, source the top-level `activate.tcsh` first.
 
 To update, rerun the installer from the software workspace (or use
 `bash -s -- --prefix /path/to/workspace` after curl). Do not rebuild or update
