@@ -2,6 +2,7 @@ campaign lfhcal-hgcroc-study-condor
 backend condor
 
 @env EIC_SHELL
+@set TB2026_CONFIG ../../../configs/TB2026
 %cpus 1
 %memory 4GB
 %disk 4GB
@@ -12,7 +13,8 @@ backend condor
 
 study:
     @input raw input.root
-    @output root hgcroc-study-condor.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output hists hgcroc-study-condor_Hists.root
     @output plots hgcroc-study-condor-plots
     ../../../NewStructure/build/HGCROCStudy -d 1 -L 1000 -w \
-        -i @input.raw -o @output.root -O @output.plots
+        -i @input.raw -o hgcroc-study-condor.root -O @output.plots -r @input.rundb
