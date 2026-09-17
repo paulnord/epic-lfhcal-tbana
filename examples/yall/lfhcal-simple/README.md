@@ -15,7 +15,7 @@ This Yallfile demonstrates three common workflow patterns without trying to desc
 
 The `pairs` table is the single source of run numbers. `@each run in pairs.ped pairs.mip` creates one conversion per unique run, even when a pedestal is shared. Pedestal fitting waits only for its own conversion; each calibration waits for its pedestal fit and MIP conversion. Summaries wait only for their own conversion. There is no all-conversions barrier. The default example has 16 tasks.
 
-This example is also the recommended **first LFHCal integration test at BNL**. It runs with Yall's local backend from the normal login shell, while each LFHCal payload is wrapped in `eic-shell`. It therefore checks the actual LFHCal executables, shared raw data, the EIC environment, Yall dependencies, and scratch output before involving Condor.
+This is the recommended first LFHCal integration test at BNL. It is intentionally **wrapper-free**. Run `yall-run` from inside `eic-shell`, as the original local example was designed. The later Condor examples instead run Yall on the host and wrap only the scientific payload.
 
 ## Setup
 
@@ -27,26 +27,24 @@ LFHCAL_WORK=/gpfs01/star/scratch/<your-login-name>/lfhcal
 EIC_SHELL=<your workspace>/eic-shell
 ```
 
-From this directory:
+From the normal BNL tcsh session:
 
 ```tcsh
+cd "$LFHCAL_REPO/examples/yall/lfhcal-simple"
 source env.tcsh
+$EIC_SHELL
+```
+
+The bootstrap installs the same editable `yall-run` checkout for the host Python and for the Python inside `eic-shell`. Inside the EIC environment:
+
+```bash
+yall-run --help
 yall-run validate
 yall-run plan
+yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 4 | yall-run start
 ```
 
-The campaign uses the local backend. Stay in the normal BNL shell; do not enter `eic-shell` interactively. The Yallfile applies the same payload wrapper used by the production Condor workflows.
-
-To run up to four dependency-ready tasks at once:
-
-```tcsh
-set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 4`
-echo "$C"
-yall-run start "$C"
-yall-run status "$C"
-```
-
-Use `set C = ...`, not `setenv C`, for the campaign handle in tcsh.
+This is a local Yall campaign. No Condor jobs are submitted.
 
 ## Why it stays small
 
@@ -58,12 +56,12 @@ The three pedestal/MIP pairs are:
 303 / 304
 ```
 
-`Convert`, `DataPrep`, and `HGCROCStudy` are all limited to the first 1000 events. The outputs go under:
+`Convert`, `DataPrep`, and `HGCROCStudy` are all limited to the first 1000 events. Outputs go under:
 
 ```text
 $LFHCAL_WORK/lfhcal-simple/
 ```
 
-This is deliberately not a production calibration. Its purpose is to establish that the real LFHCal software stack works end-to-end locally before testing the batch system.
+This is deliberately not a production calibration. Its purpose is to establish that the real LFHCal software stack works end-to-end inside the EIC environment before testing the batch system.
 
-After this succeeds, run the small Condor/EIC smoke test described in [../SETUP.md](../SETUP.md), then move on to `scan-set-1`.
+When it succeeds, leave `eic-shell` and return to the normal BNL login shell. Then run the small Condor/EIC smoke test described in [../SETUP.md](../SETUP.md), followed by `scan-set-1`.
