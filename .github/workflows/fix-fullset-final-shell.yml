@@ -1,0 +1,48 @@
+name: Fix FullSet final shell commands
+
+on:
+  push:
+    branches:
+      - yall-integration
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: yall-integration
+          fetch-depth: 0
+      - name: Mark compound final commands as shell commands
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path('examples/yall/fullset-f1-repro/Yallfile'),
+              Path('examples/yall/fullset-f2-repro/Yallfile'),
+          ]
+          for path in paths:
+              text = path.read_text()
+              old = '    /bin/mkdir -p {LFHCAL_WORK}/fullset-'
+              new = '    ! /bin/mkdir -p {LFHCAL_WORK}/fullset-'
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected exactly one final compound command, found {text.count(old)}')
+              path.write_text(text.replace(old, new, 1))
+          PY
+          grep -A7 '^final-f1:' examples/yall/fullset-f1-repro/Yallfile
+          grep -A7 '^final-f2:' examples/yall/fullset-f2-repro/Yallfile
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/fix-fullset-final-shell.yml
+          git add examples/yall/fullset-f1-repro/Yallfile examples/yall/fullset-f2-repro/Yallfile
+          git diff --check --cached
+          git commit -m 'Run FullSet final copy steps through the shell'
+          git push origin HEAD:yall-integration
