@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-shot installer for the LFHCal yall-integration environment.
+# BNL setup using the login environment's Python and Condor.
+# Run outside eic-shell; only the LFHCal build and payloads use the container.
 # Run from a user-created workspace, for example:
 #   mkdir my_eic_work_with_LFHCAL && cd my_eic_work_with_LFHCAL
 #   curl -fsSL <bootstrap-url> | bash
 #
-# Everything goes directly in that directory: eic-shell, yall-run,
-# epic-lfhcal-tbana, .venv-yall, activation files, data/TB2026 and work.
+# Sources, eic-shell, activation files, data/TB2026 and work go here.
+# yall-run is installed with pip --user -e using the provided host Python.
 # An existing LFHCAL_HOME from an activated environment does not redirect
 # installation. To select another destination, use bash -s -- --prefix PATH.
 
@@ -77,7 +78,6 @@ mkdir -p -- "$install_root"
 LFHCAL_HOME=$(cd -- "$install_root" && pwd -P)
 YALL_DIR="$LFHCAL_HOME/yall-run"
 LFHCAL_DIR="$LFHCAL_HOME/epic-lfhcal-tbana"
-VENV_DIR="$LFHCAL_HOME/.venv-yall"
 EIC_SHELL="$LFHCAL_HOME/eic-shell"
 
 say "Installation root: $LFHCAL_HOME"
@@ -105,12 +105,9 @@ update_checkout "$YALL_REPO_URL" "$YALL_BRANCH" "$YALL_DIR"
 update_checkout "$LFHCAL_REPO_URL" "$LFHCAL_BRANCH" "$LFHCAL_DIR"
 git -C "$LFHCAL_DIR" submodule update --init --recursive
 
-say "Installing yall-run in a host-side virtual environment"
-if [[ ! -x "$VENV_DIR/bin/python" ]]; then
-    python3 -m venv "$VENV_DIR"
-fi
-"$VENV_DIR/bin/python" -m pip install --upgrade pip
-"$VENV_DIR/bin/python" -m pip install -e "$YALL_DIR"
+say "Installing yall-run for this user with the host Python"
+python3 -m pip install --user -e "$YALL_DIR"
+YALL_USER_BIN="$(python3 -m site --user-base)/bin"
 
 say "Configuring LFHCal inside eic-shell"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
@@ -146,7 +143,7 @@ export LFHCAL_HOME="${LFHCAL_HOME}"
 export LFHCAL_REPO="${LFHCAL_DIR}"
 export YALL_RUN_REPO="${YALL_DIR}"
 export EIC_SHELL="${EIC_SHELL}"
-export PATH="${VENV_DIR}/bin:\$PATH"
+export PATH="${YALL_USER_BIN}:\$PATH"
 source "${LFHCAL_HOME}/site-env.sh"
 mkdir -p "\$LFHCAL_DATA" "\$LFHCAL_WORK" "\$LFHCAL_WORK/campaigns"
 EOF
@@ -157,7 +154,8 @@ setenv LFHCAL_HOME "${LFHCAL_HOME}"
 setenv LFHCAL_REPO "${LFHCAL_DIR}"
 setenv YALL_RUN_REPO "${YALL_DIR}"
 setenv EIC_SHELL "${EIC_SHELL}"
-setenv PATH "${VENV_DIR}/bin:\$PATH"
+setenv PATH "${YALL_USER_BIN}:\$PATH"
+rehash
 source "${LFHCAL_HOME}/site-env.tcsh"
 mkdir -p "\$LFHCAL_DATA" "\$LFHCAL_WORK" "\$LFHCAL_WORK/campaigns"
 EOF
@@ -166,19 +164,20 @@ mkdir -p "$LFHCAL_HOME/data/TB2026" "$LFHCAL_HOME/work/campaigns"
 
 say "Smoke tests"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" root-config --version
-"$VENV_DIR/bin/yall-run" --help >/dev/null
+"$YALL_USER_BIN/yall-run" --help >/dev/null
 
 test -x "$LFHCAL_DIR/NewStructure/build/Convert"
 test -x "$LFHCAL_DIR/NewStructure/build/DataPrep"
 
 if [[ -f "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" ]]; then
-    "$VENV_DIR/bin/python" "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" -v
+    python3 "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" -v
 fi
 
 say "Ready"
 printf 'Install root: %s\n' "$LFHCAL_HOME"
 printf 'LFHCal:       %s (%s)\n' "$LFHCAL_DIR" "$LFHCAL_BRANCH"
 printf 'yall-run:     %s (%s)\n' "$YALL_DIR" "$YALL_BRANCH"
+printf 'Command:      %s/yall-run\n' "$YALL_USER_BIN"
 printf 'eic-shell:    %s\n' "$EIC_SHELL"
 printf '\nFor bash:\n  source "%s/activate.sh"\n' "$LFHCAL_HOME"
 printf '\nFor tcsh:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
