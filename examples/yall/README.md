@@ -2,7 +2,33 @@
 
 These examples show how to run existing LFHCal executables with `yall-run` without adding provenance code to the C++ applications.
 
-The Condor examples require **yall-run with `%time` support**, introduced in [yall-run PR #19](https://github.com/paulnord/yall-run/pull/19), in addition to the wrapper-argument support introduced in 0.9.0. An older 0.9.0 checkout without that feature is not sufficient. Update yall-run before validating or creating these workflows; while PR #19 is unmerged, use its `feat/portable-wall-time` branch.
+`lfhcal-simple`, `scan-set-1`, and `scan-set-2` require **combined named-source
+`@each` support** from [yall-run PR #26](https://github.com/paulnord/yall-run/pull/26).
+Use its `feat/each-source-union` branch until merged, then current `main`.
+PR #25 provides named lists/tables but does not by itself accept two sources
+after `in`. Do not rely on the 0.9.0 version string: update the runner before
+validating or creating these workflows. The Condor workflows additionally use
+the already-merged payload-wrapper and `%time` features.
+
+```tcsh
+cd ~/eic-2026/yall-run
+git fetch origin
+git switch feat/each-source-union
+git pull --ff-only
+```
+
+Each of these examples declares its calibration pairs once in `@table pairs`.
+A single conversion family visits the ordered union of both columns and
+converts each run once. Pedestal fits use unique pedestal values; transfers
+wait for their specific pedestal fit and muon conversion. Shared pedestals
+are supported without duplicate output owners. Output names remain run-based,
+so using multiple pedestal choices for the *same muon run* still requires
+separate work areas or explicitly pair-specific output paths.
+
+These refactors rename tasks and remove the introductory `converted` barrier.
+Use a **new campaign and fresh work area**, not an amendment to an old campaign.
+Existing workers, manifests, products and queued jobs are not modified. No C++
+recompilation is required by this Yallfile-only change.
 
 ## Where to start
 
@@ -10,7 +36,7 @@ The examples are intentionally arranged from small teaching examples to full pro
 
 * `hgcroc-study/`: one task. The smallest LFHCal example.
 * `calibration-pair/`: two dependent tasks.
-* `lfhcal-simple/`: the recommended introductory workflow. It converts a list of raw runs, creates calibrations from a list of pedestal/MIP pairs, and creates summaries from another list of runs.
+* `lfhcal-simple/`: the recommended introductory workflow. It converts unique runs from a pedestal/MIP table, fits each pedestal once, and creates calibrations and summaries from the same table.
 * `hgcroc-study-condor/`: a small example using the Condor backend.
 * `scan-set-1/` and `scan-set-2/`: advanced production examples with a larger DAG and finer-grained dependencies.
 
@@ -23,7 +49,7 @@ For the TB2026 HGCROC parameter study, production analysis is split by scan set:
 * `scan-set-1/Yallfile`: runs 296-310, using `ToAOffsets_TBSPS2026_ParamScan_1.csv`.
 * `scan-set-2/Yallfile`: runs 328-361, using `ToAOffsets_TBSPS2026_ParamScan_2.csv`.
 
-Each production Yallfile contains its own explicit pedestal/MIP pairs. Cross-scan waveform comparisons are intentionally separate downstream work.
+Each production Yallfile contains one top-level table of pedestal/MIP pairs. Cross-scan waveform comparisons are intentionally separate downstream work.
 
 These scan-set examples are useful demonstrations of a real analysis, but they are not intended to be the first introduction to Yall syntax.
 

@@ -17,6 +17,14 @@ backend condor
 %getenv true
 %wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
+# Scientific configuration: pedestal / muon run pairs, declared once.
+@table pairs ped run:
+    296 298
+    299 300
+    303 304
+    307 308
+    309 310
+
 prepare:
     /bin/mkdir -p \
         {LFHCAL_WORK}/scan-set-1/converted \
@@ -38,20 +46,9 @@ prepare:
         {LFHCAL_WORK}/scan-set-1/plots/calibrated \
         {LFHCAL_WORK}/scan-set-1/plots/waveform
 
-# Convert pedestal and muon runs as separate task families so each calibration
-# chain can start as soon as the files it actually needs are ready.
-convert-ped-{ped}: prepare
-    @each ped 296 299 303 307 309
-    @input raw {LFHCAL_DATA}/Run{ped}.h2g
-    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
-    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/scan-set-1/converted/rawHGCROC_{ped}.root
-    %memory 2GB
-    {BUILD}/Convert -d 0 -w -c @input.raw \
-        -o @output.root -m @input.mapping -r @input.rundb
-
-convert-muon-{run}: prepare
-    @each run 298 300 304 308 310
+# Convert every unique run once; dependencies below remain per run/pair.
+convert-{run}: prepare
+    @each run in pairs.ped pairs.run
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
@@ -60,13 +57,8 @@ convert-muon-{run}: prepare
     {BUILD}/Convert -d 0 -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
-pedestal-{ped}-{run}: convert-ped-{ped}
-    @each ped run: \
-        296 298 \
-        299 300 \
-        303 304 \
-        307 308 \
-        309 310
+pedestal-{ped}: convert-{ped}
+    @each ped in pairs.ped
     @input raw {LFHCAL_WORK}/scan-set-1/converted/rawHGCROC_{ped}.root
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
     @output root {LFHCAL_WORK}/scan-set-1/pedestal/rawHGCROC_wPed_{ped}.root
@@ -76,7 +68,8 @@ pedestal-{ped}-{run}: convert-ped-{ped}
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-{ped}-{run}: pedestal-{ped}-{run} convert-muon-{run}
+transfer-{ped}-{run}: pedestal-{ped} convert-{run}
+    @each ped run in pairs
     @input pedestal {LFHCAL_WORK}/scan-set-1/pedestal/rawHGCROC_wPed_{ped}.root
     @input raw {LFHCAL_WORK}/scan-set-1/converted/rawHGCROC_{run}.root
     @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
