@@ -3,9 +3,8 @@ set -euo pipefail
 
 # BNL setup, launched from the normal tcsh login/submit session.
 # Bash executes this installer and the EIC wrapper; it is not a second
-# interactive environment. Condor stays on the host. The wrapper-free local
-# LFHCal example is run from inside eic-shell, so yall-run is installed for
-# both the host Python and the Python in eic-shell.
+# interactive environment. Condor stays on the host. yall-run is installed
+# only for the host Python used to create and submit campaigns.
 # Software is installed in the current folder (or --prefix PATH).
 
 install_root=$PWD
@@ -142,10 +141,6 @@ git -C "$LFHCAL_DIR" submodule update --init --recursive
 say "Installing yall-run for this user with the host Python"
 python3 -m pip install --user -e "$YALL_DIR"
 
-say "Installing yall-run for local tests inside eic-shell"
-"$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
-    python3 -m pip install --user -e "$YALL_DIR"
-
 say "Configuring LFHCal inside eic-shell"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
     cmake -S "$LFHCAL_DIR/NewStructure" -B "$LFHCAL_DIR/NewStructure/build"
@@ -156,9 +151,6 @@ say "Building LFHCal"
 say "Smoke tests (no batch jobs submitted)"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" root-config --version
 "$YALL_USER_BIN/yall-run" --help >/dev/null
-# Exercise the same bash environment setup used by lfhcal-simple inside eic-shell.
-"$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
-    /bin/bash -lc "cd '$LFHCAL_DIR/examples/yall/lfhcal-simple' && source ./env-eic.sh >/dev/null && yall-run --help >/dev/null"
 test -x "$LFHCAL_DIR/NewStructure/build/Convert"
 test -x "$LFHCAL_DIR/NewStructure/build/DataPrep"
 if [[ -f "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" ]]; then
@@ -169,6 +161,5 @@ say "Ready"
 printf 'Install root: %s\n' "$LFHCAL_HOME"
 printf 'Host command: %s/yall-run\n' "$YALL_USER_BIN"
 printf '\nIn your normal tcsh session:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
-printf 'For lfhcal-simple, enter eic-shell and source env-eic.sh before running yall-run.\n'
-printf 'Return to the host for the Condor smoke test and scan-set-1.\n'
+printf 'Run Condor examples such as scan-set-1 from the host session.\n'
 printf 'Instructions: %s/examples/yall/SETUP.md\n' "$LFHCAL_DIR"
