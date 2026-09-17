@@ -1,11 +1,14 @@
 campaign lfhcal-hgcroc-study
 backend local
 
+@set TB2026_CONFIG ../../../configs/TB2026
+
 study:
     @input raw input.root
-    @output root hgcroc-study.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output hists hgcroc-study_Hists.root
     @output plots hgcroc-study-plots
     %cpus 1
     %memory 4GB
     ../../../NewStructure/build/HGCROCStudy -d 1 -L 1000 -w \
-        -i @input.raw -o @output.root -O @output.plots
+        -i @input.raw -o hgcroc-study.root -O @output.plots -r @input.rundb
