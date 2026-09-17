@@ -2,6 +2,11 @@
 
 Start here for the LFHCal examples.
 
+If Yall is new to you, first skim the
+[yall-run Quick start](https://github.com/paulnord/yall-run/blob/main/docs/QUICKSTART.md).
+It introduces the `validate -> plan -> create -> start -> status` lifecycle used
+below.
+
 This Yallfile demonstrates three common workflow patterns without trying to describe a full production analysis:
 
 1. Convert every unique run from a top-level pedestal/MIP table.
