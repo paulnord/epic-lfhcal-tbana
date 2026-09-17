@@ -16,7 +16,7 @@ The current folder is the install root. The installer installs `eic-shell`, clon
 
 Yall is installed editably for both the host Python and the Python inside `eic-shell`. That lets the local LFHCal example run Yall directly inside the EIC environment, while Condor submission still uses the host installation. There is no virtual environment, Python/Condor installation or pip upgrade.
 
-Bash in the one-line installer is just the interpreter for that script. It returns to the same tcsh prompt. The setup files you source are tcsh only:
+The normal host-side setup is tcsh:
 
 ```text
 my_eic_work_with_LFHCAL/
@@ -27,7 +27,7 @@ my_eic_work_with_LFHCAL/
     site-env.tcsh
 ```
 
-The EIC installer may create additional files under this software workspace. Yall's command is in the Python user-bin directory, usually `~/.local/bin`. `activate.tcsh` adds it to the host PATH and arranges for the same directory to be prepended to PATH when entering the EIC Apptainer/Singularity environment.
+`eic-shell` itself is bash. The `lfhcal-simple` example therefore includes one separate `env-eic.sh` file specifically for the interactive EIC shell. It is not a second host setup path.
 
 ## Storage: shared input, personal scratch output
 
@@ -50,7 +50,7 @@ The login name comes from `id -un`. Setup runs `mkdir -p` on the work tree, incl
 
 Software stays in the chosen workspace. Analysis products and campaign records go to the user's scratch area. Paul's PWG directory is input only. Setup does not write there, create directories there, or change permissions there.
 
-`site-env.tcsh` is the local file to edit for different storage paths. Existing settings are retained on reinstalls. Do not append an example name to `LFHCAL_WORK`; the Yallfiles add their own subdirectories.
+`site-env.tcsh` is the local host-side file to edit for different storage paths. If it is sourced before entering `eic-shell`, those environment values are inherited; otherwise `env-eic.sh` uses the same BNL defaults directly. Do not append an example name to `LFHCAL_WORK`; the Yallfiles add their own subdirectories.
 
 ## 1. Preflight checks and Yall quick start
 
@@ -85,18 +85,27 @@ end
 $EIC_SHELL
 ```
 
-Now inside `eic-shell`:
+Now inside `eic-shell` (bash):
 
 ```bash
-yall-run --help
+source ./env-eic.sh
+which yall-run
 yall-run validate
 yall-run plan
-yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 4 | yall-run start
+C=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j4)
+yall-run start "$C"
+yall-run status "$C"
 ```
 
-This submits no Condor jobs. The three pedestal/MIP pairs are `296/298`, `299/300`, and `303/304`. `Convert`, `DataPrep`, and `HGCROCStudy` are limited to the first 1000 events. Results go under `$LFHCAL_WORK/lfhcal-simple`.
+`env-eic.sh` sets the LFHCal/Yall paths, storage paths, EIC Python user-bin PATH, and scratch directories inside the container. This submits no Condor jobs. The three pedestal/MIP pairs are `296/298`, `299/300`, and `303/304`. `Convert`, `DataPrep`, and `HGCROCStudy` are limited to the first 1000 events. Results go under `$LFHCAL_WORK/lfhcal-simple`.
 
-When it succeeds, leave `eic-shell` and return to the normal BNL login shell.
+When it succeeds:
+
+```bash
+exit
+```
+
+returns to the normal BNL tcsh login shell.
 
 ## 3. Small Condor + EIC test
 
@@ -147,4 +156,4 @@ FullSet F1/F2 remain later reproduction exercises, not onboarding tests. `lfhcal
 
 Rerun the installer from the software workspace, or use `bash -s -- --prefix /path/to/workspace` after curl. Existing `site-env.tcsh`, data, and campaigns are preserved. Do not update or rebuild the shared checkout while jobs are using it.
 
-Earlier generated `activate.sh` / `site-env.sh` files are no longer used or regenerated. The `.sh` installer and EIC execution adapter remain implementation scripts, not a second interactive setup path for the user.
+Earlier generated `activate.sh` / `site-env.sh` files are no longer used or regenerated. The `.sh` installer and EIC execution adapter are implementation scripts; `lfhcal-simple/env-eic.sh` is the one user-facing bash setup because `eic-shell` itself is bash.
