@@ -4,11 +4,13 @@ Start here for the LFHCal examples.
 
 This Yallfile demonstrates three common workflow patterns without trying to describe a full production analysis:
 
-1. Convert a list of raw runs.
-2. Create calibrations from a list of pedestal/MIP pairs.
-3. Create summaries from another list of runs.
+1. Convert every unique run from a top-level pedestal/MIP table.
+2. Fit each pedestal once and calibrate the correlated pairs.
+3. Create summaries from the MIP column, without repeating the run list.
 
-The example deliberately uses a simple `converted` barrier. It waits for all raw conversions before starting the calibration and summary tasks. The production scan-set examples use finer-grained dependencies for more parallelism.
+The `pairs` table is the single source of run numbers. `@each run in pairs.ped pairs.mip` creates one conversion per unique run, even when a pedestal is shared. Pedestal fitting waits only for its own conversion; each calibration waits for its pedestal fit and MIP conversion. Summaries wait only for their own conversion. There is no all-conversions barrier. The default example has 16 tasks.
+
+Use a yall-run checkout with combined named-source support from PR #26 (`feat/each-source-union` until merged); PR #25 alone supports only one source after `in`. See the parent README for runner setup. Existing frozen campaigns are unaffected.
 
 ## Setup
 
