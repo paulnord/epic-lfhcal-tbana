@@ -56,7 +56,6 @@ update_checkout() {
 need git
 need curl
 need python3
-need cmake
 
 mkdir -p "$LFHCAL_HOME"
 
@@ -100,20 +99,20 @@ say "Building LFHCal"
 # Site storage is deliberately kept outside git. The first installation gets
 # safe home-directory defaults. Edit these two files once at a site such as
 # BNL or CERN to point at shared/scratch storage. Re-running this installer
-# preserves local edits.
+# preserves local edits. Explicit shell variables override the defaults.
 if [[ ! -f "$LFHCAL_HOME/site-env.sh" ]]; then
     cat > "$LFHCAL_HOME/site-env.sh" <<EOF
 # Site-specific LFHCal storage. Edit these paths for this host/site.
-export LFHCAL_DATA="${LFHCAL_HOME}/data/TB2026"
-export LFHCAL_WORK="${LFHCAL_HOME}/work"
+export LFHCAL_DATA="\${LFHCAL_DATA:-${LFHCAL_HOME}/data/TB2026}"
+export LFHCAL_WORK="\${LFHCAL_WORK:-${LFHCAL_HOME}/work}"
 EOF
 fi
 
 if [[ ! -f "$LFHCAL_HOME/site-env.tcsh" ]]; then
     cat > "$LFHCAL_HOME/site-env.tcsh" <<EOF
 # Site-specific LFHCal storage. Edit these paths for this host/site.
-setenv LFHCAL_DATA "${LFHCAL_HOME}/data/TB2026"
-setenv LFHCAL_WORK "${LFHCAL_HOME}/work"
+if (! \$?LFHCAL_DATA) setenv LFHCAL_DATA "${LFHCAL_HOME}/data/TB2026"
+if (! \$?LFHCAL_WORK) setenv LFHCAL_WORK "${LFHCAL_HOME}/work"
 EOF
 fi
 
