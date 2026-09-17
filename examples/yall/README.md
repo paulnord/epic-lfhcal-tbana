@@ -3,19 +3,33 @@
 These examples show how to run existing LFHCal executables with `yall-run` without adding provenance code to the C++ applications.
 
 `lfhcal-simple`, `scan-set-1`, and `scan-set-2` require **combined named-source
-`@each` support** from [yall-run PR #26](https://github.com/paulnord/yall-run/pull/26).
-Use its `feat/each-source-union` branch until merged, then current `main`.
-PR #25 provides named lists/tables but does not by itself accept two sources
-after `in`. Do not rely on the 0.9.0 version string: update the runner before
-validating or creating these workflows. The Condor workflows additionally use
-the already-merged payload-wrapper and `%time` features.
+`@each` support**, merged in [yall-run PR #26](https://github.com/paulnord/yall-run/pull/26)
+as `a690f2551edb21e099aa2adf4b2b077d12c6a787`. Use current `main` containing
+that commit; no feature branch is needed. PR #25 provides named lists/tables
+but does not by itself accept two sources after `in`. Do not rely on the
+0.9.0 version string: update the runner before validating or creating these
+workflows. The Condor workflows additionally use the already-merged
+payload-wrapper and `%time` features.
+
+Update both checkouts on the BNL host:
 
 ```tcsh
 cd ~/eic-2026/yall-run
-git fetch origin
-git switch feat/each-source-union
+git switch main
 git pull --ff-only
+
+cd ~/eic-2026/epic-lfhcal-tbana
+git switch yall-integration
+git pull --ff-only
+
+python3 examples/yall/check_shared_conversions.py -v
 ```
+
+Run these commands in the host Python environment where `yall-run` is
+installed. An editable installation follows the checkout; a non-editable
+installation must be updated in that same environment. The graph checker
+uses temporary test settings and needs no ROOT, raw data, container, or
+scheduler. It does not submit jobs or change existing campaigns.
 
 Each of these examples declares its calibration pairs once in `@table pairs`.
 A single conversion family visits the ordered union of both columns and
