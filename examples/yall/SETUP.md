@@ -54,6 +54,7 @@ exist**. Example setup creates that example's subdirectory. For scan-set-1:
 /gpfs01/star/scratch/<your-login-name>/
     lfhcal/
         campaigns/
+        lfhcal-simple/
         scan-set-1/
 ```
 
@@ -71,8 +72,8 @@ or to any additional computing allocation.
 Existing settings are retained on reinstalls; previously set `LFHCAL_DATA` and
 `LFHCAL_WORK` also take precedence over the generated defaults. A failure to
 create or write your work directory stops setup rather than falling back to
-someone else's directory. Do not append `scan-set-1` to `LFHCAL_WORK` itself:
-the Yallfile already adds it.
+someone else's directory. Do not append an example name to `LFHCAL_WORK`
+itself: the Yallfiles add their own subdirectories.
 
 ## 1. Preflight checks
 
@@ -91,41 +92,35 @@ python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 All should succeed. The graph test uses no raw data and submits nothing.
 `activate.tcsh` sets paths and storage variables, not a virtual environment.
 
-Before using the LFHCal workflows, it is worth spending a few minutes with the
+Before using the LFHCal workflows, spend a few minutes with the
 [yall-run Quick start](https://github.com/paulnord/yall-run/blob/main/docs/QUICKSTART.md).
 It explains the `validate -> plan -> create -> start -> status` lifecycle and
 the distinction between a reusable Yallfile and a frozen campaign.
 
-## 2. Small local Yall test: calculate e
+## 2. Small local LFHCal test
 
-The [`e` example](https://github.com/paulnord/yall-run/tree/main/examples/e) is
-a good local test because its Yallfile is deliberately `backend local`, needs
-only the host Python, and exercises a nontrivial dependency graph: eight
-independent exact partial sums followed by a balanced reduction tree and a
-final numerical check. It is more useful here than merely printing `hello`.
+Start with [`lfhcal-simple`](./lfhcal-simple/README.md). It is the first real
+LFHCal integration test: Yall uses its local backend, while each scientific
+payload runs through `eic-shell`. The workflow uses three pedestal/MIP pairs
+and limits `Convert`, `DataPrep`, and `HGCROCStudy` to the first 1000 events.
 
 ```tcsh
-cd "$YALL_RUN_REPO/examples/e"
+cd "$LFHCAL_REPO/examples/yall/lfhcal-simple"
+source env.tcsh
+foreach r (296 298 299 300 303 304)
+    ls -lh "$LFHCAL_DATA/Run${r}.h2g"
+end
 yall-run validate
 yall-run plan
 set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 4`
 echo "$C"
 yall-run start "$C"
 yall-run status "$C"
-cat e-work/e.txt
 ```
 
-The final value should be approximately `2.718281828459045`. This test does not
-use Condor, ROOT, `eic-shell`, or LFHCal data. It establishes that Yall itself,
-its local backend, dependencies, campaign records, and host Python are working.
-
-The example protects its declared outputs. If you intentionally rerun this
-local smoke test, remove its tiny test output first with `rm -rf e-work`, then
-create a new campaign.
-
-The `pi` example is also a useful map/fan-in demonstration, but it declares
-Condor as its default backend and uses a deliberately slow numerical series.
-The `e` reduction-tree example is the cleaner first local check.
+This exercises the actual LFHCal executables, EIC environment, shared data,
+Yall dependencies, and user scratch output without involving Condor. Results
+go under `$LFHCAL_WORK/lfhcal-simple`.
 
 Use **`set C = ...`**, not `setenv C`, for campaign handles in tcsh.
 
@@ -133,8 +128,8 @@ Use **`set C = ...`**, not `setenv C`, for campaign handles in tcsh.
 
 Next use Yall's purpose-built
 [`eic-shell` example](https://github.com/paulnord/yall-run/tree/main/examples/eic-shell).
-It tests the part the local `e` example intentionally does not: DAGMan,
-execution on batch nodes, and the EIC payload wrapper.
+This isolates the part the local LFHCal test does not exercise: DAGMan and
+execution on batch nodes.
 
 ```tcsh
 cd "$YALL_RUN_REPO/examples/eic-shell"
@@ -154,8 +149,8 @@ data.
 
 ## 4. Scan set 1
 
-Only after both small Yall tests work, move on to the first LFHCal production
-workflow:
+Only after the local LFHCal test and the small Condor test work, move on to the
+first LFHCal production workflow:
 
 ```tcsh
 cd "$LFHCAL_REPO/examples/yall/scan-set-1"
@@ -186,16 +181,16 @@ Results go under `$LFHCAL_WORK/scan-set-1`; campaign records and logs go under
 output directories. Choose a fresh `LFHCAL_WORK` for a rerun. A new campaign ID
 does not make output paths unique.
 
-FullSet F1/F2 are later reproduction exercises, not the onboarding test. The
-older `lfhcal-simple`, `calibration-pair` and `hgcroc-study` recipes are teaching
-examples with their own input/local-execution assumptions; they are not used
-by this BNL startup sequence.
+FullSet F1/F2 are later reproduction exercises, not the onboarding test.
+`calibration-pair` and `hgcroc-study` remain teaching examples, while
+`lfhcal-simple` is the recommended first LFHCal workflow.
 
 ## Fresh terminal or existing installation
 
 In a fresh terminal, enter an LFHCal example directory and `source env.tcsh`.
 It locates and sources the workspace's `activate.tcsh` automatically.
-For the generic Yall examples, source the top-level `activate.tcsh` first.
+For the generic Yall `eic-shell` smoke test, source the top-level
+`activate.tcsh` first.
 
 To update, rerun the installer from the software workspace (or use
 `bash -s -- --prefix /path/to/workspace` after curl). Do not rebuild or update
