@@ -167,5 +167,5 @@ final-f1: refine5-f1
     @input calib {LFHCAL_WORK}/fullset-f1-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetF_1_calib.txt
     @output root {LFHCAL_WORK}/fullset-f1-repro/final/calib_Final_Muon_FullSetF_1.root
     @output calib {LFHCAL_WORK}/fullset-f1-repro/final/calib_Final_Muon_FullSetF_1_calib.txt
-    /bin/mkdir -p {LFHCAL_WORK}/fullset-f1-repro/final && \
+    ! /bin/mkdir -p {LFHCAL_WORK}/fullset-f1-repro/final && \
         /bin/cp @input.root @output.root && /bin/cp @input.calib @output.calib
