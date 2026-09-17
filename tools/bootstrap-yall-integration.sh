@@ -89,10 +89,6 @@ setenv LFHCAL_REPO "${LFHCAL_DIR}"
 setenv YALL_RUN_REPO "${YALL_DIR}"
 setenv EIC_SHELL "${EIC_SHELL}"
 setenv PATH "${YALL_USER_BIN}:\$PATH"
-# Make the same user-bin directory visible on PATH when entering the EIC
-# Apptainer/Singularity environment interactively.
-setenv APPTAINERENV_PREPEND_PATH "${YALL_USER_BIN}"
-setenv SINGULARITYENV_PREPEND_PATH "${YALL_USER_BIN}"
 rehash
 source "${LFHCAL_HOME}/site-env.tcsh"
 if (\$status == 0) then
@@ -160,8 +156,9 @@ say "Building LFHCal"
 say "Smoke tests (no batch jobs submitted)"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" root-config --version
 "$YALL_USER_BIN/yall-run" --help >/dev/null
+# Exercise the same bash environment setup used by lfhcal-simple inside eic-shell.
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
-    "$YALL_USER_BIN/yall-run" --help >/dev/null
+    /bin/bash -lc "cd '$LFHCAL_DIR/examples/yall/lfhcal-simple' && source ./env-eic.sh >/dev/null && yall-run --help >/dev/null"
 test -x "$LFHCAL_DIR/NewStructure/build/Convert"
 test -x "$LFHCAL_DIR/NewStructure/build/DataPrep"
 if [[ -f "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" ]]; then
@@ -170,7 +167,8 @@ fi
 
 say "Ready"
 printf 'Install root: %s\n' "$LFHCAL_HOME"
-printf 'Command:      %s/yall-run\n' "$YALL_USER_BIN"
+printf 'Host command: %s/yall-run\n' "$YALL_USER_BIN"
 printf '\nIn your normal tcsh session:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
-printf 'Then run lfhcal-simple inside eic-shell, return to the host for the Condor smoke test, then run scan-set-1.\n'
+printf 'For lfhcal-simple, enter eic-shell and source env-eic.sh before running yall-run.\n'
+printf 'Return to the host for the Condor smoke test and scan-set-1.\n'
 printf 'Instructions: %s/examples/yall/SETUP.md\n' "$LFHCAL_DIR"
