@@ -14,6 +14,7 @@ from yall_run.model import load_spec
 
 EXAMPLES = Path(__file__).resolve().parent
 EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 16}
+RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
 
 
 def pair_rows(text):
@@ -116,6 +117,24 @@ class SharedConversionTests(unittest.TestCase):
                 text = text[:match.start(2)] + ''.join(f'    {p} {m}\n' for p, m in rows) + text[match.end(2):]
                 with self.assertRaisesRegex(ValueError, 'owned by both'):
                     self.load_text(text)
+
+    def test_dataprep_calibration_stages_pass_run_database(self):
+        cases = {
+            'lfhcal-simple': ('pedestal-296', 'calibration-296-298'),
+            'calibration-pair': ('pedestal', 'mip'),
+        }
+        for which, names in cases.items():
+            with self.subTest(example=which):
+                text = (EXAMPLES / which / 'Yallfile').read_text()
+                tasks = self.load_text(text)
+                for name in names:
+                    task = tasks[name]
+                    command = task.command if isinstance(task.command, str) else ' '.join(task.command)
+                    self.assertRegex(command, r'(?:^|\s)-r\s+', (which, name, command))
+                    self.assertTrue(
+                        any(Path(ref.path).name == RUNDB_NAME for ref in task.inputs),
+                        (which, name),
+                    )
 
 
 if __name__ == '__main__':
