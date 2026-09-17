@@ -3,7 +3,9 @@ set -euo pipefail
 
 # BNL setup, launched from the normal tcsh login/submit session.
 # Bash executes this installer and the EIC wrapper; it is not a second
-# interactive environment. Python, yall-run and Condor stay on the host.
+# interactive environment. Condor stays on the host. The wrapper-free local
+# LFHCal example is run from inside eic-shell, so yall-run is installed for
+# both the host Python and the Python in eic-shell.
 # Software is installed in the current folder (or --prefix PATH).
 
 install_root=$PWD
@@ -87,6 +89,10 @@ setenv LFHCAL_REPO "${LFHCAL_DIR}"
 setenv YALL_RUN_REPO "${YALL_DIR}"
 setenv EIC_SHELL "${EIC_SHELL}"
 setenv PATH "${YALL_USER_BIN}:\$PATH"
+# Make the same user-bin directory visible on PATH when entering the EIC
+# Apptainer/Singularity environment interactively.
+setenv APPTAINERENV_PREPEND_PATH "${YALL_USER_BIN}"
+setenv SINGULARITYENV_PREPEND_PATH "${YALL_USER_BIN}"
 rehash
 source "${LFHCAL_HOME}/site-env.tcsh"
 if (\$status == 0) then
@@ -140,6 +146,10 @@ git -C "$LFHCAL_DIR" submodule update --init --recursive
 say "Installing yall-run for this user with the host Python"
 python3 -m pip install --user -e "$YALL_DIR"
 
+say "Installing yall-run for local tests inside eic-shell"
+"$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
+    python3 -m pip install --user -e "$YALL_DIR"
+
 say "Configuring LFHCal inside eic-shell"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
     cmake -S "$LFHCAL_DIR/NewStructure" -B "$LFHCAL_DIR/NewStructure/build"
@@ -150,6 +160,8 @@ say "Building LFHCal"
 say "Smoke tests (no batch jobs submitted)"
 "$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" root-config --version
 "$YALL_USER_BIN/yall-run" --help >/dev/null
+"$LFHCAL_DIR/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
+    "$YALL_USER_BIN/yall-run" --help >/dev/null
 test -x "$LFHCAL_DIR/NewStructure/build/Convert"
 test -x "$LFHCAL_DIR/NewStructure/build/DataPrep"
 if [[ -f "$LFHCAL_DIR/examples/yall/check_shared_conversions.py" ]]; then
@@ -160,5 +172,5 @@ say "Ready"
 printf 'Install root: %s\n' "$LFHCAL_HOME"
 printf 'Command:      %s/yall-run\n' "$YALL_USER_BIN"
 printf '\nIn your normal tcsh session:\n  source "%s/activate.tcsh"\n' "$LFHCAL_HOME"
-printf 'Start with the small EIC/Condor checks, then scan-set-1.\n'
+printf 'Then run lfhcal-simple inside eic-shell, return to the host for the Condor smoke test, then run scan-set-1.\n'
 printf 'Instructions: %s/examples/yall/SETUP.md\n' "$LFHCAL_DIR"
