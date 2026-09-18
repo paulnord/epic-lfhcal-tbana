@@ -150,7 +150,7 @@ yall-run status "$C"
 
 Results go under `$LFHCAL_WORK/scan-set-1`; campaign records and logs go under `$LFHCAL_WORK/campaigns`. Do not start a second campaign targeting the same output directories. Choose a fresh `LFHCAL_WORK` for a rerun.
 
-FullSet F1/F2 remain later reproduction exercises, not onboarding tests. `lfhcal-simple` is the recommended first LFHCal workflow.
+The FullSet F1/F2/G1 workflows remain later reproduction exercises, not onboarding tests. `lfhcal-simple` is the recommended first LFHCal workflow.
 
 ## Updating
 

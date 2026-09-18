@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Check Yallfile graph structure without ROOT, raw data, or a scheduler.
 
-Run with a yall-run checkout supporting multiple named @each sources.
+Run with a yall-run checkout containing yall-run PR #33's partial ``@each``
+binding support (merged as 1081e9dd39418262588248272618130ce0503b8a).
 """
 from pathlib import Path
 import os
@@ -14,6 +15,16 @@ from yall_run.model import load_spec
 
 EXAMPLES = Path(__file__).resolve().parent
 EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 10}
+FULLSET_EXPECTED = {
+    'fullset-f1-repro': 18,
+    'fullset-f2-repro': 19,
+    'fullset-g1-repro': 20,
+}
+FULLSET_SUFFIX = {
+    'fullset-f1-repro': 'f1',
+    'fullset-f2-repro': 'f2',
+    'fullset-g1-repro': 'g1',
+}
 RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
 
 
@@ -22,6 +33,13 @@ def pair_rows(text):
     if match is None:
         raise AssertionError('missing top-level pairs table')
     return match, [tuple(line.split()) for line in match[2].splitlines()]
+
+
+def run_rows(text):
+    match = re.search(r'^@table runs type run:\n((?:[ \t]+[^\n]*\n)+)', text, re.M)
+    if match is None:
+        raise AssertionError('missing top-level typed runs table')
+    return match, [tuple(line.split()) for line in match[1].splitlines()]
 
 
 class SharedConversionTests(unittest.TestCase):
@@ -87,11 +105,84 @@ class SharedConversionTests(unittest.TestCase):
                     self.assertIn(owners[ref.path], upstream, (task.name, ref.path))
         return tasks
 
+    def check_fullset_graph(self, which, text):
+        _, rows = run_rows(text)
+        tasks = self.load_text(text)
+        pedestal_runs = [run for run_type, run in rows if run_type == 'pedestal']
+        muon_runs = [run for run_type, run in rows if run_type == 'muon']
+        self.assertEqual(len(pedestal_runs), 1, (which, rows))
+        self.assertTrue(muon_runs, (which, rows))
+
+        conversions = [f'convert-{run_type}-{run}' for run_type, run in rows]
+        self.assertEqual([name for name in tasks if name.startswith('convert-')],
+                         conversions)
+        for name in conversions:
+            self.assertEqual(tasks[name].parents, ('prepare',), (which, name))
+
+        muon_parents = tuple(f'convert-muon-{run}' for run in muon_runs)
+        self.assertEqual(tasks['merge-muon'].parents, muon_parents)
+        merge_inputs = tuple(Path(ref.path).name for ref in tasks['merge-muon'].inputs)
+        self.assertEqual(merge_inputs,
+                         tuple(f'rawHGCROC_{run}.root' for run in muon_runs))
+        self.assertNotIn(
+            f'rawHGCROC_{pedestal_runs[0]}.root',
+            merge_inputs,
+            (which, 'pedestal conversion leaked into merge-muon'),
+        )
+
+        pedestal_run = pedestal_runs[0]
+        pedestal_name = f'pedestal-{pedestal_run}'
+        self.assertEqual(tasks[pedestal_name].parents,
+                         (f'convert-pedestal-{pedestal_run}',))
+        self.assertTrue(any(
+            Path(ref.path).name == f'rawHGCROC_{pedestal_run}.root'
+            for ref in tasks[pedestal_name].inputs
+        ))
+
+        transfer = tasks[f'transfer-{FULLSET_SUFFIX[which]}']
+        self.assertEqual(transfer.parents,
+                         ('merge-muon', pedestal_name))
+        pedestal_outputs = {ref.path for ref in tasks[pedestal_name].outputs}
+        transfer_inputs = {ref.path for ref in transfer.inputs}
+        self.assertEqual(len(pedestal_outputs & transfer_inputs), 1,
+                         (which, pedestal_outputs, transfer_inputs))
+        return tasks
+
     def test_default_graphs(self):
         for which, count in EXPECTED.items():
             with self.subTest(example=which):
                 text = (EXAMPLES / which / 'Yallfile').read_text()
                 self.assertEqual(len(self.check_graph(which, text)), count)
+
+    def test_fullset_graphs(self):
+        for which, count in FULLSET_EXPECTED.items():
+            with self.subTest(example=which):
+                text = (EXAMPLES / which / 'Yallfile').read_text()
+                self.assertEqual(len(self.check_fullset_graph(which, text)), count)
+
+    def test_fullset_pedestal_dependencies_follow_run_table(self):
+        for which, count in FULLSET_EXPECTED.items():
+            with self.subTest(example=which):
+                text = (EXAMPLES / which / 'Yallfile').read_text()
+                match, rows = run_rows(text)
+                old_run = next(run for run_type, run in rows
+                               if run_type == 'pedestal')
+                new_run = str(int(old_run) + 1000)
+                changed_rows = [
+                    (run_type, new_run if run_type == 'pedestal' else run)
+                    for run_type, run in rows
+                ]
+                replacement = ''.join(
+                    f'    {run_type:<8} {run}\n'
+                    for run_type, run in changed_rows
+                )
+                text = text[:match.start(1)] + replacement + text[match.end(1):]
+                tasks = self.check_fullset_graph(which, text)
+                self.assertEqual(len(tasks), count)
+                self.assertIn(f'convert-pedestal-{new_run}', tasks)
+                self.assertIn(f'pedestal-{new_run}', tasks)
+                self.assertNotIn(f'convert-pedestal-{old_run}', tasks)
+                self.assertNotIn(f'pedestal-{old_run}', tasks)
 
     def test_shared_pedestal_is_converted_and_fitted_once(self):
         for which, count in EXPECTED.items():

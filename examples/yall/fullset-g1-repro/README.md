@@ -35,6 +35,23 @@ The published reference calibration is:
 calibrations/TB2026/calib_SPS-H2_FullSetG_1.txt
 ```
 
+## Run table and dependencies
+
+The Yallfile declares the eight runs once in a typed
+`@table runs type run:` table. One `convert-{type}-{run}` family converts every
+row. `merge-muon` binds `type=muon`, restricting both its patterned parent
+fan-in and `@input.parts` to runs `484` and `486`–`491`; pedestal run `485`
+cannot leak into the merge.
+
+The `{type}-{run}` pedestal family uses `@each type pedestal`. That explicitly
+binds only `type`; the compatible `convert-{type}-{run}` parent supplies the
+remaining `run=485`, producing `pedestal-485`. `transfer-g1` depends on the
+patterned pedestal family, so changing the pedestal row makes the conversion,
+pedestal task, and transfer dependency follow it automatically.
+
+This partial-binding syntax requires yall-run PR #33, merged as commit
+`1081e9dd39418262588248272618130ce0503b8a`.
+
 ## Run at BNL
 
 Use the normal BNL `tcsh` login/submit session:
@@ -66,8 +83,3 @@ The final products are:
 $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1.root
 $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1_calib.txt
 ```
-
-The run configuration is declared once near the top of the Yallfile in a single
-typed `@table runs type run:` declaration. A single `convert-{type}-{run}` task
-family handles every raw run. The `merge-muon` and pedestal tasks bind the
-appropriate `type`, so their fan-in follows the table automatically.

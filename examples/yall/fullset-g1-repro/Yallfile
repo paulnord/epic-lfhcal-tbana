@@ -95,7 +95,8 @@ merge-{type}: convert-{type}-{run}
     @output root {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
     hadd -f @output.root @input.parts
 
-pedestal-{type}: convert-{type}-{run}
+# Bind type here; run is inherited from the compatible conversion row.
+{type}-{run}: convert-{type}-{run}
     @each type pedestal
     @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{run}.root
     @input rundb {RUNDB}
@@ -106,7 +107,8 @@ pedestal-{type}: convert-{type}-{run}
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-g1: merge-muon pedestal-pedestal
+# The patterned pedestal parent keeps this dependency tied to the run table.
+transfer-g1: merge-muon {type}-{run}
     @input pedestal {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed.root
     @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
     @input bad {BAD_CHANNELS}

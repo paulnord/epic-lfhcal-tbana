@@ -29,6 +29,16 @@ backend condor
 @set BUILD ../../../NewStructure/build
 @set TB2026_CONFIG ../../../configs/TB2026
 
+# Scientific run configuration lives here.
+@table runs type run:
+    pedestal 471
+    muon     472
+    muon     475
+    muon     476
+    muon     479
+    muon     480
+    muon     483
+
 %cpus 1
 %memory 4GB
 %disk 8GB
@@ -58,8 +68,8 @@ prepare:
         {LFHCAL_WORK}/fullset-f2-repro/plots/refine4 \
         {LFHCAL_WORK}/fullset-f2-repro/plots/refine5
 
-convert-{run}: prepare
-    @each run 471 472 475 476 479 480 483
+convert-{type}-{run}: prepare
+    @each type run in runs
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
@@ -68,29 +78,28 @@ convert-{run}: prepare
     {BUILD}/Convert -d 0 -f -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
-merge-muons: convert-472 convert-475 convert-476 convert-479 convert-480 convert-483
-    @input r472 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_472.root
-    @input r475 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_475.root
-    @input r476 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_476.root
-    @input r479 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_479.root
-    @input r480 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_480.root
-    @input r483 {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_483.root
+# Bind type=muon so the parent and input fan-in follow only the muon rows.
+merge-{type}: convert-{type}-{run}
+    @each type muon
+    @input parts {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_{run}.root
     @output root {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_Muon_FullSetF_2.root
-    hadd -f @output.root \
-        @input.r472 @input.r475 @input.r476 @input.r479 @input.r480 @input.r483
+    hadd -f @output.root @input.parts
 
-pedestal-471: convert-471
-    @input raw {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_471.root
+# Bind type here; run is inherited from the compatible conversion row.
+{type}-{run}: convert-{type}-{run}
+    @each type pedestal
+    @input raw {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_{run}.root
     @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
-    @output root {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_471.root
-    @output calib {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_471_calib.txt
-    @output hists {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_471_Hists.root
-    @output plots {LFHCAL_WORK}/fullset-f2-repro/plots/pedestal/Run471
+    @output root {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}.root
+    @output calib {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}_calib.txt
+    @output hists {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}_Hists.root
+    @output plots {LFHCAL_WORK}/fullset-f2-repro/plots/pedestal/Run{run}
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-f2: merge-muons pedestal-471
-    @input pedestal {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_471.root
+# The patterned pedestal parent keeps this dependency tied to the run table.
+transfer-f2: merge-muon {type}-{run}
+    @input pedestal {LFHCAL_WORK}/fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}.root
     @input raw {LFHCAL_WORK}/fullset-f2-repro/converted/rawHGCROC_Muon_FullSetF_2.root
     @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_FullSetA-F.txt
     @input toa {TB2026_CONFIG}/ToAOffsets_TBSPS2026_FullSetF.csv

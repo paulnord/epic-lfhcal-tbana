@@ -31,6 +31,23 @@ The Yallfile also uses the TB2026 mapping and run database, the FullSetA-F bad
 channel map, and the published FullSetF ToA offsets. The ToA offsets are not
 rederived by this workflow.
 
+## Run table and dependencies
+
+The Yallfile declares the seven runs once in a typed
+`@table runs type run:` table. One `convert-{type}-{run}` family converts every
+row. `merge-muon` binds `type=muon`, restricting both its patterned parent
+fan-in and `@input.parts` to runs `472`, `475`, `476`, `479`, `480`, and `483`;
+pedestal run `471` cannot leak into the merge.
+
+The `{type}-{run}` pedestal family uses `@each type pedestal`. That explicitly
+binds only `type`; the compatible `convert-{type}-{run}` parent supplies the
+remaining `run=471`, producing `pedestal-471`. `transfer-f2` depends on the
+patterned pedestal family, so changing the pedestal row makes the conversion,
+pedestal task, and transfer dependency follow it automatically.
+
+This partial-binding syntax requires yall-run PR #33, merged as commit
+`1081e9dd39418262588248272618130ce0503b8a`.
+
 ## Run at BNL
 
 Use the normal BNL `tcsh` login/submit session. Yall and Condor run on the host;
