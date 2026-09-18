@@ -1,0 +1,195 @@
+campaign lfhcal-tb2026-fullset-g1-repro
+backend condor
+
+# Reproduce Fredi's SPS H2 FullSetG_1 calibration chain from raw data.
+# Source recipe:
+#   NewStructure/convertDataHGCROC_TBSPSH2_2026.sh
+#   NewStructure/runHGCROCCalibration_TBSPSH2_2026.sh
+#   NewStructure/helperCalibHGCROC.sh
+#   NewStructure/stripCalib_TBSPSH2_2026.sh
+#
+# FullSetG_1 uses pedestal run 485 and muon runs
+# 484, 486, 487, 488, 489, 490, and 491 merged as Muon_FullSetG_1.
+#
+# Unlike FullSet F, Set G uses the V1 summing-board mapping together with the
+# FullSetG bad-channel map and FullSetG ToA offsets.
+#
+# Fredi's published reference calibration is:
+#   ../../../calibrations/TB2026/calib_SPS-H2_FullSetG_1.txt
+#
+# The ToA offsets are consumed from the published FullSetG file. This workflow
+# does not rederive them from hadron run 498.
+#
+# fixSetup is intentionally omitted: it repairs already-converted files after
+# mapping changes. This workflow converts fresh from raw using the current map.
+
+@env LFHCAL_DATA
+@env LFHCAL_WORK
+@env EIC_SHELL
+
+@set BUILD ../../../NewStructure/build
+@set TB2026_CONFIG ../../../configs/TB2026
+@set WORK fullset-g1-repro
+@set SET FullSetG_1
+@set MAPPING ../../../configs/TB2026/mapping_HGCROC_SPSH2TB_sumV1_default.csv
+@set BAD_CHANNELS ../../../configs/TB2026/badChannel_HGCROC_SPSTB2026_FullSetG.txt
+@set TOA ../../../configs/TB2026/ToAOffsets_TBSPS2026_FullSetG.csv
+@set RUNDB ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+
+# Scientific run configuration lives here.
+@list pedestal_runs 485
+@list muon_runs 484 486 487 488 489 490 491
+
+%cpus 1
+%memory 4GB
+%disk 8GB
+%time 2h
+%getenv true
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+
+prepare:
+    /bin/mkdir -p \
+        {LFHCAL_WORK}/{WORK}/converted \
+        {LFHCAL_WORK}/{WORK}/pedestal \
+        {LFHCAL_WORK}/{WORK}/transfer \
+        {LFHCAL_WORK}/{WORK}/mip \
+        {LFHCAL_WORK}/{WORK}/selected \
+        {LFHCAL_WORK}/{WORK}/refine1 \
+        {LFHCAL_WORK}/{WORK}/refine2 \
+        {LFHCAL_WORK}/{WORK}/refine3 \
+        {LFHCAL_WORK}/{WORK}/refine4 \
+        {LFHCAL_WORK}/{WORK}/refine5 \
+        {LFHCAL_WORK}/{WORK}/final \
+        {LFHCAL_WORK}/{WORK}/plots/pedestal \
+        {LFHCAL_WORK}/{WORK}/plots/transfer \
+        {LFHCAL_WORK}/{WORK}/plots/mip \
+        {LFHCAL_WORK}/{WORK}/plots/refine1 \
+        {LFHCAL_WORK}/{WORK}/plots/refine2 \
+        {LFHCAL_WORK}/{WORK}/plots/refine3 \
+        {LFHCAL_WORK}/{WORK}/plots/refine4 \
+        {LFHCAL_WORK}/{WORK}/plots/refine5
+
+# Pedestal and muon conversions are separate patterned families so downstream
+# tasks can fan in only the scientific run set they actually need.
+convert-ped-{ped}: prepare
+    @each ped in pedestal_runs
+    @input raw {LFHCAL_DATA}/Run{ped}.h2g
+    @input mapping {MAPPING}
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{ped}.root
+    %memory 2GB
+    {BUILD}/Convert -d 0 -f -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+convert-muon-{run}: prepare
+    @each run in muon_runs
+    @input raw {LFHCAL_DATA}/Run{run}.h2g
+    @input mapping {MAPPING}
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{run}.root
+    %memory 2GB
+    {BUILD}/Convert -d 0 -f -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+merge-muons: convert-muon-{run}
+    @input parts {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{run}.root
+    @output root {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
+    hadd -f @output.root @input.parts
+
+pedestal-{ped}: convert-ped-{ped}
+    @each ped in pedestal_runs
+    @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{ped}.root
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output calib {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{ped}_calib.txt
+    @output hists {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{ped}_Hists.root
+    @output plots {LFHCAL_WORK}/{WORK}/plots/pedestal/Run{ped}
+    {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f \
+        -o @output.root -O @output.plots -r @input.rundb -F pdf
+
+transfer-g1: merge-muons pedestal-{ped}
+    @input pedestal {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
+    @input bad {BAD_CHANNELS}
+    @input toa {TOA}
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/transfer/rawHGCROC_wPed_wBC_Muon_{SET}.root
+    @output plots {LFHCAL_WORK}/{WORK}/plots/transfer/Muon_{SET}
+    {BUILD}/DataPrep -d 1 -e -f -P @input.pedestal \
+        -i @input.raw -o @output.root -O @output.plots \
+        -r @input.rundb -B @input.bad -G @input.toa
+
+mip-g1: transfer-g1
+    @input root {LFHCAL_WORK}/{WORK}/transfer/rawHGCROC_wPed_wBC_Muon_{SET}.root
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/mip/rawHGCROC_wPedwMuon_wBC_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/mip/rawHGCROC_wPedwMuon_wBC_Muon_{SET}_calib.txt
+    @output hists {LFHCAL_WORK}/{WORK}/mip/rawHGCROC_wPedwMuon_wBC_Muon_{SET}_Hists.root
+    @output plots {LFHCAL_WORK}/{WORK}/plots/mip/Muon_{SET}
+    {BUILD}/DataPrep -a -f -d 1 -e -s -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+select-g1: mip-g1
+    @input root {LFHCAL_WORK}/{WORK}/mip/rawHGCROC_wPedwMuon_wBC_Muon_{SET}.root
+    @output root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    {BUILD}/DataPrep -f -d 1 -X -i @input.root -o @output.root
+
+# Fredi's *_red_woE recipe keeps fitting the same skimmed MIP sample and feeds
+# the previous pass's text calibration back with -k. It does not feed the
+# previous ROOT output into the next pass.
+refine1-g1: select-g1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine1/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine2-g1: refine1-g1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine2/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine3-g1: refine2-g1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine3/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine4-g1: refine3-g1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine4/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine5-g1: refine4-g1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine5/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+final-g1: refine5-g1
+    @input root {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}.root
+    @input calib {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}_calib.txt
+    @output root {LFHCAL_WORK}/{WORK}/final/calib_Final_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/final/calib_Final_Muon_{SET}_calib.txt
+    ! /bin/mkdir -p {LFHCAL_WORK}/{WORK}/final && \
+        /bin/cp @input.root @output.root && /bin/cp @input.calib @output.calib
