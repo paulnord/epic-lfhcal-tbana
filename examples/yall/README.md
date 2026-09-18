@@ -14,8 +14,26 @@ login/submit session. FullSet F2 is not the first test.
 `ToAOffsets_TBSPS2026_ParamScan_2.csv`. Cross-scan waveform comparisons are
 separate downstream work.
 
-`fullset-f1-repro` and `fullset-f2-repro` reproduce the merged FullSet F muon
-calibration recipes. They are larger, later validation exercises.
+`fullset-f1-repro`, `fullset-f2-repro`, and `fullset-g1-repro` reproduce the
+merged FullSet F and G muon calibration recipes. They are larger, later
+validation exercises.
+
+Each FullSet workflow declares its scientific run configuration once in a
+typed `@table runs type run:` table:
+
+| Workflow | Pedestal row | Muon rows | Expanded pedestal task | Tasks |
+| --- | ---: | --- | --- | ---: |
+| `fullset-f1-repro` | 431 | 426–430 | `pedestal-431` | 18 |
+| `fullset-f2-repro` | 471 | 472, 475, 476, 479, 480, 483 | `pedestal-471` | 19 |
+| `fullset-g1-repro` | 485 | 484, 486–491 | `pedestal-485` | 20 |
+
+One `convert-{type}-{run}` family converts all rows. `merge-muon` binds
+`type=muon`, so its parent fan-in and `@input.parts` contain only compatible
+muon rows. The `{type}-{run}` pedestal family uses `@each type pedestal` to
+bind only `type`; it inherits the unresolved `run` from its compatible
+conversion parent. The transfer task names that patterned pedestal family as a
+parent, rather than hard-coding a run, so conversion, pedestal extraction, and
+the transfer dependency all follow a table change together.
 
 The production Yallfiles read `Run<run>.h2g` from `LFHCAL_DATA`, and write under
 `LFHCAL_WORK/<example-name>`. Source `env.tcsh` from the example directory to
@@ -51,7 +69,10 @@ instead.
 
 `lfhcal-simple` and the scan workflows require combined named-source `@each`
 support from yall-run PR #26 (commit
-`a690f2551edb21e099aa2adf4b2b077d12c6a787`). Use `main` containing that commit,
+`a690f2551edb21e099aa2adf4b2b077d12c6a787`). The three FullSet workflows also
+require partial explicit binding and patterned-parent inheritance from yall-run
+PR #33, merged as commit
+`1081e9dd39418262588248272618130ce0503b8a`. Use `main` containing that commit,
 not just a matching version string. The Condor workflows also use the merged
 payload-wrapper and `%time` features.
 
@@ -61,9 +82,11 @@ python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 
 This checks graph expansion without ROOT, raw data or scheduler submission.
 Conversions visit the ordered union of pedestal and muon columns once each;
-shared pedestal runs do not produce duplicate output owners. Reusing the same
-muon run with different pedestal choices still requires separate work areas
-or explicitly pair-specific output paths.
+shared pedestal runs do not produce duplicate output owners. It also checks
+the three FullSet task counts, typed conversion families, muon-only merge
+fan-in, inherited pedestal runs, and transfer dependencies that follow the run
+table. Reusing the same muon run with different pedestal choices still requires
+separate work areas or explicitly pair-specific output paths.
 
 ## Execution boundary
 

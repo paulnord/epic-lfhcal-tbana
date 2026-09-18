@@ -24,6 +24,23 @@ Fredi's published reference calibration is:
 calibrations/TB2026/calib_SPS-H2_FullSetF_1.txt
 ```
 
+## Run table and dependencies
+
+The Yallfile declares the six runs once in a typed
+`@table runs type run:` table. One `convert-{type}-{run}` family converts every
+row. `merge-muon` binds `type=muon`, restricting both its patterned parent
+fan-in and `@input.parts` to runs `426`–`430`; pedestal run `431` cannot leak
+into the merge.
+
+The `{type}-{run}` pedestal family uses `@each type pedestal`. That explicitly
+binds only `type`; the compatible `convert-{type}-{run}` parent supplies the
+remaining `run=431`, producing `pedestal-431`. `transfer-f1` depends on the
+patterned pedestal family, so changing the pedestal row makes the conversion,
+pedestal task, and transfer dependency follow it automatically.
+
+This partial-binding syntax requires yall-run PR #33, merged as commit
+`1081e9dd39418262588248272618130ce0503b8a`.
+
 ## Run at BNL
 
 Use the normal BNL `tcsh` login/submit session:
