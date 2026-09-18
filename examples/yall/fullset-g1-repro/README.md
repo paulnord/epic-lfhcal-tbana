@@ -68,5 +68,6 @@ $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1_calib.txt
 ```
 
 The run configuration is declared once near the top of the Yallfile with named
-`@list` declarations. The merge task fans in the `convert-muon-{run}` family,
-so its dependency and input lists follow the declared muon set automatically.
+`@table` declarations. A single `convert-{kind}-{run}` task family handles both
+pedestal and muon runs. The `merge-muon` task binds `kind=muon`, so its fan-in
+and input list contain only the declared muon conversions.
