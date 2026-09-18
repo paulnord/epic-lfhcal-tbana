@@ -36,19 +36,16 @@ backend condor
 @set TOA ../../../configs/TB2026/ToAOffsets_TBSPS2026_FullSetG.csv
 @set RUNDB ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
 
-# Scientific run configuration lives here.  The kind column lets one Convert
-# rule cover all raw runs while downstream dependencies select the subset they need.
-@table pedestal_runs kind run:
+# Scientific run configuration lives here.
+@table runs type run:
     pedestal 485
-
-@table muon_runs kind run:
-    muon 484
-    muon 486
-    muon 487
-    muon 488
-    muon 489
-    muon 490
-    muon 491
+    muon     484
+    muon     486
+    muon     487
+    muon     488
+    muon     489
+    muon     490
+    muon     491
 
 %cpus 1
 %memory 4GB
@@ -79,10 +76,9 @@ prepare:
         {LFHCAL_WORK}/{WORK}/plots/refine4 \
         {LFHCAL_WORK}/{WORK}/plots/refine5
 
-# Convert every raw run through one task family.  The two named tables are
-# combined as an ordered union at campaign creation.
-convert-{kind}-{run}: prepare
-    @each kind run in pedestal_runs muon_runs
+# Convert every raw run through one task family.
+convert-{type}-{run}: prepare
+    @each type run in runs
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {MAPPING}
     @input rundb {RUNDB}
@@ -91,28 +87,27 @@ convert-{kind}-{run}: prepare
     {BUILD}/Convert -d 0 -f -w -c @input.raw \
         -o @output.root -m @input.mapping -r @input.rundb
 
-# muon_runs.kind projects to the single value "muon".  Binding kind here
-# restricts the patterned parent fan-in, and therefore @input.parts, to the
-# seven muon conversions rather than including the pedestal conversion.
-merge-{kind}: convert-{kind}-{run}
-    @each kind in muon_runs.kind
+# Binding type=muon restricts the patterned parent fan-in, and therefore
+# @input.parts, to the seven muon conversions.
+merge-{type}: convert-{type}-{run}
+    @each type muon
     @input parts {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{run}.root
     @output root {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
     hadd -f @output.root @input.parts
 
-pedestal-{run}: convert-{kind}-{run}
-    @each run in pedestal_runs.run
+pedestal-{type}: convert-{type}-{run}
+    @each type pedestal
     @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_{run}.root
     @input rundb {RUNDB}
-    @output root {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{run}.root
-    @output calib {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{run}_calib.txt
-    @output hists {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{run}_Hists.root
+    @output root {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed.root
+    @output calib {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_calib.txt
+    @output hists {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_Hists.root
     @output plots {LFHCAL_WORK}/{WORK}/plots/pedestal/Run{run}
     {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f \
         -o @output.root -O @output.plots -r @input.rundb -F pdf
 
-transfer-g1: merge-muon pedestal-{run}
-    @input pedestal {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed_{run}.root
+transfer-g1: merge-muon pedestal-pedestal
+    @input pedestal {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed.root
     @input raw {LFHCAL_WORK}/{WORK}/converted/rawHGCROC_Muon_{SET}.root
     @input bad {BAD_CHANNELS}
     @input toa {TOA}
