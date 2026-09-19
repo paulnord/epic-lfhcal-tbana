@@ -37,6 +37,8 @@ The nine published HV-scan calibration tables are covered by
 `hvscan-repro`, which shares pedestal 188 across muon runs 194-202 and
 reproduces the 42-46 V scan in 0.5 V steps.
 
+Together with the 14 FullSet references, these workflows cover all 23 calibration text tables currently published under `calibrations/TB2026`.
+
 Each FullSet workflow has one typed `@table runs type run:` table. A single
 `convert-{type}-{run}` family converts every row. `merge-muon` binds
 `type=muon`; the `{type}-{run}` pedestal family binds only
