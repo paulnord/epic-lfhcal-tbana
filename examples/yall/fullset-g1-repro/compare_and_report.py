@@ -220,6 +220,13 @@ def compare(work, reference_path, out, set_name):
         s = metric(tables[stage], "mip_scale_h")
         stage_rows.append({"stage": stage, **s})
 
+    ranked_scale = []
+    for i in ids:
+        d = pct(ref[i]["mip_scale_h"], final[i]["mip_scale_h"])
+        if d is not None:
+            ranked_scale.append((abs(d), d, i))
+    ranked_scale.sort(reverse=True)
+
     unavailable = [i for i in ids if ref[i]["mip_scale_h"] <= 0 or final[i]["mip_scale_h"] <= 0]
     restored = [i for i in ids
                 if tables["mip"][i]["mip_scale_h"] <= 0
@@ -278,6 +285,26 @@ def compare(work, reference_path, out, set_name):
             f"median |d|={row['median_abs_pct']:.9f}% "
             f"max |d|={row['max_abs_pct']:.9f}%"
         )
+
+    lines += ["", "Largest final HG MIP-scale residuals"]
+    for _, d, i in ranked_scale[:15]:
+        a, b = ref[i], final[i]
+        lines.append(
+            f"  cell {i:4d}  mod={a['module']} layer={a['layer']} "
+            f"row={a['row']} col={a['column']}  "
+            f"ref={float(a['mip_scale_h']):.6f} "
+            f"repro={float(b['mip_scale_h']):.6f}  "
+            f"d={d:+.9f}%"
+        )
+
+    if len(ranked_scale) > 1:
+        ss = sum(d*d for _, d, _ in ranked_scale)
+        rms_without_worst = math.sqrt((ss - ranked_scale[0][1]**2) / (len(ranked_scale) - 1))
+        lines += [
+            "",
+            f"HG MIP-scale RMS excluding the single worst cell: {rms_without_worst:.9f}%",
+        ]
+
     text = "\n".join(lines) + "\n"
     (comparison / "comparison.txt").write_text(text)
     print(text, end="")
@@ -342,9 +369,30 @@ def unite(output, inputs):
         shutil.copyfile(inputs[0], output)
         return
     exe = shutil.which("pdfunite")
-    if not exe:
-        raise RuntimeError("pdfunite not found in PATH")
-    subprocess.run([exe, *map(str, inputs), str(output)], check=True)
+    if exe:
+        subprocess.run([exe, *map(str, inputs), str(output)], check=True)
+        return
+
+    exe = shutil.which("qpdf")
+    if exe:
+        subprocess.run(
+            [exe, "--empty", "--pages", *map(str, inputs), "--", str(output)],
+            check=True,
+        )
+        return
+
+    exe = shutil.which("gs")
+    if exe:
+        subprocess.run(
+            [
+                exe, "-q", "-dBATCH", "-dNOPAUSE", "-sDEVICE=pdfwrite",
+                f"-sOutputFile={output}", *map(str, inputs),
+            ],
+            check=True,
+        )
+        return
+
+    raise RuntimeError("no PDF merger found; need pdfunite, qpdf, or gs in PATH")
 
 
 def make_pdfs(work, out, set_name):
