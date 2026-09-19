@@ -11,36 +11,52 @@ login/submit session. FullSet F2 is not the first test.
 `scan-set-1` covers pedestal/muon pairs `296/298`, `299/300`, `303/304`,
 `307/308`, `309/310`, using `ToAOffsets_TBSPS2026_ParamScan_1.csv`.
 `scan-set-2` covers the later parameter scan, using
-`ToAOffsets_TBSPS2026_ParamScan_2.csv`. Cross-scan waveform comparisons are
-separate downstream work.
+`ToAOffsets_TBSPS2026_ParamScan_2.csv`.
 
-`fullset-f1-repro`, `fullset-f2-repro`, and `fullset-g1-repro` reproduce the
-merged FullSet F and G muon calibration recipes. They are larger, later
-validation exercises.
+The repository has reproduction examples for all 14 published TB2026 FullSet
+B-G merged-muon calibrations:
 
-Each FullSet workflow declares its scientific run configuration once in a
-typed `@table runs type run:` table:
+| Workflow | Pedestal | Muon runs in Fredi's merge order | Published set |
+| --- | ---: | --- | --- |
+| `fullset-b1-repro` | 071 | 072–084 | `FullSetB_1` |
+| `fullset-b2-repro` | 126 | 127–133 | `FullSetB_2` |
+| `fullset-c1-repro` | 137 | 147,148,149,146,145,144,141,142,143,140,139,138 | `FullSetC_1` |
+| `fullset-c2-repro` | 188 | 189,194,190,191,193,192 | `FullSetC_2` |
+| `fullset-c3-repro` | 278 | 289–293 | `FullSetC_3` |
+| `fullset-d1-repro` | 206 | 208–224 | `FullSetD_1` |
+| `fullset-d2-repro` | 264 | 266–270 | `FullSetD_2` |
+| `fullset-e1-repro` | 372 | 373–378 | `FullSetE_1` |
+| `fullset-e2-repro` | 420 | 421,422,423,425,424 | `FullSetE_2` |
+| `fullset-e3-repro` | 471 | 473,474,477,478,481,482 | `FullSetE_3` |
+| `fullset-f1-repro` | 431 | 426–430 | `FullSetF_1` |
+| `fullset-f2-repro` | 471 | 472,475,476,479,480,483 | `FullSetF_2` |
+| `fullset-g1-repro` | 485 | 484,486–491 | `FullSetG_1` |
+| `fullset-g2-repro` | 529 | 530–537 | `FullSetG_2` |
 
-| Workflow | Pedestal row | Muon rows | Expanded pedestal task | Tasks |
-| --- | ---: | --- | --- | ---: |
-| `fullset-f1-repro` | 431 | 426–430 | `pedestal-431` | 18 |
-| `fullset-f2-repro` | 471 | 472, 475, 476, 479, 480, 483 | `pedestal-471` | 19 |
-| `fullset-g1-repro` | 485 | 484, 486–491 | `pedestal-485` | 20 |
+Each FullSet workflow has one typed `@table runs type run:` table. A single
+`convert-{type}-{run}` family converts every row. `merge-muon` binds
+`type=muon`; the `{type}-{run}` pedestal family binds only
+`type=pedestal` and inherits its run from the compatible parent.
 
-One `convert-{type}-{run}` family converts all rows. `merge-muon` binds
-`type=muon`, so its parent fan-in and `@input.parts` contain only compatible
-muon rows. The `{type}-{run}` pedestal family uses `@each type pedestal` to
-bind only `type`; it inherits the unresolved `run` from its compatible
-conversion parent. The transfer task names that patterned pedestal family as a
-parent, rather than hard-coding a run, so conversion, pedestal extraction, and
-the transfer dependency all follow a table change together.
+FullSet B-F use the V2 summing-board mapping and shared FullSetA-F bad-channel
+map. FullSet G uses V1 and the FullSetG bad-channel map. The examples preserve
+Fredi's ToA selections, including FullSetC_2 offsets for C3 and FullSetF
+offsets for E3.
 
-The production Yallfiles read `Run<run>.h2g` from `LFHCAL_DATA`, and write under
-`LFHCAL_WORK/<example-name>`. Source `env.tcsh` from the example directory to
-load the installation and prepare your work directory. Input data are not
-created, modified or downloaded by setup. See [SETUP.md](SETUP.md) for the BNL
-defaults and the `--campaigns-dir` commands that keep campaign records in your
-own scratch area too.
+The B-E examples include `download_raw.tcsh`, which downloads exactly the
+pedestal and merged-muon inputs from the JLab XRootD source. All published
+FullSet results can be compared with:
+
+```tcsh
+python3 "$LFHCAL_REPO/examples/yall/compare_fullset.py" --set-name FullSetC_2
+```
+
+The comparison tool reports refinement-stage differences and assembles plot
+PDFs using `pdfunite`, `qpdf`, or Ghostscript.
+
+The production Yallfiles read `Run<run>.h2g` from `LFHCAL_DATA` and write
+under `LFHCAL_WORK/<example-name>`. Source `env.tcsh` from the example
+directory to load the bootstrapped installation and prepare the work area.
 
 ## Teaching examples
 
@@ -69,7 +85,7 @@ instead.
 
 `lfhcal-simple` and the scan workflows require combined named-source `@each`
 support from yall-run PR #26 (commit
-`a690f2551edb21e099aa2adf4b2b077d12c6a787`). The three FullSet workflows also
+`a690f2551edb21e099aa2adf4b2b077d12c6a787`). The FullSet workflows also
 require partial explicit binding and patterned-parent inheritance from yall-run
 PR #33, merged as commit
 `1081e9dd39418262588248272618130ce0503b8a`. Use `main` containing that commit,
@@ -82,10 +98,9 @@ python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 
 This checks graph expansion without ROOT, raw data or scheduler submission.
 Conversions visit the ordered union of pedestal and muon columns once each;
-shared pedestal runs do not produce duplicate output owners. It also checks
-the three FullSet task counts, typed conversion families, muon-only merge
-fan-in, inherited pedestal runs, and transfer dependencies that follow the run
-table. Reusing the same muon run with different pedestal choices still requires
+shared pedestal runs do not produce duplicate output owners. It also checks all 14 published FullSet task counts, typed conversion
+families, muon-only merge fan-in, inherited pedestal runs, and transfer
+dependencies that follow the run table. Reusing the same muon run with different pedestal choices still requires
 separate work areas or explicitly pair-specific output paths.
 
 ## Execution boundary
