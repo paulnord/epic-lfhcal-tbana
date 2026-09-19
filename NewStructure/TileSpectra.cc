@@ -707,10 +707,10 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
     out[4]    = SNRPeak;
     out[5]    = SNRFWHM;
   }
-  delete fitrange;
-  delete startvalues;
-  delete parlimitslo;
-  delete parlimitshi;
+  delete[] fitrange;
+  delete[] startvalues;
+  delete[] parlimitslo;
+  delete[] parlimitshi;
   return bmipHG;
 }
 
@@ -815,7 +815,7 @@ bool TileSpectra::FitMipLG(double* out, double* outErr, int verbosity, int year,
     out[4]    = SNRPeak;
     out[5]    = SNRFWHM;
   }
-  delete fitrange;
+  delete[] fitrange;
   return bmipLG;
 }
 
