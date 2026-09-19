@@ -48,6 +48,8 @@ FULLSET_SUFFIX = {
     'fullset-g2-repro': 'g2',
 }
 RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
+HVSCAN_MUONS = ('194', '195', '196', '197', '198', '199', '200', '201', '202')
+HVSCAN_EXPECTED = 93
 
 
 def pair_rows(text):
@@ -205,6 +207,25 @@ class SharedConversionTests(unittest.TestCase):
                 self.assertIn(f'pedestal-{new_run}', tasks)
                 self.assertNotIn(f'convert-pedestal-{old_run}', tasks)
                 self.assertNotIn(f'pedestal-{old_run}', tasks)
+
+    def test_hvscan_graph(self):
+        text = (EXAMPLES / 'hvscan-repro' / 'Yallfile').read_text()
+        tasks = self.load_text(text)
+        self.assertEqual(len(tasks), HVSCAN_EXPECTED)
+        self.assertEqual(tasks['pedestal-188'].parents, ('convert-pedestal-188',))
+        self.assertEqual(
+            [name for name in tasks if name.startswith('convert-')],
+            ['convert-pedestal-188'] + [f'convert-muon-{run}' for run in HVSCAN_MUONS],
+        )
+        for run in HVSCAN_MUONS:
+            self.assertEqual(
+                tasks[f'transfer-muon-{run}'].parents,
+                (f'convert-muon-{run}', 'pedestal-188'),
+            )
+            self.assertEqual(
+                tasks[f'final-muon-{run}'].parents,
+                (f'refine5-muon-{run}',),
+            )
 
     def test_shared_pedestal_is_converted_and_fitted_once(self):
         for which, count in EXPECTED.items():
