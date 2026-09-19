@@ -400,10 +400,10 @@ def make_pdfs(work, out, set_name):
 
 def main():
     a = args()
-    work = a.work.resolve()
-    out = (a.out or work / "report").resolve()
-    reference = a.reference.resolve()
     try:
+        work = find_work(a.work).resolve()
+        out = (a.out or work / "report").resolve()
+        reference = a.reference.resolve()
         out.mkdir(parents=True, exist_ok=True)
         compare(work, reference, out, a.set_name)
         if not a.no_pdf:
