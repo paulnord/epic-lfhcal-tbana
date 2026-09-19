@@ -16,14 +16,36 @@ from yall_run.model import load_spec
 EXAMPLES = Path(__file__).resolve().parent
 EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 10}
 FULLSET_EXPECTED = {
+    'fullset-b1-repro': 26,
+    'fullset-b2-repro': 20,
+    'fullset-c1-repro': 25,
+    'fullset-c2-repro': 19,
+    'fullset-c3-repro': 18,
+    'fullset-d1-repro': 30,
+    'fullset-d2-repro': 18,
+    'fullset-e1-repro': 19,
+    'fullset-e2-repro': 18,
+    'fullset-e3-repro': 19,
     'fullset-f1-repro': 18,
     'fullset-f2-repro': 19,
     'fullset-g1-repro': 20,
+    'fullset-g2-repro': 21,
 }
 FULLSET_SUFFIX = {
+    'fullset-b1-repro': 'b1',
+    'fullset-b2-repro': 'b2',
+    'fullset-c1-repro': 'c1',
+    'fullset-c2-repro': 'c2',
+    'fullset-c3-repro': 'c3',
+    'fullset-d1-repro': 'd1',
+    'fullset-d2-repro': 'd2',
+    'fullset-e1-repro': 'e1',
+    'fullset-e2-repro': 'e2',
+    'fullset-e3-repro': 'e3',
     'fullset-f1-repro': 'f1',
     'fullset-f2-repro': 'f2',
     'fullset-g1-repro': 'g1',
+    'fullset-g2-repro': 'g2',
 }
 RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
 
