@@ -87,13 +87,17 @@ $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1_calib.txt
 
 ## Compare with Fredi and build PDF reports
 
-After the campaign has completed, run:
+After the campaign has completed, the report script can be run directly; it
+does not need the LFHCal example environment:
 
 ```tcsh
 cd "$LFHCAL_REPO/examples/yall/fullset-g1-repro"
-source env.tcsh
-python3 compare_and_report.py
+python3 compare_and_report.py --work /gpfs01/star/scratch/$USER/lfhcal/fullset-g1-repro
 ```
+
+If the standard BNL scratch output exists, `--work` may be omitted and the
+script will locate it automatically.  It deliberately refuses stale
+example-specific environment state rather than guessing.
 
 The script compares the reproduced calibration tables with
 `calibrations/TB2026/calib_SPS-H2_FullSetG_1.txt`, reports channel-by-channel
