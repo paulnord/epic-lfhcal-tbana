@@ -37,15 +37,61 @@ STAGES = ("pedestal", "mip", "refine1", "refine2", "refine3", "refine4", "refine
 def args():
     here = Path(__file__).resolve().parent
     repo = here.parents[2]
-    work = Path(os.environ.get("LFHCAL_WORK", ".")) / "fullset-g1-repro"
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--work", type=Path, default=work)
+    p.add_argument("--work", type=Path, default=None,
+                   help="FullSet G1 workflow output directory")
     p.add_argument("--reference", type=Path,
                    default=repo / "calibrations/TB2026/calib_SPS-H2_FullSetG_1.txt")
     p.add_argument("--set-name", default="FullSetG_1")
     p.add_argument("--out", type=Path, default=None)
     p.add_argument("--no-pdf", action="store_true")
     return p.parse_args()
+
+
+def find_work(explicit):
+    """Find a completed G1 output tree without trusting stale example state."""
+    if explicit is not None:
+        return explicit
+
+    expected = "fullset-g1-repro"
+    final_rel = Path("final/calib_Final_Muon_FullSetG_1_calib.txt")
+    candidates = []
+
+    # Trust the example-specific variable only when it says it belongs to G1.
+    if os.environ.get("LFHCAL_EXAMPLE") == expected:
+        value = os.environ.get("LFHCAL_EXAMPLE_WORK")
+        if value:
+            candidates.append(Path(value))
+
+    # A general LFHCAL_WORK is usable only if the expected G1 final product exists.
+    value = os.environ.get("LFHCAL_WORK")
+    if value:
+        candidates.append(Path(value) / expected)
+
+    # BNL bootstrap default.  This also makes the report usable without sourcing
+    # the LFHCal environment at all.
+    user = os.environ.get("USER") or os.environ.get("LOGNAME")
+    if user:
+        candidates.append(Path(f"/gpfs01/star/scratch/{user}/lfhcal") / expected)
+
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.expanduser()
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if (candidate / final_rel).is_file():
+            return candidate
+
+    tried = "\n  ".join(str(x) for x in candidates) or "(no candidates)"
+    raise ValueError(
+        "could not locate a completed FullSet G1 output tree.\n"
+        "Pass it explicitly, for example:\n"
+        "  python3 compare_and_report.py "
+        "--work /gpfs01/star/scratch/$USER/lfhcal/fullset-g1-repro\n"
+        f"Tried:\n  {tried}"
+    )
 
 
 def parse_calib(path):
