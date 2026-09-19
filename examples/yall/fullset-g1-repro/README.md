@@ -83,3 +83,37 @@ The final products are:
 $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1.root
 $LFHCAL_WORK/fullset-g1-repro/final/calib_Final_Muon_FullSetG_1_calib.txt
 ```
+
+
+## Compare with Fredi and build PDF reports
+
+After the campaign has completed, run:
+
+```tcsh
+cd "$LFHCAL_REPO/examples/yall/fullset-g1-repro"
+source env.tcsh
+python3 compare_and_report.py
+```
+
+The script compares the reproduced calibration tables with
+`calibrations/TB2026/calib_SPS-H2_FullSetG_1.txt`, reports channel-by-channel
+and refinement-stage differences, and writes CSV/JSON/text results under:
+
+```text
+$LFHCAL_WORK/fullset-g1-repro/report/comparison/
+```
+
+It also uses `pdfunite` to assemble the existing ROOT-generated plot PDFs.
+The MIP reports follow the same ordering as Fredi's combined calibration summary:
+FWHM, Gaussian width, Landau MPV/width, maximum, fit chi-square, per-layer MIP
+fits, trigger maps/SNR/suppression, and per-layer trigger primitives.
+
+Outputs are written under:
+
+```text
+$LFHCAL_WORK/fullset-g1-repro/report/pdf/
+```
+
+including reports for the initial fit and each refinement stage, a
+`SummaryMipCalibration_Final_FullSetG_1.pdf` alias for Imp5R, simple pedestal
+and transfer plot books, and an all-in-one `CalibrationPlotBook_FullSetG_1.pdf`.
