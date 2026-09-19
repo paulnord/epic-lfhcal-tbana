@@ -33,6 +33,10 @@ B-G merged-muon calibrations:
 | `fullset-g1-repro` | 485 | 484,486–491 | `FullSetG_1` |
 | `fullset-g2-repro` | 529 | 530–537 | `FullSetG_2` |
 
+The nine published HV-scan calibration tables are covered by
+`hvscan-repro`, which shares pedestal 188 across muon runs 194-202 and
+reproduces the 42-46 V scan in 0.5 V steps.
+
 Each FullSet workflow has one typed `@table runs type run:` table. A single
 `convert-{type}-{run}` family converts every row. `merge-muon` binds
 `type=muon`; the `{type}-{run}` pedestal family binds only
@@ -43,7 +47,7 @@ map. FullSet G uses V1 and the FullSetG bad-channel map. The examples preserve
 Fredi's ToA selections, including FullSetC_2 offsets for C3 and FullSetF
 offsets for E3.
 
-The B-E examples include `download_raw.tcsh`, which downloads exactly the
+The B-E and HV-scan examples include `download_raw.tcsh`, which downloads exactly the
 pedestal and merged-muon inputs from the JLab XRootD source. All published
 FullSet results can be compared with:
 
