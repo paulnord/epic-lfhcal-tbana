@@ -285,7 +285,7 @@ Seed seed_from_calib(const std::string &path, int cell, bool override_ped,
   return s;
 }
 
-double minimum_x_in_range(const TH1 &h, double min_x, double max_x) {
+double minimum_x_in_range(TH1 &h, double min_x, double max_x) {
   double min_y = 1e6;
   double x_value = -10000.0;
   const int first = h.FindBin(min_x);
@@ -309,7 +309,7 @@ struct FitSetup {
   double high[4]{};
 };
 
-FitSetup production_setup(const TH1 &h, const Config &c, const Seed &seed) {
+FitSetup production_setup(TH1 &h, const Config &c, const Seed &seed) {
   FitSetup s;
   const double avmip = seed.avmip;
   const double ped = seed.ped_sigma;
