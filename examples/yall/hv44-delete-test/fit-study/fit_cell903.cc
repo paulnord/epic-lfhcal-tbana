@@ -160,6 +160,7 @@ struct Config {
   std::optional<double> start_mp;
   std::optional<double> mp_low;
   std::optional<double> mp_high;
+  std::optional<double> gsigma_high;
 };
 
 [[noreturn]] void usage(const char *argv0, int code = 2) {
@@ -191,6 +192,7 @@ struct Config {
       << "  --start-mp X          override MP starting value\n"
       << "  --mp-low X            override MP lower parameter limit\n"
       << "  --mp-high X           override MP upper parameter limit\n"
+      << "  --gsigma-high X       override only Gaussian-sigma upper limit (ADC units)\n"
       << "  -h, --help            show this help\n\n"
       << "If neither --calib, --avmip, nor --scan is supplied, two approximate\n"
       << "seeds inferred from printed refine2/refine3 TF1 ranges are used:\n"
@@ -263,6 +265,7 @@ Config parse_args(int argc, char **argv) {
     else if (arg == "--start-mp") c.start_mp = parse_double(need(i, "--start-mp"), "start-mp");
     else if (arg == "--mp-low") c.mp_low = parse_double(need(i, "--mp-low"), "mp-low");
     else if (arg == "--mp-high") c.mp_high = parse_double(need(i, "--mp-high"), "mp-high");
+    else if (arg == "--gsigma-high") c.gsigma_high = parse_double(need(i, "--gsigma-high"), "gsigma-high");
     else if (arg == "--scan") {
       c.scan_start = parse_double(need(i, "--scan"), "scan start");
       c.scan_stop = parse_double(need(i, "--scan"), "scan stop");
@@ -285,6 +288,8 @@ Config parse_args(int argc, char **argv) {
                       *c.scan_start + *c.scan_step == *c.scan_start)) {
     throw std::runtime_error("invalid scan bounds or non-advancing step");
   }
+  if (c.gsigma_high && *c.gsigma_high <= 0)
+    throw std::runtime_error("--gsigma-high must be finite and positive");
   return c;
 }
 
@@ -426,6 +431,15 @@ FitSetup production_setup(TH1 &h, const Config &c, const Seed &seed) {
   if (c.start_mp) s.start[1] = *c.start_mp;
   if (c.mp_low) s.low[1] = *c.mp_low;
   if (c.mp_high) s.high[1] = *c.mp_high;
+  if (c.gsigma_high) {
+    // Diagnostic override only: preserve the Gaussian start/lower bound,
+    // every Landau/MP/area setting, the fit interval and the integrator.
+    if (!std::isfinite(*c.gsigma_high) || *c.gsigma_high <= s.low[3] ||
+        *c.gsigma_high <= s.start[3]) {
+      throw std::runtime_error("--gsigma-high must exceed the Gaussian lower bound and unchanged starting sigma");
+    }
+    s.high[3] = *c.gsigma_high;
+  }
 
   return s;
 }
