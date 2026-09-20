@@ -344,6 +344,7 @@ class TileSpectra: public TObject{
   TProfile hProfileTOT; // only in HGCROC case
   TProfile hProfileTOA; // only in HGCROC case
   static double langaufun(double */*x*/, double */*par*/);
+  static double langaufunAdaptive(double *x, double *par);
   static int langaupro(double */*params*/, double &/*maxx*/, double &/*FWHM*/);
 
   ClassDef(TileSpectra,3);
