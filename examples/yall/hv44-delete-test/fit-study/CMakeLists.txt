@@ -15,3 +15,8 @@ target_link_libraries(fit_cell903 PRIVATE ${ROOT_LIBRARIES})
 enable_testing()
 add_executable(test_adaptive_refit_support test_adaptive_refit_support.cc)
 add_test(NAME adaptive_refit_numerics COMMAND test_adaptive_refit_support)
+
+# Test the actual ROOT-linked argument parser and setup; no minimization.
+add_executable(test_gsigma_override test_gsigma_override.cc)
+target_link_libraries(test_gsigma_override PRIVATE ${ROOT_LIBRARIES})
+add_test(NAME gsigma_override_setup COMMAND test_gsigma_override)
