@@ -11,6 +11,12 @@
 #include <string>
 #include <vector>
 
+#include "adaptive_refit_support.h"
+#include "TFitResult.h"
+#include "TFitResultPtr.h"
+#include "TNamed.h"
+#include "TROOT.h"
+#include "TSystem.h"
 #include "TFile.h"
 #include "TF1.h"
 #include "TH1.h"
@@ -22,6 +28,16 @@ namespace {
 // Set once per invocation, before any fits. The same resolution is used by
 // the objective and the legacy peak/FWHM search. This is not a fit parameter.
 int convolution_steps = 100;
+bool use_adaptive = false;
+double integration_rtol = 1e-8;
+
+// The callback uses the exact same Convolution class as check_fixed_widths.C.
+// A quadrature exception aborts this invocation; it is not hidden as a penalty.
+double adaptive_model(double *x, double *par) {
+  const fixed_width::Parameters p{par[0],par[1],par[2],par[3]};
+  const fixed_width::Function pdf=[](double u){return TMath::Landau(u,0.,1.);};
+  return fixed_width::Convolution(p,pdf,integration_rtol,5)(x[0]);
+}
 
 double langaufun(double *x, double *par) {
   static double invsq2pi = 0.3989422804014;
@@ -122,6 +138,9 @@ struct Config {
   std::string input;
   std::string hist_path;
   std::string csv_path;
+  std::string results_root;
+  std::string integrator = "fixed";
+  double quad_rtol = 1e-8;
   int cell = 903;
   int layers_in_segment = 8;
   double vov = 5.7;
@@ -164,6 +183,9 @@ struct Config {
       << "  --repeat N            repeat each identical fit N times\n"
       << "  --steps N             even convolution step count, default 100\n"
       << "  --csv FILE            write CSV separately from ROOT console messages\n"
+      << "  --integrator MODE     fixed (default) or adaptive; span stays +/-5 sigma\n"
+      << "  --quad-rtol X         adaptive relative tolerance, default 1e-8\n"
+      << "  --results-root FILE   save full TFitResult objects and source histogram\n"
       << "  --fit-low X           override production-derived lower fit edge\n"
       << "  --fit-high X          override production-derived upper fit edge\n"
       << "  --start-mp X          override MP starting value\n"
@@ -224,6 +246,9 @@ Config parse_args(int argc, char **argv) {
     if (arg == "-h" || arg == "--help") usage(argv[0], 0);
     else if (arg == "--hist") c.hist_path = need(i, "--hist");
     else if (arg == "--csv") c.csv_path = need(i, "--csv");
+    else if (arg == "--results-root") c.results_root = need(i, "--results-root");
+    else if (arg == "--integrator") c.integrator = need(i, "--integrator");
+    else if (arg == "--quad-rtol") c.quad_rtol = parse_double(need(i, "--quad-rtol"), "quad-rtol");
     else if (arg == "--cell") c.cell = parse_int(need(i, "--cell"), "cell");
     else if (arg == "--calib") c.calib_files.push_back(need(i, "--calib"));
     else if (arg == "--avmip") c.avmips.push_back(parse_double(need(i, "--avmip"), "avmip"));
@@ -247,6 +272,10 @@ Config parse_args(int argc, char **argv) {
     }
   }
 
+  if (c.integrator != "fixed" && c.integrator != "adaptive")
+    throw std::runtime_error("--integrator must be fixed or adaptive");
+  if (!(c.quad_rtol >= 1e-10 && c.quad_rtol <= 1e-6))
+    throw std::runtime_error("--quad-rtol must be between 1e-10 and 1e-6");
   if (c.repeat < 1) throw std::runtime_error("--repeat must be >= 1");
   if (c.layers_in_segment < 1) throw std::runtime_error("--layers must be >= 1");
   if (c.steps < 2 || c.steps % 2 != 0) {
@@ -409,7 +438,13 @@ void print_header(std::ostream &csv) {
       << "width,width_err,mp,mp_err,area,area_err,gsigma,gsigma_err,"
       << "peak,fwhm,chi2,ndf,"
       << "width_low,width_high,mp_low,mp_high,area_low,area_high,gsigma_low,gsigma_high,"
-      << "np,limits_reached,legacy_fit_gate_pass\n";
+      << "np,limits_reached,legacy_fit_gate_pass,"
+      << "integrator,quad_rtol,fit_options_effective,result_present,result_valid,min_fcn,edm,n_calls,cov_status,"
+      << "minimizer_type,boundary_parameters,adaptive_peak,adaptive_left,adaptive_right,adaptive_fwhm,"
+      << "left_fraction,right_fraction,peak_change_tighter,fwhm_change_tighter,curve_change_tighter_over_peak,"
+      << "fit_bins_change_tighter_over_peak,peak_change_span8,fwhm_change_span8,curve_change_span8_over_peak,"
+      << "quad_max_error_estimate,quad_max_evaluations,numerics_complete,numerics_pass,numerics_error,"
+      << "result_key,root_version,compiler,host,max_function_calls,max_iterations\n";
 }
 
 void print_csv_string(std::ostream &csv, const std::string &text) {
@@ -422,7 +457,7 @@ void print_csv_string(std::ostream &csv, const std::string &text) {
 }
 
 void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
-             std::ostream &csv) {
+             std::ostream &csv, TFile *results, int row_number) {
   std::unique_ptr<TH1> hist(dynamic_cast<TH1 *>(
       source.Clone(("cell_fit_" + std::to_string(repeat)).c_str())));
   if (!hist) throw std::runtime_error("failed to clone histogram");
@@ -435,13 +470,24 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
   ROOT::Math::MinimizerOptions::SetDefaultMaxIterations(100);
 
   TF1 signal(("fmip_cell_" + std::to_string(repeat)).c_str(),
-             langaufun, setup.fit_low, setup.fit_high, 4);
+             use_adaptive ? adaptive_model : langaufun, setup.fit_low, setup.fit_high, 4);
   signal.SetNpx(1000);
   signal.SetParameters(setup.start);
   signal.SetParNames("Width", "MP", "Area", "GSigma");
   for (int i = 0; i < 4; ++i) signal.SetParLimits(i, setup.low[i], setup.high[i]);
 
-  int fit_status = hist->Fit(&signal, c.fit_option.c_str());
+  // S only requests the full result. Retain Q,R,L,M,N,0 and all fit budgets.
+  std::string options=c.fit_option;
+  if (options.find('S')==std::string::npos && options.find('s')==std::string::npos) options += 'S';
+  TFitResultPtr fit_result=hist->Fit(&signal, options.c_str());
+  const int fit_status=static_cast<int>(fit_result);
+  const bool has_result=fit_result.Get()!=nullptr;
+  const std::string result_key="fit_result_"+std::to_string(row_number);
+  if (results && has_result) {
+    results->cd();
+    if (fit_result->Write(result_key.c_str())<=0) throw std::runtime_error("cannot write TFitResult");
+    results->Flush();
+  }
   // Keep the existing CSV column for compatibility: this is TF1 validity,
   // not a claim of successful minimization or an acceptable calibration.
   int valid = signal.IsValid() ? 1 : 0;
@@ -449,10 +495,14 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
   double p[4];
   signal.GetParameters(p);
   int limits_reached = 0;
+  std::string boundaries;
   for (int i = 0; i < 4; ++i) {
     if (TMath::Abs(p[i] - setup.low[i]) < 1e-5 ||
         TMath::Abs(p[i] - setup.high[i]) < 1e-5) {
       ++limits_reached;
+      if (!boundaries.empty()) boundaries += ';';
+      boundaries += std::string(signal.GetParName(i))+":"+
+          (TMath::Abs(p[i]-setup.low[i])<1e-5 ? "lower" : "upper");
     }
   }
   // This mirrors only the post-fit gate in FitMipHG, not its pre-fit skips.
@@ -463,7 +513,18 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
 
   double peak = std::numeric_limits<double>::quiet_NaN();
   double fwhm = std::numeric_limits<double>::quiet_NaN();
-  int langau_status = langaupro(p, peak, fwhm);
+  // Original columns remain legacy-only. -99 means deliberately not run.
+  int langau_status = use_adaptive ? -99 : langaupro(p, peak, fwhm);
+  adaptive_refit::Check check;
+  if (use_adaptive) {
+    std::vector<double> centres;
+    for(int i=1; i<=hist->GetNbinsX(); ++i) {
+      const double x=hist->GetBinCenter(i);
+      if (x>=setup.fit_low && x<=setup.fit_high) centres.push_back(x);
+    }
+    check=adaptive_refit::verify({p[0],p[1],p[2],p[3]},
+        [](double u){return TMath::Landau(u,0.,1.);}, c.quad_rtol, centres);
+  }
 
   print_csv_string(csv, seed.label);
   csv << std::setprecision(17)
@@ -505,10 +566,33 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
       << ',' << setup.high[2]
       << ',' << setup.low[3]
       << ',' << setup.high[3]
-      << ',' << c.steps
+      << ',' << (use_adaptive ? 0 : c.steps)
       << ',' << limits_reached
-      << ',' << legacy_fit_gate_pass
-      << '\n';
+      << ',' << legacy_fit_gate_pass << ',';
+  print_csv_string(csv,c.integrator);
+  csv << ',' << c.quad_rtol << ',';
+  print_csv_string(csv,options);
+  csv << ',' << int(has_result) << ',' << (has_result ? int(fit_result->IsValid()) : -1)
+      << ',' << (has_result ? fit_result->MinFcnValue() : adaptive_refit::missing())
+      << ',' << (has_result ? fit_result->Edm() : adaptive_refit::missing())
+      << ',' << (has_result ? static_cast<long long>(fit_result->NCalls()) : -1)
+      << ',' << (has_result ? fit_result->CovMatrixStatus() : -1) << ',';
+  print_csv_string(csv,has_result ? fit_result->MinimizerType() : "");
+  csv << ',';
+  print_csv_string(csv,boundaries);
+  csv << ',' << check.curve.peak << ',' << check.curve.left << ',' << check.curve.right
+      << ',' << check.curve.fwhm << ',' << check.curve.left_fraction << ',' << check.curve.right_fraction
+      << ',' << check.peak_change << ',' << check.width_change << ',' << check.curve_change
+      << ',' << check.fit_bins_change << ',' << check.span8_peak_change << ',' << check.span8_width_change
+      << ',' << check.span8_curve_change << ',' << check.error_estimate << ',' << check.max_evaluations
+      << ',' << int(check.complete) << ',' << int(check.pass) << ',';
+  print_csv_string(csv,check.error);
+  csv << ',';
+  print_csv_string(csv,results && has_result ? result_key : "");
+  csv << ','; print_csv_string(csv,gROOT->GetVersion());
+  csv << ','; print_csv_string(csv,__VERSION__);
+  csv << ','; print_csv_string(csv,gSystem->HostName());
+  csv << ",1000,100\n";
   csv.flush();
   if (!csv) throw std::runtime_error("failed to write CSV results");
 }
@@ -519,6 +603,8 @@ int main(int argc, char **argv) {
   try {
     Config c = parse_args(argc, argv);
     convolution_steps = c.steps;
+    use_adaptive = c.integrator == "adaptive";
+    integration_rtol = c.quad_rtol;
 
     TFile input(c.input.c_str(), "READ");
     if (input.IsZombie()) throw std::runtime_error("cannot open ROOT file: " + c.input);
@@ -546,7 +632,10 @@ int main(int argc, char **argv) {
     std::cerr << "histogram=" << used_path
               << " entries=" << source->GetEntries()
               << " bins=" << source->GetNbinsX()
-              << " convolution_steps=" << c.steps << '\n';
+              << " integrator=" << c.integrator
+              << " convolution_steps=" << (use_adaptive ? 0 : c.steps)
+              << " quad_rtol=" << c.quad_rtol
+              << " ROOT=" << gROOT->GetVersion() << " compiler=" << __VERSION__ << '\n';
 
     std::vector<Seed> seeds;
     for (const auto &path : c.calib_files) {
@@ -574,6 +663,25 @@ int main(int argc, char **argv) {
       seeds.push_back({"refine3-range-seed", 52.09756765275, manual_ped, -1});
     }
 
+    // Refuse existing output paths before opening either output.
+    for (const auto &path : {c.csv_path,c.results_root})
+      if (!path.empty() && !gSystem->AccessPathName(path.c_str()))
+        throw std::runtime_error("output already exists: "+path);
+    if (!c.csv_path.empty() && c.csv_path==c.results_root)
+      throw std::runtime_error("CSV and ROOT outputs must be different paths");
+    std::unique_ptr<TFile> results;
+    if (!c.results_root.empty()) {
+      results.reset(TFile::Open(c.results_root.c_str(),"NEW"));
+      if (!results || results->IsZombie()) throw std::runtime_error("cannot create result ROOT file");
+      results->cd();
+      if (source->Write("source_histogram")<=0) throw std::runtime_error("cannot save source histogram");
+      std::ostringstream metadata;
+      metadata << "ROOT=" << gROOT->GetVersion() << "\ncompiler=" << __VERSION__
+               << "\nhost=" << gSystem->HostName() << "\nspan=5\nmax_calls=1000\nmax_iterations=100\n";
+      for(int i=0;i<argc;++i) metadata << "argv[" << i << "]=" << argv[i] << '\n';
+      TNamed provenance("run_context",metadata.str().c_str());
+      if (provenance.Write()<=0) throw std::runtime_error("cannot write run context");
+    }
     std::ofstream csv_file;
     if (!c.csv_path.empty()) {
       // Refuse to clobber an existing file, including an input supplied as output.
@@ -584,9 +692,12 @@ int main(int argc, char **argv) {
     }
     std::ostream &csv = c.csv_path.empty() ? std::cout : csv_file;
     print_header(csv);
+    int row_number=0;
     for (const auto &seed : seeds) {
-      for (int r = 1; r <= c.repeat; ++r) run_fit(*source, c, seed, r, csv);
+      for (int r = 1; r <= c.repeat; ++r)
+        run_fit(*source, c, seed, r, csv, results.get(), ++row_number);
     }
+    if(results) results->Close();
     return 0;
   } catch (const std::exception &e) {
     std::cerr << "fit_cell903: " << e.what() << '\n';
