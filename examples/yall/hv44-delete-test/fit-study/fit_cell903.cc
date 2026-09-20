@@ -19,10 +19,14 @@
 
 namespace {
 
+// Set once per invocation, before any fits. The same resolution is used by
+// the objective and the legacy peak/FWHM search. This is not a fit parameter.
+int convolution_steps = 100;
+
 double langaufun(double *x, double *par) {
   static double invsq2pi = 0.3989422804014;
   static double mpshift = -0.22278298;
-  static double np = 100.0;
+  const double np = static_cast<double>(convolution_steps);
   static double sc = 5.0;
 
   double sum = 0.0;
@@ -117,11 +121,13 @@ struct Seed {
 struct Config {
   std::string input;
   std::string hist_path;
+  std::string csv_path;
   int cell = 903;
   int layers_in_segment = 8;
   double vov = 5.7;
   std::string fit_option = "QRLMN0";
   int repeat = 1;
+  int steps = 100;
 
   std::vector<std::string> calib_files;
   std::vector<double> avmips;
@@ -141,9 +147,9 @@ struct Config {
   std::ostream &out = code == 0 ? std::cout : std::cerr;
   out
       << "Usage: " << argv0 << " INPUT.root [options]\n\n"
-      << "Fit the isolated cell-903 MIP histogram with the same Landau-Gaussian\n"
-      << "function, start values, limits, Minuit2/Migrad choice, and ROOT fit\n"
-      << "options used by LFHCal GetImprovedScaling/FitMipHG.\n\n"
+      << "Fit the isolated cell-903 MIP histogram with a copy of the\n"
+      << "LFHCal Landau-Gaussian function and improved-fit setup.\n"
+      << "Reproduction of the production fits has NOT yet been established.\n\n"
       << "Seed options (may be repeated):\n"
       << "  --calib FILE          derive avmip and cell pedestal sigma from a prior calib\n"
       << "  --avmip X             fit one explicit average-MIP seed\n"
@@ -156,14 +162,16 @@ struct Config {
       << "  --vov X               overvoltage, default 5.7 V\n"
       << "  --fit-option OPT      ROOT TH1::Fit option, default QRLMN0\n"
       << "  --repeat N            repeat each identical fit N times\n"
+      << "  --steps N             even convolution step count, default 100\n"
+      << "  --csv FILE            write CSV separately from ROOT console messages\n"
       << "  --fit-low X           override production-derived lower fit edge\n"
       << "  --fit-high X          override production-derived upper fit edge\n"
       << "  --start-mp X          override MP starting value\n"
       << "  --mp-low X            override MP lower parameter limit\n"
       << "  --mp-high X           override MP upper parameter limit\n"
       << "  -h, --help            show this help\n\n"
-      << "If neither --calib, --avmip, nor --scan is supplied, two seeds inferred\n"
-      << "from the stored refine2/refine3 TF1 ranges are used:\n"
+      << "If neither --calib, --avmip, nor --scan is supplied, two approximate\n"
+      << "seeds inferred from printed refine2/refine3 TF1 ranges are used:\n"
       << "  52.10410788425 and 52.09756765275\n";
   std::exit(code);
 }
@@ -190,12 +198,18 @@ int parse_int(const std::string &text, const std::string &name) {
   } catch (const std::exception &) {
     throw std::runtime_error("invalid " + name + ": " + text);
   }
-  if (used != text.size()) throw std::runtime_error("invalid " + name + ": " + text);
+  if (used != text.size() || value < std::numeric_limits<int>::min() ||
+      value > std::numeric_limits<int>::max()) {
+    throw std::runtime_error("invalid " + name + ": " + text);
+  }
   return static_cast<int>(value);
 }
 
 Config parse_args(int argc, char **argv) {
   if (argc < 2) usage(argv[0]);
+  if (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
+    usage(argv[0], 0);
+  }
 
   Config c;
   c.input = argv[1];
@@ -209,6 +223,7 @@ Config parse_args(int argc, char **argv) {
     std::string arg = argv[i];
     if (arg == "-h" || arg == "--help") usage(argv[0], 0);
     else if (arg == "--hist") c.hist_path = need(i, "--hist");
+    else if (arg == "--csv") c.csv_path = need(i, "--csv");
     else if (arg == "--cell") c.cell = parse_int(need(i, "--cell"), "cell");
     else if (arg == "--calib") c.calib_files.push_back(need(i, "--calib"));
     else if (arg == "--avmip") c.avmips.push_back(parse_double(need(i, "--avmip"), "avmip"));
@@ -217,6 +232,7 @@ Config parse_args(int argc, char **argv) {
     else if (arg == "--vov") c.vov = parse_double(need(i, "--vov"), "vov");
     else if (arg == "--fit-option") c.fit_option = need(i, "--fit-option");
     else if (arg == "--repeat") c.repeat = parse_int(need(i, "--repeat"), "repeat");
+    else if (arg == "--steps") c.steps = parse_int(need(i, "--steps"), "steps");
     else if (arg == "--fit-low") c.fit_low = parse_double(need(i, "--fit-low"), "fit-low");
     else if (arg == "--fit-high") c.fit_high = parse_double(need(i, "--fit-high"), "fit-high");
     else if (arg == "--start-mp") c.start_mp = parse_double(need(i, "--start-mp"), "start-mp");
@@ -233,7 +249,13 @@ Config parse_args(int argc, char **argv) {
 
   if (c.repeat < 1) throw std::runtime_error("--repeat must be >= 1");
   if (c.layers_in_segment < 1) throw std::runtime_error("--layers must be >= 1");
-  if (c.scan_step && *c.scan_step <= 0) throw std::runtime_error("scan step must be > 0");
+  if (c.steps < 2 || c.steps % 2 != 0) {
+    throw std::runtime_error("--steps must be an even integer >= 2");
+  }
+  if (c.scan_step && (*c.scan_step <= 0 || *c.scan_stop < *c.scan_start ||
+                      *c.scan_start + *c.scan_step == *c.scan_start)) {
+    throw std::runtime_error("invalid scan bounds or non-advancing step");
+  }
   return c;
 }
 
@@ -314,6 +336,9 @@ FitSetup production_setup(TH1 &h, const Config &c, const Seed &seed) {
   const double avmip = seed.avmip;
   const double ped = seed.ped_sigma;
 
+  if (!(std::isfinite(avmip) && avmip > 0 && std::isfinite(ped) && ped > 0)) {
+    throw std::runtime_error("avmip and pedestal sigma must be finite and positive");
+  }
   if (c.layers_in_segment == 1) {
     s.fit_low = 0.6 * avmip;
     s.fit_high = 3.0 * avmip;
@@ -331,6 +356,10 @@ FitSetup production_setup(TH1 &h, const Config &c, const Seed &seed) {
 
   if (c.fit_low) s.fit_low = *c.fit_low;
   if (c.fit_high) s.fit_high = *c.fit_high;
+  if (!(std::isfinite(s.fit_low) && std::isfinite(s.fit_high) &&
+        s.fit_low < s.fit_high)) {
+    throw std::runtime_error("invalid fit range");
+  }
 
   s.int_area = h.Integral(h.FindBin(s.fit_low), h.FindBin(s.fit_high));
 
@@ -372,26 +401,28 @@ FitSetup production_setup(TH1 &h, const Config &c, const Seed &seed) {
   return s;
 }
 
-void print_header() {
-  std::cout
+void print_header(std::ostream &csv) {
+  csv
       << "seed,avmip,ped_sigma,active_channels,repeat,fit_option,fit_status,valid,"
       << "langau_status,min_x,fit_low,fit_high,int_area,"
       << "start_width,start_mp,start_area,start_gsigma,"
       << "width,width_err,mp,mp_err,area,area_err,gsigma,gsigma_err,"
       << "peak,fwhm,chi2,ndf,"
-      << "width_low,width_high,mp_low,mp_high,area_low,area_high,gsigma_low,gsigma_high\n";
+      << "width_low,width_high,mp_low,mp_high,area_low,area_high,gsigma_low,gsigma_high,"
+      << "np,limits_reached,legacy_fit_gate_pass\n";
 }
 
-void print_csv_string(const std::string &text) {
-  std::cout << '"';
+void print_csv_string(std::ostream &csv, const std::string &text) {
+  csv << '"';
   for (char c : text) {
-    if (c == '"') std::cout << '"';
-    std::cout << c;
+    if (c == '"') csv << '"';
+    csv << c;
   }
-  std::cout << '"';
+  csv << '"';
 }
 
-void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat) {
+void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat,
+             std::ostream &csv) {
   std::unique_ptr<TH1> hist(dynamic_cast<TH1 *>(
       source.Clone(("cell_fit_" + std::to_string(repeat)).c_str())));
   if (!hist) throw std::runtime_error("failed to clone histogram");
@@ -411,23 +442,38 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat) {
   for (int i = 0; i < 4; ++i) signal.SetParLimits(i, setup.low[i], setup.high[i]);
 
   int fit_status = hist->Fit(&signal, c.fit_option.c_str());
+  // Keep the existing CSV column for compatibility: this is TF1 validity,
+  // not a claim of successful minimization or an acceptable calibration.
   int valid = signal.IsValid() ? 1 : 0;
 
   double p[4];
   signal.GetParameters(p);
+  int limits_reached = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (TMath::Abs(p[i] - setup.low[i]) < 1e-5 ||
+        TMath::Abs(p[i] - setup.high[i]) < 1e-5) {
+      ++limits_reached;
+    }
+  }
+  // This mirrors only the post-fit gate in FitMipHG, not its pre-fit skips.
+  // Preserve the historical accepted status codes without endorsing them.
+  const bool legacy_status_ok = fit_status == 0 || fit_status == 4000 ||
+                                fit_status == 70 || fit_status == 4070;
+  const int legacy_fit_gate_pass = valid && legacy_status_ok && limits_reached == 0;
+
   double peak = std::numeric_limits<double>::quiet_NaN();
   double fwhm = std::numeric_limits<double>::quiet_NaN();
   int langau_status = langaupro(p, peak, fwhm);
 
-  print_csv_string(seed.label);
-  std::cout << std::setprecision(15)
-            << ',' << seed.avmip
-            << ',' << seed.ped_sigma
-            << ',' << seed.active_channels
-            << ',' << repeat
-            << ',';
-  print_csv_string(c.fit_option);
-  std::cout
+  print_csv_string(csv, seed.label);
+  csv << std::setprecision(17)
+      << ',' << seed.avmip
+      << ',' << seed.ped_sigma
+      << ',' << seed.active_channels
+      << ',' << repeat
+      << ',';
+  print_csv_string(csv, c.fit_option);
+  csv
       << ',' << fit_status
       << ',' << valid
       << ',' << langau_status
@@ -459,7 +505,12 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat) {
       << ',' << setup.high[2]
       << ',' << setup.low[3]
       << ',' << setup.high[3]
+      << ',' << c.steps
+      << ',' << limits_reached
+      << ',' << legacy_fit_gate_pass
       << '\n';
+  csv.flush();
+  if (!csv) throw std::runtime_error("failed to write CSV results");
 }
 
 }  // namespace
@@ -467,6 +518,7 @@ void run_fit(const TH1 &source, const Config &c, const Seed &seed, int repeat) {
 int main(int argc, char **argv) {
   try {
     Config c = parse_args(argc, argv);
+    convolution_steps = c.steps;
 
     TFile input(c.input.c_str(), "READ");
     if (input.IsZombie()) throw std::runtime_error("cannot open ROOT file: " + c.input);
@@ -478,7 +530,7 @@ int main(int argc, char **argv) {
       used_path = c.hist_path;
     } else {
       const std::vector<std::string> candidates = {
-          "cell903",
+          "cell" + std::to_string(c.cell),
           "IndividualCellsTrigg/hspectramipTriggADCCellID" + std::to_string(c.cell)};
       for (const auto &path : candidates) {
         source = dynamic_cast<TH1 *>(input.Get(path.c_str()));
@@ -489,10 +541,12 @@ int main(int argc, char **argv) {
       }
     }
     if (!source) throw std::runtime_error("target histogram not found");
+    if (source->GetDimension() != 1) throw std::runtime_error("expected a 1D histogram");
 
     std::cerr << "histogram=" << used_path
               << " entries=" << source->GetEntries()
-              << " bins=" << source->GetNbinsX() << '\n';
+              << " bins=" << source->GetNbinsX()
+              << " convolution_steps=" << c.steps << '\n';
 
     std::vector<Seed> seeds;
     for (const auto &path : c.calib_files) {
@@ -510,7 +564,7 @@ int main(int argc, char **argv) {
       const double eps = *c.scan_step * 1e-9;
       for (double x = *c.scan_start; x <= *c.scan_stop + eps; x += *c.scan_step) {
         std::ostringstream label;
-        label << "scan=" << std::setprecision(15) << x;
+        label << "scan=" << std::setprecision(17) << x;
         seeds.push_back({label.str(), x, manual_ped, -1});
       }
     }
@@ -520,9 +574,18 @@ int main(int argc, char **argv) {
       seeds.push_back({"refine3-range-seed", 52.09756765275, manual_ped, -1});
     }
 
-    print_header();
+    std::ofstream csv_file;
+    if (!c.csv_path.empty()) {
+      // Refuse to clobber an existing file, including an input supplied as output.
+      std::ifstream existing(c.csv_path);
+      if (existing.good()) throw std::runtime_error("CSV already exists: " + c.csv_path);
+      csv_file.open(c.csv_path);
+      if (!csv_file) throw std::runtime_error("cannot create CSV: " + c.csv_path);
+    }
+    std::ostream &csv = c.csv_path.empty() ? std::cout : csv_file;
+    print_header(csv);
     for (const auto &seed : seeds) {
-      for (int r = 1; r <= c.repeat; ++r) run_fit(*source, c, seed, r);
+      for (int r = 1; r <= c.repeat; ++r) run_fit(*source, c, seed, r, csv);
     }
     return 0;
   } catch (const std::exception &e) {
