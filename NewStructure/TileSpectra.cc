@@ -1,7 +1,15 @@
 #include "TileSpectra.h"
+#include "LangauNumerics.h"
 #include "TFitResult.h"
 #include "TFitResultPtr.h"
 #include "Math/MinimizerOptions.h"
+
+namespace {
+constexpr double kLangauIntegrationTolerance = 1e-10;
+constexpr double kLangauGaussianSpan = 5.0;
+const char *kAdaptiveLangauTitle =
+    "Landau-Gaussian (adaptive integration, rtol=1e-10, span=5)";
+}
 
 ClassImp(TileSpectra);
 
@@ -607,17 +615,42 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
   
   TString funcName = Form("fmip%sHGCellID%d",TileName.Data(),cellID);
   bmipHG           = false;
+  const bool useAdaptive = ROType == ReadOut::Type::Hgcroc;
   
   if (calib->BadChannel != -64 && calib->BadChannel < 2 ){
     if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " channel dead" << std::endl;
     return false;
   }
+
+  if (useAdaptive &&
+      (!std::isfinite(calib->PedestalSigH) || calib->PedestalSigH <= 0 ||
+       !std::isfinite(vov) || (impE && !std::isfinite(avmip)))) {
+    std::cerr << "Skipped HG cell " << cellID
+              << " adaptive setup failed: invalid pedestal or fit seed" << std::endl;
+    return false;
+  }
   
   // Setting fit ranges
-  double* fitrange    = new double[2];
+  double fitrange[2];
   GetFitRange(fitrange, year, true,  impE, vov, avmip);
+  if (useAdaptive &&
+      (!std::isfinite(fitrange[0]) || !std::isfinite(fitrange[1]) ||
+       fitrange[0] >= fitrange[1])) {
+    std::cerr << "Skipped HG cell " << cellID
+              << " adaptive setup failed: invalid fit interval" << std::endl;
+    return false;
+  }
     
   double intArea    = hspectraHG.Integral(hspectraHG.FindBin(fitrange[0]),hspectraHG.FindBin(fitrange[1]));
+  // SetParametersFitHG takes an integer integral. Check before that conversion
+  // so malformed histogram contents cannot cause undefined numeric conversion.
+  if (useAdaptive &&
+      (!std::isfinite(intArea) || intArea < 1 ||
+       intArea > std::numeric_limits<int>::max())) {
+    std::cerr << "Skipped HG cell " << cellID
+              << " adaptive setup failed: invalid fit integral" << std::endl;
+    return false;
+  }
   double intNoise   = hspectraHG.Integral(hspectraHG.FindBin(-2*calib->PedestalSigH),hspectraHG.FindBin(+2*calib->PedestalSigH));
   double intAN3s    = hspectraHG.Integral(hspectraHG.FindBin(+3*calib->PedestalSigH),hspectraHG.FindBin(fitrange[1]));
   
@@ -627,10 +660,33 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
   }
 
   // Setting parameter start values and limits
-  double* startvalues    = new double[4];
-  double* parlimitslo    = new double[4];
-  double* parlimitshi    = new double[4];
+  double startvalues[4];
+  double parlimitslo[4];
+  double parlimitshi[4];
   SetParametersFitHG (startvalues, parlimitslo, parlimitshi, intArea, year, impE, vov, avmip);
+
+  if (useAdaptive) {
+    for (int i = 0; i < 4; ++i) {
+      if (!std::isfinite(parlimitslo[i]) || !std::isfinite(parlimitshi[i]) ||
+          parlimitslo[i] >= parlimitshi[i]) {
+        std::cerr << "Skipped HG cell " << cellID
+                  << " adaptive setup failed: invalid parameter bounds" << std::endl;
+        return false;
+      }
+    }
+  }
+
+  // Reject an invalid numerical domain before passing it to ROOT. A failed
+  // cell retains its previous calibration and exposes no successful model.
+  if (useAdaptive) {
+    try {
+      langaufunAdaptive(&startvalues[1], startvalues);
+    } catch (const std::exception &error) {
+      std::cerr << "Skipped HG cell " << cellID
+                << " adaptive setup failed: " << error.what() << std::endl;
+      return false;
+    }
+  }
   
   if (verbosity > 1) {
     std::cout << "Layer: "<< setupT->GetLayer(cellID) << std::endl;
@@ -640,7 +696,9 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
     }
   }
   
-  SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);
+  SignalHG = TF1(funcName.Data(), useAdaptive ? langaufunAdaptive : langaufun,
+                 fitrange[0], fitrange[1], 4);
+  if (useAdaptive) SignalHG.SetTitle(kAdaptiveLangauTitle);
   SignalHG.SetNpx(1000);
   SignalHG.SetParameters(startvalues);
   SignalHG.SetParNames("Width","MP","Area","GSigma");
@@ -662,7 +720,16 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
   ROOT::Math::MinimizerOptions::SetDefaultMaxIterations(100);
   if (verbosity > 2) ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(3); 
   
-  int fitStatus = hspectraHG.Fit(&SignalHG,fitOption);   // fit within specified range, use ParLimits, do not plot
+  int fitStatus;
+  try {
+    fitStatus = hspectraHG.Fit(&SignalHG,fitOption);   // original range, limits and fit options
+  } catch (const std::exception &error) {
+    if (!useAdaptive) throw;
+    // Do not hide quadrature failures as arbitrary likelihood penalties.
+    std::cerr << "Skipped HG cell " << cellID
+              << " adaptive fit failed: " << error.what() << std::endl;
+    return false;
+  }
   // Minuit status codes:
   // 4000 - Successful
   //    0 - Successful
@@ -689,28 +756,42 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
     if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " too many limits reached" << std::endl;
     return false;
   }
-  bmipHG = true;
-  
-  if (bmipHG){
-    SignalHG.GetParameters(out);    // obtain fit parameters
-    for (int i=0; i<4; i++) {
-      outErr[i] = SignalHG.GetParError(i);     // obtain fit parameter errors
+  double fitted[4];
+  SignalHG.GetParameters(fitted);
+  double SNRPeak = std::numeric_limits<double>::quiet_NaN();
+  double SNRFWHM = std::numeric_limits<double>::quiet_NaN();
+  if (useAdaptive) {
+    std::vector<double> centres;
+    for (int bin = 1; bin <= hspectraHG.GetNbinsX(); ++bin) {
+      const double x = hspectraHG.GetBinCenter(bin);
+      if (x >= fitrange[0] && x <= fitrange[1]) centres.push_back(x);
     }
-    outErr[4] = SignalHG.GetChisquare();  // obtain chi^2
-    outErr[5] = SignalHG.GetNDF();           // obtain ndf
-    
-    double SNRPeak, SNRFWHM;
-    langaupro(out,SNRPeak,SNRFWHM);
-
-    calib->ScaleH       = SNRPeak;
-    calib->ScaleWidthH  = SNRFWHM;
-    out[4]    = SNRPeak;
-    out[5]    = SNRFWHM;
+    const auto check = lfhcal::langau::verify(
+        {fitted[0], fitted[1], fitted[2], fitted[3]},
+        [](double u) { return TMath::Landau(u, 0., 1.); },
+        kLangauIntegrationTolerance, centres);
+    if (!check.complete || !check.pass) {
+      std::cerr << "Skipped HG cell " << cellID
+                << " adaptive peak/FWHM failed: " << check.error << std::endl;
+      return false;
+    }
+    SNRPeak = check.curve.peak;
+    SNRFWHM = check.curve.fwhm;
+  } else {
+    // CAEN keeps its existing convolution and peak/width calculation.
+    langaupro(fitted, SNRPeak, SNRFWHM);
   }
-  delete[] fitrange;
-  delete[] startvalues;
-  delete[] parlimitslo;
-  delete[] parlimitshi;
+
+  // Commit outputs only after all numerical checks have succeeded.
+  for (int i = 0; i < 4; ++i) {
+    out[i] = fitted[i];
+    outErr[i] = SignalHG.GetParError(i);
+  }
+  outErr[4] = SignalHG.GetChisquare();
+  outErr[5] = SignalHG.GetNDF();
+  calib->ScaleH = out[4] = SNRPeak;
+  calib->ScaleWidthH = out[5] = SNRFWHM;
+  bmipHG = true;
   return bmipHG;
 }
 
@@ -1159,6 +1240,13 @@ void TileSpectra::WriteExt( bool wFits = true){
       if(bwave)wave.Write(wave.GetName(), kOverwrite);
     }
   }
+}
+
+double TileSpectra::langaufunAdaptive(double *x, double *par) {
+  return lfhcal::langau::Convolution(
+      {par[0], par[1], par[2], par[3]},
+      [](double u) { return TMath::Landau(u, 0., 1.); },
+      kLangauIntegrationTolerance, kLangauGaussianSpan)(x[0]);
 }
 
 double TileSpectra::langaufun(double *x, double *par) {
