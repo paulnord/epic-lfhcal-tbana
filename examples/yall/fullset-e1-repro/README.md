@@ -59,3 +59,48 @@ python3 ../compare_fullset.py --set-name FullSetE_1
 
 The common tool compares refinement stages and builds combined PDF plot books,
 using `pdfunite`, `qpdf`, or Ghostscript.
+
+## Reuse converted data for a fresh analysis
+
+`Yallfile.after-convert` reads existing `rawHGCROC_372.root` through
+`rawHGCROC_378.root` from `LFHCAL_CONVERTED`. Those files must come from the
+same V2 mapping and FullSetE_1 runs as the original recipe. Use a new
+`LFHCAL_WORK`; keep the earlier outputs as the comparison baseline.
+
+The 19-task plan contains seven nonempty-input checks named `reuse-*` instead
+of conversion processes. It then reruns the muon merge, pedestal fitting,
+calibration transfer, initial MIP fitting, selection, all five refinements and
+final export. No symlinks or overwrite mode are needed. All analysis commands
+and fit options are identical to the original recipe.
+
+In the host tcsh shell, after setting `LFHCAL_CONVERTED` and a fresh
+`LFHCAL_WORK`:
+
+```tcsh
+mkdir -p "$LFHCAL_WORK/campaigns"
+cd "$LFHCAL_REPO/examples/yall/fullset-e1-repro"
+yall-run validate Yallfile.after-convert
+yall-run plan Yallfile.after-convert
+set C = `yall-run create Yallfile.after-convert --campaigns-dir "$LFHCAL_WORK/campaigns"`
+yall-run start "$C"
+yall-run status "$C"
+```
+
+Do not source `env.tcsh` after setting these variables. Run builds and tests
+before submission and keep the build unchanged while the campaign is running.
+The seven input checks confirm only that files are nonempty; the analysis
+programs subsequently open them as ROOT inputs.
+
+After completion, compare using the explicit new output path:
+
+```tcsh
+python3 "$LFHCAL_REPO/examples/yall/compare_fullset.py" \
+    --set-name FullSetE_1 --work "$LFHCAL_WORK/fullset-e1-repro" --no-pdf
+```
+
+The workflow regression check uses the same Yall parser as the existing
+shared-conversion tests:
+
+```sh
+python3 examples/yall/test_fullset_e1_reuse.py
+```
