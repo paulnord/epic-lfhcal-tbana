@@ -120,3 +120,33 @@ frozen recipes. This workflow-only change requires no C++ rebuild.
 `python3 examples/yall/test_fullset_e1_inline_final.py` checks the task graph
 and output ownership, and executes the final command with a fake DataPrep to
 verify successful copies and rejection of partial outputs after failure.
+
+## Test host-side setup without bookkeeping batch jobs
+
+`Yallfile.test-host-setup` has ten batch jobs, starting directly with the muon
+merge and pedestal fitting. It keeps the final copies inside refine5 and
+removes `prepare` and the seven standalone converted-input checks.
+
+Run the lightweight setup on the submission host before creating the campaign:
+
+```tcsh
+# Set LFHCAL_CONVERTED to the existing inputs and LFHCAL_WORK to a fresh directory.
+cd "$LFHCAL_REPO/examples/yall/fullset-e1-repro"
+python3 prepare_host.py
+yall-run validate Yallfile.test-host-setup
+yall-run plan Yallfile.test-host-setup
+set C = `yall-run create Yallfile.test-host-setup --campaigns-dir "$LFHCAL_WORK/campaigns"`
+yall-run start "$C"
+yall-run status "$C"
+```
+
+Stop if setup fails. It checks that all seven converted files are readable
+and nonempty before creating output directories, refuses an already-used
+analysis directory, and records its inputs in `$LFHCAL_WORK/host-setup.json`.
+It requires only host Python; it does not enter EIC, open ROOT files or submit
+jobs. Host readability does not replace the batch nodes' own input access.
+Do not reuse the work directory of a running campaign.
+
+All analysis commands, input order and output filenames match the inline-final
+variant. This is a workflow change only; no C++ rebuild is needed. The focused
+regression check is `python3 examples/yall/test_fullset_e1_host_setup.py`.
