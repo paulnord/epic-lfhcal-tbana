@@ -104,3 +104,19 @@ shared-conversion tests:
 ```sh
 python3 examples/yall/test_fullset_e1_reuse.py
 ```
+
+## Test final export inside refine5
+
+`Yallfile.test-inline-final` is a separate variant of `Yallfile.after-convert`.
+It has 18 tasks: `refine5-e1` now declares and copies the final ROOT and
+calibration files after DataPrep succeeds, eliminating the separate final
+batch job. The `&&` chain stops before copying if DataPrep fails. Preparation,
+input checks, analysis options and output filenames are otherwise unchanged.
+
+Use a fresh `LFHCAL_WORK` and pass `Yallfile.test-inline-final` to the same
+validate, plan and create commands above. Existing campaigns keep their
+frozen recipes. This workflow-only change requires no C++ rebuild.
+
+`python3 examples/yall/test_fullset_e1_inline_final.py` checks the task graph
+and output ownership, and executes the final command with a fake DataPrep to
+verify successful copies and rejection of partial outputs after failure.
