@@ -108,3 +108,7 @@ packaging checkout's revision/status/diff. Event-tree ROOT files and the
 creates a fresh output directory alongside the work directories. Missing
 refinement histograms, calibration text, final calibration or selection audit
 stop collection before creating an archive.
+The campaign container may have any name. If the supplied path is absent,
+the collector accepts a unique directory with the exact same campaign name
+under another container in the same work directory and prints the resolved
+path; missing or ambiguous matches remain errors.

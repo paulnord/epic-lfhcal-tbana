@@ -12,8 +12,22 @@ import tempfile
 
 def campaign_inputs(campaign):
     campaign = Path(campaign).resolve()
-    if not campaign.is_dir() or campaign.parent.name != "campaigns":
-        raise ValueError(f"Expected an existing campaigns/<campaign> directory: {campaign}")
+    if campaign.exists() and not campaign.is_dir():
+        raise ValueError(f"Campaign path is not a directory: {campaign}")
+    if not campaign.is_dir():
+        # The campaigns directory is user-named. Recover a misspelled parent
+        # only when the exact campaign name has one match in the same work.
+        work = campaign.parent.parent
+        matches = sorted({(parent / campaign.name).resolve()
+                          for parent in work.iterdir()
+                          if parent.is_dir() and not parent.is_symlink()
+                          and (parent / campaign.name).is_dir()
+                          and not (parent / campaign.name).is_symlink()}) if work.is_dir() else []
+        if len(matches) != 1:
+            detail = "Multiple matching campaigns" if matches else "Campaign directory not found"
+            raise ValueError(f"{detail}: {campaign}")
+        campaign = matches[0]
+        print(f"Using existing campaign: {campaign}")
     work = campaign.parent.parent
     results = work / "fullset-e1-repro"
     required = [results / "skim-check/selection.json",

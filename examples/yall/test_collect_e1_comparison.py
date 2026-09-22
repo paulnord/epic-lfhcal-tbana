@@ -11,9 +11,9 @@ from collect_e1_comparison import campaign_inputs, collect
 
 
 class CollectComparisonTest(unittest.TestCase):
-    def fixture(self, base, label):
+    def fixture(self, base, label, campaigns_name="campaigns"):
         work = base / (label + " work")
-        campaign = work / "campaigns" / "campaign with spaces"
+        campaign = work / campaigns_name / "campaign with spaces"
         results = work / "fullset-e1-repro"
         files = {
             work / "after-mip-setup.json": b'{"previous": "/input"}',
@@ -38,7 +38,7 @@ class CollectComparisonTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             x, xf = self.fixture(base, "X")
-            m, mf = self.fixture(base, "M")
+            m, mf = self.fixture(base, "M", "compaigns")
             with patch("collect_e1_comparison.checkout_info", return_value="revision\n"):
                 with contextlib.redirect_stdout(io.StringIO()):
                     archive, checksum = collect(x, m, base)
@@ -49,7 +49,8 @@ class CollectComparisonTest(unittest.TestCase):
                     self.assertIn(f"{label}/after-mip-setup.json", names)
                     self.assertIn(f"{label}/fullset-e1-repro/refine5/test_Hists.root", names)
                     self.assertIn(f"{label}/fullset-e1-repro/skim-check/selection.json", names)
-                    self.assertIn(f"{label}/campaigns/campaign with spaces/refine5_attempt_001/stdout.log", names)
+                    container = "campaigns" if label == "fixed-X" else "compaigns"
+                    self.assertIn(f"{label}/{container}/campaign with spaces/refine5_attempt_001/stdout.log", names)
                 self.assertFalse(any("events.root" in n or "plot.pdf" in n or
                                      "unrelated" in n or "external.txt" in n for n in names))
                 self.assertEqual(tar.extractfile("fixed-X/fullset-e1-repro/refine5/test_Hists.root").read(), b"histogram")
@@ -68,6 +69,31 @@ class CollectComparisonTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Missing histograms"):
                 campaign_inputs(campaign)
             self.assertFalse(list(base.glob("e1-comparison-*")))
+
+    def test_user_named_parent_and_misspelled_argument(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            campaign, _ = self.fixture(base, "M", "compaigns")
+            actual, files = campaign_inputs(campaign)
+            self.assertEqual(actual, campaign.resolve())
+            self.assertTrue(any("compaigns" in relative.parts for _, relative in files))
+            missing = campaign.parent.parent / "campaigns" / campaign.name
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                recovered, recovered_files = campaign_inputs(missing)
+            self.assertEqual(recovered, actual)
+            self.assertEqual(recovered_files, files)
+            self.assertIn(str(actual), output.getvalue())
+            missing.parent.mkdir(exist_ok=True)
+            missing.write_text("not a directory")
+            with self.assertRaisesRegex(ValueError, "not a directory"):
+                campaign_inputs(missing)
+            missing.unlink()
+            duplicate = campaign.parent.parent / "another-parent" / campaign.name
+            duplicate.mkdir(parents=True)
+            with self.assertRaisesRegex(ValueError, "Multiple matching campaigns"):
+                campaign_inputs(missing)
+            with self.assertRaisesRegex(ValueError, "not found"):
+                campaign_inputs(campaign.parent / "nonexistent-campaign")
 
 
 if __name__ == "__main__":
