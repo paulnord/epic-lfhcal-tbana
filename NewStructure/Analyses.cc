@@ -6105,6 +6105,8 @@ bool Analyses::SkimHGCROCData(void){
     TdataIn->GetEntry(i);
     if (i%5000 == 0 && i > 0 && debug > 0) std::cout << "Reading " <<  i << " / " << evts << " events" << std::endl;
     bool triggered = false;
+    // Decide for the entire event before removing any tiles. A trigger on
+    // a later tile must also retain the untriggered tiles preceding it.
     for(int j=0; j<event.GetNTiles(); j++){
       Hgcroc* aTile=(Hgcroc*)event.GetTile(j);
       // testing for any signal beyond noise
@@ -6114,10 +6116,6 @@ bool Analyses::SkimHGCROCData(void){
       
       if (aTile->GetRawTOA() > 0) triggered= true;
       if (aTile->GetLocalTriggerBit()== (char)1) triggered= true;
-      if( !triggered){
-        event.RemoveTile(aTile);
-        j--;
-      }
     }
     
     if (!triggered && debug == 3){
@@ -6125,6 +6123,13 @@ bool Analyses::SkimHGCROCData(void){
         Hgcroc* aTile=(Hgcroc*)event.GetTile(j);
         // testing for any signal beyond noise
         aTile->PrintWaveFormDebugInfo(calib.GetPedestalMeanH(aTile->GetCellID()), calib.GetPedestalMeanL(aTile->GetCellID()), calib.GetPedestalSigL(aTile->GetCellID()));
+      }
+    }
+
+    if (!triggered){
+      // Remove only rejected events' tiles, after completing the scan.
+      for (int j=event.GetNTiles()-1; j>=0; --j){
+        event.RemoveTile(event.GetTile(j));
       }
     }
     
