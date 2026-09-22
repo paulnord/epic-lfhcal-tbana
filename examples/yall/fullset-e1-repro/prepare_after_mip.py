@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Prepare a fresh E1 skim comparison using existing adaptive MIP events."""
+import argparse
 import hashlib
 import json
 import os
@@ -12,7 +13,7 @@ SELECTED = 'rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetE_1.root'
 FINAL = 'calib_Final_Muon_FullSetE_1_calib.txt'
 
 
-def prepare(previous, work):
+def prepare(previous, work, *, muon_only=False):
     previous, work = Path(previous).resolve(), Path(work).resolve()
     result = work / 'fullset-e1-repro'
     manifest = work / 'after-mip-setup.json'
@@ -20,9 +21,11 @@ def prepare(previous, work):
         raise ValueError('Previous and new work directories must be separate')
     if result.exists() or result.is_symlink() or manifest.exists():
         raise ValueError('Choose a fresh LFHCAL_WORK; this one was already prepared or used')
-    inputs = [previous/'mip'/f'{MIP}.root', previous/'selected'/SELECTED,
+    inputs = [previous/'mip'/f'{MIP}.root',
               previous/'mip'/f'{MIP}_calib.txt', previous/'mip'/f'{MIP}_Hists.root',
               previous/'final'/FINAL]
+    if not muon_only:
+        inputs.append(previous/'selected'/SELECTED)
     for path in inputs:
         if not path.is_file() or not os.access(path, os.R_OK) or path.stat().st_size == 0:
             raise ValueError(f'Missing, empty or unreadable previous result: {path}')
@@ -34,14 +37,15 @@ def prepare(previous, work):
         (result/'plots'/f'refine{n}').mkdir(parents=True, exist_ok=False)
     (work/'campaigns').mkdir(exist_ok=True)
     copied = []
-    for source, target in ((inputs[2], result/'mip'/inputs[2].name),
-                           (inputs[3], result/'mip'/inputs[3].name),
-                           (inputs[4], result/'baseline'/FINAL)):
+    for source, target in ((inputs[1], result/'mip'/inputs[1].name),
+                           (inputs[2], result/'mip'/inputs[2].name),
+                           (inputs[3], result/'baseline'/FINAL)):
         shutil.copy2(source, target)
         copied.append({'source': str(source), 'target': str(target),
                        'sha256': hashlib.sha256(target.read_bytes()).hexdigest()})
     with manifest.open('x') as stream:
-        json.dump({'recipe': 'Yallfile.after-mip', 'previous': str(previous),
+        json.dump({'recipe': 'Yallfile.after-mip-muon' if muon_only else 'Yallfile.after-mip',
+                   'selection': '-M' if muon_only else '-X', 'previous': str(previous),
                    'work': str(work), 'inputs': [{'path': str(p), 'size_bytes': p.stat().st_size,
                                                 'mtime_ns': p.stat().st_mtime_ns} for p in inputs],
                    'copied': copied,
@@ -52,11 +56,14 @@ def prepare(previous, work):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--muon-only', action='store_true', help='Prepare the -M tile-selected recipe')
+    args = parser.parse_args()
     try:
         for name in ('LFHCAL_PREVIOUS', 'LFHCAL_WORK'):
             if not os.environ.get(name):
                 raise ValueError(f'Set {name} first')
-        result = prepare(os.environ['LFHCAL_PREVIOUS'], os.environ['LFHCAL_WORK'])
+        result = prepare(os.environ['LFHCAL_PREVIOUS'], os.environ['LFHCAL_WORK'], muon_only=args.muon_only)
     except (ValueError, OSError) as error:
         print(f'After-MIP setup failed: {error}', file=sys.stderr)
         return 1

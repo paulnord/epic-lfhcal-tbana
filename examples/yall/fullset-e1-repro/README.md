@@ -28,6 +28,8 @@ old selection behavior.
 To test the correction with the existing adaptive E1 data, follow the
 [BNL restart-after-MIP instructions](SKIM_RETEST.md). This runs six jobs in a
 fresh directory and compares the corrected skim with the previous selection.
+For the separate muon-triggered-tile (`-M`) experiment, use
+[the E1 muon-only instructions](MUON_SKIM_TEST.md).
 
 Published reference:
 

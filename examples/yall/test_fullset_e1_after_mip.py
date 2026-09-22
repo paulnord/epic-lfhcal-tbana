@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check restart isolation and unchanged refinement commands."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import shlex
@@ -8,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from yall_run.model import load_spec
+from yall_run.condor_backend import render_condor
 
 HERE = Path(__file__).resolve().parent/'fullset-e1-repro'
 spec = importlib.util.spec_from_file_location('prepare_after_mip', HERE/'prepare_after_mip.py')
@@ -79,6 +81,46 @@ class AfterMipTests(unittest.TestCase):
         for target in (self.previous, self.previous/'nested', self.previous.parent):
             with self.assertRaisesRegex(ValueError, 'separate'):
                 setup.prepare(self.previous, target)
+
+    def test_muon_recipe_changes_selection_and_preserves_all_refinements(self):
+        old = {t.name: t for t in load_spec(HERE/'Yallfile.after-mip').tasks}
+        spec = load_spec(HERE/'Yallfile.after-mip-muon')
+        new = {t.name: t for t in spec.tasks}
+        self.assertEqual(set(new), set(old))
+        self.assertEqual(len(spec.preflight), 1)
+        self.assertIn('--muon-only', spec.preflight[0])
+        for n in range(1, 6):
+            name = f'refine{n}-e1'
+            for attr in ('command', 'inputs', 'outputs', 'parents'):
+                self.assertEqual(getattr(new[name], attr), getattr(old[name], attr), (name, attr))
+        select = new['select-e1']
+        args = shlex.split(select.command.split(' && ', 1)[0])
+        self.assertIn('-M', args)
+        self.assertNotIn('-X', args)
+        self.assertFalse(select.parents)
+        self.assertEqual(args[args.index('-i')+1], str(self.previous/'mip'/f'{setup.MIP}.root'))
+        self.assertIn('compare_muon_skim.C', select.command)
+        self.assertNotIn('compare_skim.C(', select.command)
+        self.assertNotIn(str(self.previous/'selected'), select.command)
+
+    def test_muon_create_runs_setup_on_host_without_old_selected_file(self):
+        (self.previous/'selected'/setup.SELECTED).unlink()
+        spec = load_spec(HERE/'Yallfile.after-mip-muon')
+        campaign = render_condor(spec, self.work/'campaigns')
+        manifest = json.loads((campaign/'campaign.json').read_text())
+        self.assertEqual(manifest['preflight'][0]['state'], 'completed')
+        self.assertEqual(len(manifest['task_order']), 6)
+        record = json.loads((self.work/'after-mip-setup.json').read_text())
+        self.assertEqual(record['recipe'], 'Yallfile.after-mip-muon')
+        self.assertEqual(record['selection'], '-M')
+        for task in spec.tasks:
+            for output in task.outputs:
+                self.assertTrue(Path(output.path).parent.is_dir(), output.path)
+                self.assertFalse(Path(output.path).exists(), output.path)
+        self.assertFalse(list(campaign.glob('*_attempt_*')))
+        dag = (campaign/'condor'/'campaign.dag').read_text()
+        self.assertEqual(sum(line.startswith('JOB ') for line in dag.splitlines()), 6)
+        self.assertNotIn('prepare', dag)
 
 
 if __name__ == '__main__':
