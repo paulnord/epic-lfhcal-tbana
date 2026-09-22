@@ -25,6 +25,10 @@ After updating this code, rebuild DataPrep and use a fresh work directory for
 selection and its dependent refinements. Existing selected files retain the
 old selection behavior.
 
+To test the correction with the existing adaptive E1 data, follow the
+[BNL restart-after-MIP instructions](SKIM_RETEST.md). This runs six jobs in a
+fresh directory and compares the corrected skim with the previous selection.
+
 Published reference:
 
 ```text

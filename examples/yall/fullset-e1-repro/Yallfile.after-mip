@@ -1,0 +1,83 @@
+campaign lfhcal-tb2026-fullset-e1-after-mip
+backend condor
+
+# Isolate the event-skim correction using the previous adaptive E1 MIP file.
+# Run prepare_after_mip.py on the submit host first. No setup/final batch jobs.
+@env LFHCAL_PREVIOUS
+@env LFHCAL_WORK
+@env EIC_SHELL
+@set BUILD ../../../NewStructure/build
+@set WORK fullset-e1-repro
+@set SET FullSetE_1
+@set RUNDB ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+
+%cpus 1
+%memory 4GB
+%disk 16GB
+%time 2h
+%getenv true
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+
+select-e1:
+    @input root {LFHCAL_PREVIOUS}/mip/rawHGCROC_wPedwMuon_wBC_Muon_{SET}.root
+    @input previous {LFHCAL_PREVIOUS}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @output root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @output audit_json {LFHCAL_WORK}/{WORK}/skim-check/selection.json
+    @output audit_csv {LFHCAL_WORK}/{WORK}/skim-check/selection.csv
+    ! {BUILD}/DataPrep -f -d 1 -X -i @input.root -o @output.root && \
+        root -l -b -q -e 'gSystem->AddDynamicPath("{BUILD}"); if (gSystem->Load("libLFHCAL") < 0) gSystem->Exit(2);' \
+        'compare_skim.C("{LFHCAL_PREVIOUS}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root","{LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root","{LFHCAL_WORK}/{WORK}/skim-check/selection")'
+
+refine1-e1: select-e1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine1/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine2-e1: refine1-e1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine2/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine3-e1: refine2-e1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine3/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine4-e1: refine3-e1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine4/Muon_{SET}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine5-e1: refine4-e1
+    @input root {LFHCAL_WORK}/{WORK}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_{SET}.root
+    @input prev {LFHCAL_WORK}/{WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{SET}_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}.root
+    @output calib {LFHCAL_WORK}/{WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{SET}_calib.txt
+    @output plots {LFHCAL_WORK}/{WORK}/plots/refine5/Muon_{SET}
+    @output final_root {LFHCAL_WORK}/{WORK}/final/calib_Final_Muon_{SET}.root
+    @output final_calib {LFHCAL_WORK}/{WORK}/final/calib_Final_Muon_{SET}_calib.txt
+    ! {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb && \
+        /bin/mkdir -p "{LFHCAL_WORK}/{WORK}/final" && \
+        /bin/cp @output.root @output.final_root && \
+        /bin/cp @output.calib @output.final_calib
