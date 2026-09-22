@@ -88,3 +88,23 @@ Preserve histograms and logs from both campaigns. The comparisons measure the
 calibration effect of the different selection; neither establishes that all
 fits are physically good. `GetImprovedScaling()` still applies its own local
 muon-trigger criterion before filling fitted spectra.
+
+## Collect both completed runs for transfer
+
+From the tcsh terminal where `C` is the corrected `-X` campaign and `CM` is
+the `-M` campaign:
+
+```tcsh
+cd "$LFHCAL_REPO"
+python3 examples/yall/collect_e1_comparison.py "$C" "$CM"
+```
+
+This uses only Python's standard library, with no shell switch or pasted
+multiline program. It prints one archive and its SHA-256 file to transfer.
+The archive includes both campaigns' logs and metadata, all stage histograms,
+calibration text, selection audits, existing reports, setup metadata and the
+packaging checkout's revision/status/diff. Event-tree ROOT files and the
+`plots` directory are excluded. Inputs remain unchanged; every invocation
+creates a fresh output directory alongside the work directories. Missing
+refinement histograms, calibration text, final calibration or selection audit
+stop collection before creating an archive.
