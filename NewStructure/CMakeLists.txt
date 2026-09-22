@@ -252,4 +252,21 @@ if(BUILD_TESTING)
   add_test(NAME adaptive_root_read
     COMMAND test_adaptive_root_roundtrip --read "${ADAPTIVE_ROUNDTRIP_FILE}")
   set_tests_properties(adaptive_root_read PROPERTIES FIXTURES_REQUIRED adaptive_root_file)
+
+  # Exercise the real -X skim through ROOT I/O, including triggers after
+  # untriggered tiles. Accepted events must retain every original tile.
+  add_executable(test_hgcroc_skim Tests/test_hgcroc_skim.cc)
+  target_link_libraries(test_hgcroc_skim PRIVATE LFHCAL)
+  set(HGCROC_SKIM_INPUT "${CMAKE_CURRENT_BINARY_DIR}/hgcroc-skim-input.root")
+  set(HGCROC_SKIM_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/hgcroc-skim-output.root")
+  add_test(NAME hgcroc_skim_write
+    COMMAND test_hgcroc_skim --write "${HGCROC_SKIM_INPUT}")
+  set_tests_properties(hgcroc_skim_write PROPERTIES FIXTURES_SETUP hgcroc_skim_input)
+  add_test(NAME hgcroc_skim_run
+    COMMAND DataPrep -X -f -i "${HGCROC_SKIM_INPUT}" -o "${HGCROC_SKIM_OUTPUT}")
+  set_tests_properties(hgcroc_skim_run PROPERTIES
+    FIXTURES_REQUIRED hgcroc_skim_input FIXTURES_SETUP hgcroc_skim_output)
+  add_test(NAME hgcroc_skim_read
+    COMMAND test_hgcroc_skim --read "${HGCROC_SKIM_INPUT}" "${HGCROC_SKIM_OUTPUT}")
+  set_tests_properties(hgcroc_skim_read PROPERTIES FIXTURES_REQUIRED hgcroc_skim_output)
 endif()

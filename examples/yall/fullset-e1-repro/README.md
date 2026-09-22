@@ -1,7 +1,8 @@
 # FullSetE_1 reproduction
 
-This example reproduces Fredi's SPS H2 `FullSetE_1` merged-muon calibration
-chain from raw TB2026 data using Yall and HTCondor.
+This example runs the SPS H2 `FullSetE_1` merged-muon calibration chain
+from raw TB2026 data using Yall and HTCondor, for comparison with the
+published calibration. It uses the skimmed-event refinement path.
 
 Pedestal: `372`
 
@@ -14,6 +15,15 @@ Muon runs, in Fredi's merge order:
 The merged input is `Muon_FullSetE_1`. This set uses the V2 summing-board
 mapping, the shared FullSetA-F bad-channel map, and
 `configs/TB2026/ToAOffsets_TBSPS2026_FullSetE.csv`.
+
+The `select-e1` task explicitly runs `DataPrep -X`, which invokes
+`Analyses::SkimHGCROCData()`. All refinements consume that selected event file.
+The corrected skim retains the entire event if any tile triggers; older builds
+could remove tiles preceding the first trigger. See
+[event-skim behavior and regression test](../../../NewStructure/HGCROC_EVENT_SKIM.md).
+After updating this code, rebuild DataPrep and use a fresh work directory for
+selection and its dependent refinements. Existing selected files retain the
+old selection behavior.
 
 Published reference:
 
