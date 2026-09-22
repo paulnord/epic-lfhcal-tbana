@@ -28,28 +28,10 @@ backend condor
 %getenv true
 %wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
-prepare:
-    /bin/mkdir -p \
-        {LFHCAL_WORK}/{WORK}/pedestal \
-        {LFHCAL_WORK}/{WORK}/transfer \
-        {LFHCAL_WORK}/{WORK}/mip \
-        {LFHCAL_WORK}/{WORK}/selected \
-        {LFHCAL_WORK}/{WORK}/refine1 \
-        {LFHCAL_WORK}/{WORK}/refine2 \
-        {LFHCAL_WORK}/{WORK}/refine3 \
-        {LFHCAL_WORK}/{WORK}/refine4 \
-        {LFHCAL_WORK}/{WORK}/refine5 \
-        {LFHCAL_WORK}/{WORK}/final \
-        {LFHCAL_WORK}/{WORK}/plots/pedestal \
-        {LFHCAL_WORK}/{WORK}/plots/transfer \
-        {LFHCAL_WORK}/{WORK}/plots/mip \
-        {LFHCAL_WORK}/{WORK}/plots/refine1 \
-        {LFHCAL_WORK}/{WORK}/plots/refine2 \
-        {LFHCAL_WORK}/{WORK}/plots/refine3 \
-        {LFHCAL_WORK}/{WORK}/plots/refine4 \
-        {LFHCAL_WORK}/{WORK}/plots/refine5
+# Create the output tree on the submit host before DAGMan is launched.
+%preflight /bin/mkdir -p {LFHCAL_WORK}/{WORK}/pedestal {LFHCAL_WORK}/{WORK}/transfer {LFHCAL_WORK}/{WORK}/mip {LFHCAL_WORK}/{WORK}/selected {LFHCAL_WORK}/{WORK}/refine1 {LFHCAL_WORK}/{WORK}/refine2 {LFHCAL_WORK}/{WORK}/refine3 {LFHCAL_WORK}/{WORK}/refine4 {LFHCAL_WORK}/{WORK}/refine5 {LFHCAL_WORK}/{WORK}/final {LFHCAL_WORK}/{WORK}/plots/pedestal {LFHCAL_WORK}/{WORK}/plots/transfer {LFHCAL_WORK}/{WORK}/plots/mip {LFHCAL_WORK}/{WORK}/plots/refine1 {LFHCAL_WORK}/{WORK}/plots/refine2 {LFHCAL_WORK}/{WORK}/plots/refine3 {LFHCAL_WORK}/{WORK}/plots/refine4 {LFHCAL_WORK}/{WORK}/plots/refine5
 
-pedestal-g2: prepare
+pedestal-g2:
     @input raw {LFHCAL_CONVERTED}/rawHGCROC_{PED}.root
     @input rundb {RUNDB}
     @output root {LFHCAL_WORK}/{WORK}/pedestal/rawHGCROC_wPed.root

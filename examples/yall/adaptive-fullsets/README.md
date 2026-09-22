@@ -9,11 +9,15 @@ calibration workflow. The adaptive branch changes only the Landau–Gaussian
 numerical evaluator; the fit ranges, bounds, likelihood, and refinement chain
 remain the existing choices.
 
+Each Yallfile uses `%preflight` to create its output and plot directories on
+the submit host. There is no queued `prepare` task; the first batch job is the
+pedestal calculation.
+
 Before running, make sure these files exist:
 
 ```text
-$LFHCAL_CONVERTED/rawHGCROC_<pedestal-run>.root
-$LFHCAL_MERGED/rawHGCROC_Muon_<FullSet>.root
+/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata/converted/rawHGCROC_<pedestal-run>.root
+/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata/merged/rawHGCROC_Muon_<FullSet>.root
 ```
 
 On BNL:

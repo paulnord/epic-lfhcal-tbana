@@ -3,8 +3,8 @@ source ../../../tools/example-env.tcsh adaptive-fullsets
 if ($status != 0) exit 1
 
 # Persistent converted inputs gathered under the TB2026 layout.
-setenv LFHCAL_CONVERTED "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/TB2026/converted"
-setenv LFHCAL_MERGED "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/TB2026/merged"
+setenv LFHCAL_CONVERTED "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata/converted"
+setenv LFHCAL_MERGED "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata/merged"
 mkdir -p "$LFHCAL_WORK/adaptive-fullsets/campaigns"
 
 echo "Converted inputs=$LFHCAL_CONVERTED"
