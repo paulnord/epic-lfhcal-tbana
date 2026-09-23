@@ -1,0 +1,169 @@
+campaign lfhcal-tb2026-adaptive-fullset-f2
+backend condor
+
+# Reproduce Fredi's SPS H2 FullSetF_2 adaptive calibration chain from raw data.
+# Source recipe:
+#   NewStructure/convertDataHGCROC_TBSPSH2_2026.sh
+#   NewStructure/runHGCROCCalibration_TBSPSH2_2026.sh
+#   NewStructure/helperCalibHGCROC.sh
+#   NewStructure/stripCalib_TBSPSH2_2026.sh
+#
+# FullSetF_2 uses muon runs 472, 475, 476, 479, 480, and 483 merged as
+# Muon_FullSetF_2, pedestal run 471, the FullSetA-F bad-channel map, the
+# FullSetF ToA offsets, and five reduced/no-event-tree improvement passes
+# through Imp5R. Fredi selected Set 2 as the final Set F calibration because
+# its six beam positions give higher statistics and better coverage.
+#
+# The terminal final task is collected by yall-run's automatic postflight
+# handling when that feature is enabled on the installed yall-run.
+#
+# Fredi's published reference calibration is:
+#   ../../../calibrations/TB2026/calib_SPS-H2_FullSetF_2.txt
+#
+# The ToA offsets are consumed from the published FullSetF file. This workflow
+# does not rederive them from hadron run 452.
+#
+# fixSetup is intentionally omitted: it repairs already-converted files after
+# mapping changes. This workflow converts fresh from raw using the current map.
+
+@env LFHCAL_DATA
+@env LFHCAL_WORK
+@env EIC_SHELL
+@set BUILD ../../../NewStructure/build
+@set TB2026_CONFIG ../../../configs/TB2026
+
+# Scientific run configuration lives here.
+@table runs type run:
+    pedestal 471
+    muon     472
+    muon     475
+    muon     476
+    muon     479
+    muon     480
+    muon     483
+
+%cpus 1
+%memory 4GB
+%disk 8GB
+%time 2h
+%getenv true
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+
+%preflight /bin/mkdir -p {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted {LFHCAL_WORK}/adaptive-fullset-f2-repro/pedestal {LFHCAL_WORK}/adaptive-fullset-f2-repro/transfer {LFHCAL_WORK}/adaptive-fullset-f2-repro/mip {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine1 {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine2 {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine3 {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine4 {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine5 {LFHCAL_WORK}/adaptive-fullset-f2-repro/final {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/pedestal {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/transfer {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/mip {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine1 {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine2 {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine3 {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine4 {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine5
+
+convert-{type}-{run}:
+    @each type run in runs
+    @input raw {LFHCAL_DATA}/Run{run}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted/rawHGCROC_{run}.root
+    %memory 2GB
+    {BUILD}/Convert -d 0 -f -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+# Bind type=muon so the parent and input fan-in follow only the muon rows.
+merge-{type}: convert-{type}-{run}
+    @each type muon
+    @input parts {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted/rawHGCROC_{run}.root
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted/rawHGCROC_Muon_FullSetF_2.root
+    hadd -f @output.root @input.parts
+
+# Bind type here; run is inherited from the compatible conversion row.
+{type}-{run}: convert-{type}-{run}
+    @each type pedestal
+    @input raw {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted/rawHGCROC_{run}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}_calib.txt
+    @output hists {LFHCAL_WORK}/adaptive-fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}_Hists.root
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/pedestal/Run{run}
+    {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f \
+        -o @output.root -O @output.plots -r @input.rundb -F pdf
+
+# The patterned pedestal parent keeps this dependency tied to the run table.
+transfer-f2: merge-muon {type}-{run}
+    @input pedestal {LFHCAL_WORK}/adaptive-fullset-f2-repro/pedestal/rawHGCROC_wPed_{run}.root
+    @input raw {LFHCAL_WORK}/adaptive-fullset-f2-repro/converted/rawHGCROC_Muon_FullSetF_2.root
+    @input bad {TB2026_CONFIG}/badChannel_HGCROC_SPSTB2026_FullSetA-F.txt
+    @input toa {TB2026_CONFIG}/ToAOffsets_TBSPS2026_FullSetF.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/transfer/rawHGCROC_wPed_wBC_Muon_FullSetF_2.root
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/transfer/Muon_FullSetF_2
+    {BUILD}/DataPrep -d 1 -e -f -P @input.pedestal \
+        -i @input.raw -o @output.root -O @output.plots \
+        -r @input.rundb -B @input.bad -G @input.toa
+
+mip-f2: transfer-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/transfer/rawHGCROC_wPed_wBC_Muon_FullSetF_2.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/mip/rawHGCROC_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/mip/rawHGCROC_wPedwMuon_wBC_Muon_FullSetF_2_calib.txt
+    @output hists {LFHCAL_WORK}/adaptive-fullset-f2-repro/mip/rawHGCROC_wPedwMuon_wBC_Muon_FullSetF_2_Hists.root
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/mip/Muon_FullSetF_2
+    {BUILD}/DataPrep -a -f -d 1 -e -s -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+select-f2: mip-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/mip/rawHGCROC_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    {BUILD}/DataPrep -f -d 1 -M -i @input.root -o @output.root
+
+# Fredi's *_red_woE recipe keeps fitting the same skimmed MIP sample and feeds
+# the previous pass's text calibration back with -k. It does not feed the
+# previous ROOT output into the next pass.
+refine1-f2: select-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_FullSetF_2_calib.txt
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine1/Muon_FullSetF_2
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine2-f2: refine1-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @input prev {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_Muon_FullSetF_2_calib.txt
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_FullSetF_2_calib.txt
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine2/Muon_FullSetF_2
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine3-f2: refine2-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @input prev {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_Muon_FullSetF_2_calib.txt
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_FullSetF_2_calib.txt
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine3/Muon_FullSetF_2
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine4-f2: refine3-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @input prev {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_Muon_FullSetF_2_calib.txt
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetF_2_calib.txt
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine4/Muon_FullSetF_2
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+refine5-f2: refine4-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetF_2.root
+    @input prev {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetF_2_calib.txt
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetF_2_calib.txt
+    @output plots {LFHCAL_WORK}/adaptive-fullset-f2-repro/plots/refine5/Muon_FullSetF_2
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+final-f2: refine5-f2
+    @input root {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetF_2.root
+    @input calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetF_2_calib.txt
+    @output root {LFHCAL_WORK}/adaptive-fullset-f2-repro/final/calib_Final_Muon_FullSetF_2.root
+    @output calib {LFHCAL_WORK}/adaptive-fullset-f2-repro/final/calib_Final_Muon_FullSetF_2_calib.txt
+    ! /bin/mkdir -p {LFHCAL_WORK}/adaptive-fullset-f2-repro/final && \
+        /bin/cp @input.root @output.root && /bin/cp @input.calib @output.calib
