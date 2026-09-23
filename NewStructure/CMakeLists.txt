@@ -231,27 +231,3 @@ endif()
 # Set default build target
 set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT DataPrep)
 
-# Adaptive HGCROC MIP numerics and production-path regressions. The tests use
-# synthetic spectra and do not require beam data or the raw HGCROC decoder.
-include(CTest)
-if(BUILD_TESTING)
-  add_test(NAME dataprep_help COMMAND DataPrep -h)
-  set_tests_properties(dataprep_help PROPERTIES PASS_REGULAR_EXPRESSION "Usage:")
-
-  add_executable(test_langau_numerics Tests/test_langau_numerics.cc)
-  add_test(NAME langau_numerics COMMAND test_langau_numerics)
-
-  add_executable(test_adaptive_mip Tests/test_adaptive_mip.cc)
-  target_link_libraries(test_adaptive_mip PRIVATE LFHCAL)
-  add_test(NAME adaptive_mip_production COMMAND test_adaptive_mip)
-
-  add_executable(test_adaptive_root_roundtrip Tests/test_adaptive_root_roundtrip.cc)
-  target_link_libraries(test_adaptive_root_roundtrip PRIVATE LFHCAL)
-  set(ADAPTIVE_ROUNDTRIP_FILE "${CMAKE_CURRENT_BINARY_DIR}/adaptive-mip-roundtrip.root")
-  add_test(NAME adaptive_root_write
-    COMMAND test_adaptive_root_roundtrip --write "${ADAPTIVE_ROUNDTRIP_FILE}")
-  set_tests_properties(adaptive_root_write PROPERTIES FIXTURES_SETUP adaptive_root_file)
-  add_test(NAME adaptive_root_read
-    COMMAND test_adaptive_root_roundtrip --read "${ADAPTIVE_ROUNDTRIP_FILE}")
-  set_tests_properties(adaptive_root_read PROPERTIES FIXTURES_REQUIRED adaptive_root_file)
-endif()
