@@ -11,16 +11,16 @@
 #include <vector>
 
 namespace {
-constexpr double kLangauIntegrationTolerance = 1e-10;
-constexpr double kLangauGaussianSpan = 5.0;
+const lfhcal::langau::IntegrationConfig kAdaptiveIntegration{};
+const lfhcal::langau::ValidationConfig kAdaptiveValidation{};
 const char *kAdaptiveLangauTitle =
-    "Landau-Gaussian (adaptive integration, rtol=1e-10, span=5)";
+    "Landau-Gaussian (adaptive integration, configured quadrature)";
 
 double adaptiveLangau(double *x, double *par) {
   return lfhcal::langau::Convolution(
       {par[0], par[1], par[2], par[3]},
       [](double u) { return TMath::Landau(u, 0., 1.); },
-      kLangauIntegrationTolerance, kLangauGaussianSpan)(x[0]);
+      kAdaptiveIntegration)(x[0]);
 }
 }
 
@@ -156,7 +156,7 @@ bool fitMipHG(TileSpectra& self, double* out, double* outErr,
   const auto check = lfhcal::langau::verify(
       {fitted[0], fitted[1], fitted[2], fitted[3]},
       [](double u) { return TMath::Landau(u, 0., 1.); },
-      kLangauIntegrationTolerance, centres);
+      kAdaptiveIntegration, kAdaptiveValidation, centres);
   if (!check.complete || !check.pass) {
     std::cerr << "Skipped HG cell " << self.cellID
               << " adaptive peak/FWHM failed: " << check.error << std::endl;
