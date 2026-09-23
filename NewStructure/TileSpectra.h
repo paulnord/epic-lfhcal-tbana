@@ -13,6 +13,12 @@
 #include "Calib.h"
 #include "Tile.h"
 
+class TileSpectra;
+namespace lfhcal { namespace adaptive {
+  bool fitMipHG(TileSpectra&, double*, double*, int, int, bool, double, double);
+}
+}
+
 class TileSpectra: public TObject{
 
  public:
@@ -255,6 +261,7 @@ class TileSpectra: public TObject{
   void FitFixedNoise();
   void InitializeNoiseFitsFromCalib();
   bool FitMipHG(double*, double*, int, int, bool, double, double );
+  bool fitMipHGLegacy(double*, double*, int, int, bool, double, double );
   bool FitMipLG(double*, double*, int, int, bool, double, double );
   bool FitCorrCAEN(int);
   bool FitLGHGCorr(int , bool);
@@ -344,8 +351,9 @@ class TileSpectra: public TObject{
   TProfile hProfileTOT; // only in HGCROC case
   TProfile hProfileTOA; // only in HGCROC case
   static double langaufun(double */*x*/, double */*par*/);
-  static double langaufunAdaptive(double *x, double *par);
   static int langaupro(double */*params*/, double &/*maxx*/, double &/*FWHM*/);
+
+  friend bool lfhcal::adaptive::fitMipHG(TileSpectra&, double*, double*, int, int, bool, double, double);
 
   ClassDef(TileSpectra,3);
 };
