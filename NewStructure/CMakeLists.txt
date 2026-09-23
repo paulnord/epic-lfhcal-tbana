@@ -84,6 +84,7 @@ set(ROOT_HEADERS
   HGCROC.h
   Caen.h
   TileSpectra.h
+  AdaptiveMipFit.h
   TileTrend.h
   CalibSummary.h
   AnaSummary.h
@@ -100,6 +101,7 @@ set(LIB_SOURCES
   HGCROC.cc
   Caen.cc
   TileSpectra.cc
+  AdaptiveMipFit.cc
   TileTrend.cc
   CalibSummary.cc
   AnaSummary.cc
