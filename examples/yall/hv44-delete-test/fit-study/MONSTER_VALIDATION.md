@@ -22,6 +22,20 @@ changed. The result is `REVIEW` when warnings exist, even if all executed
 commands pass. This is intentional: numerical checks do not by themselves
 certify a calibration.
 
+To compare completed calibration trees with the published TB2026 calibration,
+pass each output tree with `--calibration-work`. The set name is inferred from
+the conventional directory name, and `examples/yall/compare_fullset.py` writes
+the numerical comparison into the audit bundle:
+
+```bash
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-b1-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-e1-repro
+```
+
+Without this option, calibration files are only used as fit seeds by the
+stability phase; the harness explicitly reports that no calibration comparison
+was requested.
+
 ## Local smoke and comparison run
 
 This executes the build, unit tests, Python tests, and E1 tool comparison while

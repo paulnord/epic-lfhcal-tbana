@@ -20,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -103,6 +104,8 @@ def main() -> int:
     parser.add_argument("--fitter", type=Path, help="fit_cell903 executable")
     parser.add_argument("--campaign", type=Path, action="append", default=[],
                         help="completed BNL campaign directory to audit")
+    parser.add_argument("--calibration-work", type=Path, action="append", default=[],
+                        help="completed fullset output tree to compare with its published calibration")
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--skip-tool-comparison", action="store_true")
@@ -187,6 +190,28 @@ def main() -> int:
             print(f"[pass] campaign-{index}: {len(files)} files, {record['bytes']} bytes", flush=True)
     else:
         skip_phase(manifest, "campaign-audit", "requested with --skip-campaign-audit", out)
+
+    compare_fullset = REPO / "examples/yall/compare_fullset.py"
+    if args.calibration_work:
+        if not compare_fullset.is_file():
+            skip_phase(manifest, "calibration-comparison", f"missing utility: {compare_fullset}", out)
+        else:
+            for index, work in enumerate(args.calibration_work, 1):
+                work = work.expanduser().resolve()
+                match = re.search(r"fullset-([a-z])(\d+)-repro$", work.name, re.IGNORECASE)
+                if not match:
+                    skip_phase(manifest, f"calibration-{index}",
+                               f"cannot infer FullSet name from {work}", out)
+                    continue
+                set_name = f"FullSet{match.group(1).upper()}_{match.group(2)}"
+                run_phase(manifest, f"calibration-{set_name}",
+                          ["python3", str(compare_fullset), "--set-name", set_name,
+                           "--work", str(work), "--out", str(out / "results" / f"calibration-{set_name}"),
+                           "--no-pdf"], out, cwd=REPO)
+    else:
+        skip_phase(manifest, "calibration-comparison",
+                   "no --calibration-work was supplied; fit seeds and calibration outputs are not compared",
+                   out)
 
     manifest["finished_utc"] = utc_now()
     failures = [p for p in manifest["phases"] if p.get("status") == "fail"]
