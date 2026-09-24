@@ -287,7 +287,15 @@ int main() {
     // and report EBUSY even though the test assertions all passed.
     gROOT->cd();
     gROOT->GetListOfFiles()->Delete();
-    std::filesystem::remove_all(fixture);
+    std::error_code cleanup_error;
+    std::filesystem::remove_all(fixture, cleanup_error);
+    if (cleanup_error) {
+      // Some NFS clients keep a ROOT file descriptor alive until process exit.
+      // The fixture is disposable and all content assertions have passed, so
+      // do not turn this filesystem cleanup quirk into a test failure.
+      std::cerr << "WARNING: could not remove temporary fixture " << fixture
+                << ": " << cleanup_error.message() << '\n';
+    }
     std::cout << "PASS: representative selection, missing counts, lossless histograms/maps, "
                  "source preservation, and existing-output refusal.\n";
     return 0;
