@@ -198,7 +198,7 @@ def main() -> int:
         else:
             for index, work in enumerate(args.calibration_work, 1):
                 work = work.expanduser().resolve()
-                match = re.search(r"fullset-([a-z])(\d+)-repro$", work.name, re.IGNORECASE)
+                match = re.search(r"(?:adaptive-)?fullset-([a-z])(\d+)-repro$", work.name, re.IGNORECASE)
                 if not match:
                     skip_phase(manifest, f"calibration-{index}",
                                f"cannot infer FullSet name from {work}", out)
