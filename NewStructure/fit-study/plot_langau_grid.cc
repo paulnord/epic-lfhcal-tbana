@@ -122,7 +122,7 @@ double ymax(const Cell &c) {
 void legendLine(double x, double y, int color, const char *name) {
   TLine line;
   line.SetLineColor(color);
-  line.SetLineWidth(2);
+  line.SetLineWidth(color == kBlack ? 1 : 2);
   line.DrawLineNDC(x, y, x + 0.025, y);
   label(x + 0.032, y - 0.004, name, 0.014);
 }
@@ -134,7 +134,7 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
   label(0.06, 0.949,
         "Landau-Gaussian PDF | rows: Gaussian sigma | columns: Landau width | MPV = 0, area = 1", 0.016);
   legendLine(0.27, 0.925, legacyColor, "legacy: 100 steps");
-  legendLine(0.53, 0.925, adjustedColor, "adjusted: >=5 steps / Landau width");
+  legendLine(0.53, 0.925, kBlack, "adjusted: >=5 steps / Landau width");
 
   const double left = 0.067, right = 0.989, bottom = 0.063, top = 0.878;
   const double cw = (right - left) / side, ch = (top - bottom) / side;
@@ -182,9 +182,9 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
       frame->Draw("AXIS");
 
       auto legacy = graph(c.x, c.oldPdf, legacyColor, 1);
-      auto adjusted = graph(c.x, c.newPdf, adjustedColor, 2);
-      adjusted->Draw("L SAME");
+      auto adjusted = graph(c.x, c.newPdf, kBlack, 1);
       legacy->Draw("L SAME");
+      adjusted->Draw("L SAME");
       char errorText[48];
       const double differencePct = 100.0 * c.shapeDifference;
       if (differencePct < 0.05) std::snprintf(errorText, sizeof(errorText), "<0.1%%");
