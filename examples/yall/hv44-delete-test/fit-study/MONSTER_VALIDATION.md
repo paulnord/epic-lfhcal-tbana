@@ -29,8 +29,23 @@ the numerical comparison into the audit bundle:
 
 ```bash
 --calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-b1-repro \
---calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-e1-repro
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-b2-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-c2-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-c3-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-d1-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-e1-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-e2-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-e3-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-f1-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-f2-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-g1-repro \
+--calibration-work /gpfs01/star/scratch/$USER/lfhcal/adaptive-fullset-g2-repro
 ```
+
+The list covers the complete TB2026 production set used by this study:
+B1, B2, C2, C3, D1, E1, E2, E3, F1, F2, G1, and G2.  A missing or
+incomplete output remains an explicit validation failure; the harness does not
+silently drop a set from the comparison.
 
 Without this option, calibration files are only used as fit seeds by the
 stability phase; the harness explicitly reports that no calibration comparison
