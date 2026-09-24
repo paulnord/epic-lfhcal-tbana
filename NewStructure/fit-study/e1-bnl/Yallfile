@@ -1,0 +1,44 @@
+campaign lfhcal-tb2026-legacy-grid-e1-refine5
+backend condor
+
+# Refit the archived legacy E1 selected sample once with this branch's DataPrep.
+# LFHCAL_E1_SOURCE must contain selected/, refine4/, and baseline refine5/.
+# LFHCAL_E1_OUT must be a fresh output directory, separate from the source.
+
+@env LFHCAL_E1_SOURCE
+@env LFHCAL_E1_OUT
+@env EIC_SHELL
+
+@set BUILD ../../../NewStructure/build
+@set RUNDB ../../../configs/TB2026/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+@set STEM rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetE_1
+
+%cpus 1
+%memory 4GB
+%disk 8GB
+%time 2h
+%getenv true
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+%preflight /bin/mkdir -p {LFHCAL_E1_OUT}/refine5 {LFHCAL_E1_OUT}/plots/refine5
+
+refine5-e1:
+    @input selected {LFHCAL_E1_SOURCE}/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetE_1.root
+    @input prev {LFHCAL_E1_SOURCE}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetE_1_calib.txt
+    @input rundb {RUNDB}
+    @output root {LFHCAL_E1_OUT}/refine5/{STEM}.root
+    @output calib {LFHCAL_E1_OUT}/refine5/{STEM}_calib.txt
+    @output hists {LFHCAL_E1_OUT}/refine5/{STEM}_Hists.root
+    @output plots {LFHCAL_E1_OUT}/plots/refine5/Muon_FullSetE_1
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.selected -k @input.prev \
+        -o @output.root -O @output.plots -r @input.rundb
+
+compare-e1: refine5-e1
+    @input baseline_calib {LFHCAL_E1_SOURCE}/refine5/{STEM}_calib.txt
+    @input baseline_hists {LFHCAL_E1_SOURCE}/refine5/{STEM}_Hists.root
+    @input candidate_calib {LFHCAL_E1_OUT}/refine5/{STEM}_calib.txt
+    @input candidate_hists {LFHCAL_E1_OUT}/refine5/{STEM}_Hists.root
+    @output summary {LFHCAL_E1_OUT}/comparison.json
+    python3 compare.py --baseline-calib @input.baseline_calib \
+        --candidate-calib @input.candidate_calib \
+        --baseline-hists @input.baseline_hists \
+        --candidate-hists @input.candidate_hists --out @output.summary
