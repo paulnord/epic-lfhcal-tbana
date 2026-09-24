@@ -18,10 +18,9 @@ structural checks passed; scientific acceptance remains a separate judgment.
 ## Run at BNL with tcsh
 
 Paste these one-line commands individually. This uses a separate checkout, so
-your current adaptive branch and build are untouched. `$PWG_ARCHIVE` should
-point to the archive root used for the earlier `fullset-e1-repro` copy. If it
-is undefined after login, set `LFHCAL_E1_SOURCE` to that archived directory's
-absolute path instead.
+your current adaptive branch and build are untouched. The E1 source path is
+the PWG archive used for the earlier `fullset-e1-repro` copy. Check that the
+required archived files exist before creating the campaign.
 
 ```tcsh
 cd "$HOME/my_eic_work_with_LFHCAL"
@@ -31,7 +30,10 @@ setenv EIC_SHELL "$HOME/my_eic_work_with_LFHCAL/eic-shell"
 git clone --recurse-submodules --branch codex/legacy-langau-width-grid https://github.com/paulnord/epic-lfhcal-tbana.git "$REPO"
 "$REPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" cmake -S "$REPO/NewStructure" -B "$REPO/NewStructure/build"
 "$REPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" cmake --build "$REPO/NewStructure/build" --target DataPrep -j 4
-setenv LFHCAL_E1_SOURCE "$PWG_ARCHIVE/fullset-e1-repro"
+setenv LFHCAL_E1_SOURCE "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBanalysis/fullset-e1-repro"
+ls -lh "$LFHCAL_E1_SOURCE/selected/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetE_1.root"
+ls -lh "$LFHCAL_E1_SOURCE/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetE_1_calib.txt"
+ls -lh "$LFHCAL_E1_SOURCE/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetE_1_Hists.root"
 setenv LFHCAL_E1_OUT "$LFHCAL_WORK/legacy-width-grid-e1-`date -u +%Y%m%dT%H%M%SZ`"
 mkdir -p "$LFHCAL_E1_OUT"
 cd "$REPO/NewStructure/fit-study/e1-bnl"
