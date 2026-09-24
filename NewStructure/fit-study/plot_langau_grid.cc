@@ -356,7 +356,7 @@ void drawExplanation(const std::array<Cell, side * side> &cells, const std::stri
   label(0.12, 0.77, "Adjusted step: 0.0244 ADC = 0.20 widths", 0.046, adjustedColor);
   canvas.cd();
   label(0.055, 0.046,
-        "Adjusted count: next even integer >= max(100, 50 sigma / Landau width), capped at 10,000. Reference: >=200 samples per Landau width.", 0.014);
+        "Adjusted count: next even integer >= max(100, 50 sigma / Landau width), capped at 10,000. Reference spacing: <= Landau width / 20.", 0.014);
   canvas.Print(path.c_str());
 }
 
