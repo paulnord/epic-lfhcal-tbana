@@ -10,6 +10,7 @@
 #include <TH3D.h>
 #include <TKey.h>
 #include <TNamed.h>
+#include <TROOT.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -280,6 +281,12 @@ int main() {
     require(bytes(input) == input_before && bytes(calibration) == calibration_before,
             "source input changed after second export");
 
+    // ROOT can retain the current directory/file in its global list after
+    // reading the exported file.  Close that state before removing the
+    // fixture; otherwise NFS may rename the open file to a .nfs* placeholder
+    // and report EBUSY even though the test assertions all passed.
+    gROOT->cd();
+    gROOT->GetListOfFiles()->Delete();
     std::filesystem::remove_all(fixture);
     std::cout << "PASS: representative selection, missing counts, lossless histograms/maps, "
                  "source preservation, and existing-output refusal.\n";
