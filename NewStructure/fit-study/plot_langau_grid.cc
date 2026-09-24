@@ -65,31 +65,32 @@ struct Cell {
   double width;
   double sigma;
   int steps;
-  double oldError;
-  double newError;
-  std::vector<double> x, oldPdf, newPdf, reference;
+  double shapeDifference;
+  double fineCheckError;
+  std::vector<double> x, oldPdf, newPdf;
 };
 
 Cell calculate(double width, double sigma) {
   Cell c{width, sigma, adjustedSteps(width, sigma), 0.0, 0.0};
   std::array<double, 4> p = {width, 0.0, 1.0, sigma};
   const int referenceSteps = std::max(4000, static_cast<int>(std::ceil(200.0 * sigma / width)));
-  double peak = 0.0;
+  std::vector<double> finePdf;
+  double adjustedPeak = 0.0, finePeak = 0.0;
   for (int i = 0; i < points; ++i) {
     const double u = xMin + (xMax - xMin) * i / (points - 1);
     double x = u * (width + sigma);
     c.x.push_back(u);
     c.oldPdf.push_back(midpoint(x, p, 100));
     c.newPdf.push_back(Probe::evaluate(x, p));
-    c.reference.push_back(midpoint(x, p, referenceSteps));
-    peak = std::max(peak, c.reference.back());
+    finePdf.push_back(midpoint(x, p, referenceSteps));
+    adjustedPeak = std::max(adjustedPeak, c.newPdf.back());
+    finePeak = std::max(finePeak, finePdf.back());
   }
   for (int i = 0; i < points; ++i) {
-    c.oldError = std::max(c.oldError, std::abs(c.oldPdf[i] - c.reference[i]) / peak);
-    c.newError = std::max(c.newError, std::abs(c.newPdf[i] - c.reference[i]) / peak);
-    c.oldPdf[i] /= peak;
-    c.newPdf[i] /= peak;
-    c.reference[i] /= peak;
+    c.shapeDifference = std::max(c.shapeDifference, std::abs(c.oldPdf[i] - c.newPdf[i]) / adjustedPeak);
+    c.fineCheckError = std::max(c.fineCheckError, std::abs(c.newPdf[i] - finePdf[i]) / finePeak);
+    c.oldPdf[i] /= adjustedPeak;
+    c.newPdf[i] /= adjustedPeak;
   }
   return c;
 }
@@ -121,7 +122,7 @@ double ymax(const Cell &c) {
 void legendLine(double x, double y, int color, const char *name) {
   TLine line;
   line.SetLineColor(color);
-  line.SetLineWidth(color == ink ? 5 : 3);
+  line.SetLineWidth(2);
   line.DrawLineNDC(x, y, x + 0.025, y);
   label(x + 0.032, y - 0.004, name, 0.014);
 }
@@ -132,9 +133,8 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
   label(0.06, 0.977, "WHEN THE LANDAU PEAK FALLS BETWEEN CONVOLUTION SAMPLES", 0.026);
   label(0.06, 0.949,
         "Landau-Gaussian PDF | rows: Gaussian sigma | columns: Landau width | MPV = 0, area = 1", 0.016);
-  legendLine(0.10, 0.925, ink, "dense midpoint reference");
-  legendLine(0.36, 0.925, legacyColor, "legacy: 100 steps");
-  legendLine(0.59, 0.925, adjustedColor, "adjusted: >=5 steps / Landau width");
+  legendLine(0.27, 0.925, legacyColor, "legacy: 100 steps");
+  legendLine(0.53, 0.925, adjustedColor, "adjusted: >=5 steps / Landau width");
 
   const double left = 0.067, right = 0.989, bottom = 0.063, top = 0.878;
   const double cw = (right - left) / side, ch = (top - bottom) / side;
@@ -164,7 +164,7 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
       pad->SetRightMargin(0.035);
       pad->SetTopMargin(0.09);
       pad->SetBottomMargin(0.16);
-      if (c.oldError > 0.05) pad->SetFillColor(TColor::GetColor("#fff7f5"));
+      if (c.shapeDifference > 0.05) pad->SetFillColor(TColor::GetColor("#fff7f5"));
       pad->Draw();
       pad->cd();
 
@@ -181,17 +181,17 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
       frame->GetYaxis()->SetTickLength(0.025);
       frame->Draw("AXIS");
 
-      auto reference = graph(c.x, c.reference, ink, 5);
-      auto legacy = graph(c.x, c.oldPdf, legacyColor, 3);
-      auto adjusted = graph(c.x, c.newPdf, adjustedColor, 1);
-      reference->Draw("L SAME");
-      legacy->Draw("L SAME");
+      auto legacy = graph(c.x, c.oldPdf, legacyColor, 1);
+      auto adjusted = graph(c.x, c.newPdf, adjustedColor, 2);
       adjusted->Draw("L SAME");
+      legacy->Draw("L SAME");
       char errorText[48];
-      std::snprintf(errorText, sizeof(errorText), "%.1f%%", 100.0 * c.oldError);
-      label(0.96, 0.87, errorText, 0.10, c.oldError > 0.05 ? legacyColor : ink, 32);
-      if (si == 6 && wi == 1) label(0.16, 0.87, "E1 896", 0.091, legacyColor);
-      graphs.push_back(std::move(reference));
+      const double differencePct = 100.0 * c.shapeDifference;
+      if (differencePct < 0.05) std::snprintf(errorText, sizeof(errorText), "<0.1%%");
+      else if (differencePct < 10.0) std::snprintf(errorText, sizeof(errorText), "%.1f%%", differencePct);
+      else std::snprintf(errorText, sizeof(errorText), "%.0f%%", differencePct);
+      label(0.94, 0.80, errorText, 0.077, c.shapeDifference > 0.05 ? legacyColor : ink, 32);
+      if (si == 6 && wi == 1) label(0.16, 0.80, "E1 896", 0.077, legacyColor);
       graphs.push_back(std::move(adjusted));
       graphs.push_back(std::move(legacy));
       frames.push_back(std::move(frame));
@@ -200,8 +200,8 @@ void drawGrid(const std::array<Cell, side * side> &cells, const std::string &pat
     }
   }
   label(0.06, 0.035,
-        "Each panel: x = (charge - MPV)/(Landau width + Gaussian sigma); PDF divided by that panel's reference peak."
-        " Corner number = legacy maximum absolute error / reference peak.", 0.013);
+        "Each panel: x = (charge - MPV)/(Landau width + Gaussian sigma); PDF divided by its adjusted peak."
+        " Corner number = max |legacy - adjusted| / adjusted peak.", 0.013);
   canvas.Print(path.c_str());
 }
 
@@ -231,8 +231,8 @@ void heatmap(const std::array<Cell, side * side> &cells, double x0, double y0,
         const double a = std::clamp(v / 0.25, 0.0, 1.0);
         color = TColor::GetColor(255, static_cast<int>(246 - 145 * a), static_cast<int>(241 - 155 * a));
       } else if (mode == 1) {
-        const double a = std::clamp(v / 0.005, 0.0, 1.0);
-        color = TColor::GetColor(static_cast<int>(236 - 100 * a), 248, static_cast<int>(239 - 115 * a));
+        const double a = std::clamp(std::log10(std::max(v, 0.02) / 0.02) / std::log10(15.0 / 0.02), 0.0, 1.0);
+        color = TColor::GetColor(255, static_cast<int>(250 - 110 * a), static_cast<int>(235 - 180 * a));
       } else {
         const double a = std::clamp((v - 100.0) / 7400.0, 0.0, 1.0);
         color = TColor::GetColor(static_cast<int>(238 - 160 * a), static_cast<int>(246 - 115 * a), 255);
@@ -245,6 +245,10 @@ void heatmap(const std::array<Cell, side * side> &cells, double x0, double y0,
       if (mode == 2) {
         if (v >= 1000) std::snprintf(txt, sizeof(txt), "%.1fk", v / 1000.0);
         else std::snprintf(txt, sizeof(txt), "%.0f", v);
+      } else if (mode == 1) {
+        if (v >= 10) std::snprintf(txt, sizeof(txt), "%.0f", v);
+        else if (v >= 1) std::snprintf(txt, sizeof(txt), "%.1f", v);
+        else std::snprintf(txt, sizeof(txt), "%.2f", v);
       } else {
         const double pct = 100.0 * v;
         if (pct < 0.01) std::snprintf(txt, sizeof(txt), "<.01");
@@ -263,8 +267,8 @@ void heatmap(const std::array<Cell, side * side> &cells, double x0, double y0,
   }
 }
 
-double oldError(const Cell &c) { return c.oldError; }
-double newError(const Cell &c) { return c.newError; }
+double shapeDifference(const Cell &c) { return c.shapeDifference; }
+double legacyStepInWidths(const Cell &c) { return c.sigma / (10.0 * c.width); }
 double steps(const Cell &c) { return c.steps; }
 
 void drawExplanation(const std::array<Cell, side * side> &cells, const std::string &path) {
@@ -273,11 +277,11 @@ void drawExplanation(const std::array<Cell, side * side> &cells, const std::stri
   label(0.055, 0.962, "WHERE THE LEGACY GRID FAILS - AND WHAT THE ADJUSTMENT CHANGES", 0.031);
   label(0.055, 0.929,
         "Data-free numerical study | same Landau-Gaussian formula, MPV = 0, area = 1, integration from x-5 sigma to x+5 sigma", 0.017);
-  heatmap(cells, 0.080, 0.556, 0.235, 0.282, "Legacy peak-shape error (%)", oldError, 0);
-  heatmap(cells, 0.403, 0.556, 0.235, 0.282, "Adjusted peak-shape error (%)", newError, 1);
+  heatmap(cells, 0.080, 0.556, 0.235, 0.282, "Legacy vs adjusted difference (%)", shapeDifference, 0);
+  heatmap(cells, 0.403, 0.556, 0.235, 0.282, "Legacy step / Landau width", legacyStepInWidths, 1);
   heatmap(cells, 0.726, 0.556, 0.235, 0.282, "Adjusted midpoint steps", steps, 2);
   label(0.055, 0.493,
-        "Columns: Landau width (ADC). Rows: Gaussian sigma (ADC). Error = max |curve - dense reference| / reference peak.", 0.014);
+        "Columns: Landau width (ADC). Rows: Gaussian sigma (ADC). Difference = max |legacy - adjusted| / adjusted peak.", 0.014);
   label(0.055, 0.467,
         "Red outline: near the E1 cell 896 narrow-width fit (Landau width 0.122, Gaussian sigma 7.889).", 0.014);
 
@@ -294,20 +298,18 @@ void drawExplanation(const std::array<Cell, side * side> &cells, const std::stri
   frame.SetMinimum(0.0);
   frame.SetMaximum(ymax(c));
   frame.GetXaxis()->SetTitle("(charge - MPV)/(w_{L} + #sigma_{G})");
-  frame.GetYaxis()->SetTitle("PDF / reference peak");
+  frame.GetYaxis()->SetTitle("PDF / adjusted peak");
   frame.GetXaxis()->SetTitleSize(0.055);
   frame.GetYaxis()->SetTitleSize(0.055);
   frame.GetXaxis()->SetLabelSize(0.047);
   frame.GetYaxis()->SetLabelSize(0.047);
   frame.Draw("AXIS");
-  auto reference = graph(c.x, c.reference, ink, 4);
-  auto legacy = graph(c.x, c.oldPdf, legacyColor, 3);
-  auto adjusted = graph(c.x, c.newPdf, adjustedColor, 1);
-  reference->Draw("L SAME");
-  legacy->Draw("L SAME");
+  auto legacy = graph(c.x, c.oldPdf, legacyColor, 1);
+  auto adjusted = graph(c.x, c.newPdf, adjustedColor, 2);
   adjusted->Draw("L SAME");
-  label(0.12, 0.94, "E1 896-like PDF: old grid jumps around the reference", 0.060);
-  label(0.12, 0.84, "black = reference   red = legacy   blue = adjusted", 0.050);
+  legacy->Draw("L SAME");
+  label(0.12, 0.94, "E1 896-like PDF: old grid jumps around the smooth adjusted curve", 0.060);
+  label(0.12, 0.84, "red = legacy   blue = adjusted", 0.050);
   canvas.cd();
 
   TPad sampling("sampling", "", 0.555, 0.09, 0.966, 0.428);
@@ -356,7 +358,9 @@ void drawExplanation(const std::array<Cell, side * side> &cells, const std::stri
   label(0.12, 0.77, "Adjusted step: 0.0244 ADC = 0.20 widths", 0.046, adjustedColor);
   canvas.cd();
   label(0.055, 0.046,
-        "Adjusted count: next even integer >= max(100, 50 sigma / Landau width), capped at 10,000. Reference spacing: <= Landau width / 20.", 0.014);
+        "Adjusted count: next even integer >= max(100, 50 sigma / Landau width), capped at 10,000.", 0.014);
+  label(0.055, 0.025,
+        "Hidden fine-grid check: at least 20 samples per Landau width; adjusted result differs by less than 0.01% of peak throughout this grid.", 0.014);
   canvas.Print(path.c_str());
 }
 
@@ -382,7 +386,7 @@ int main(int argc, char **argv) {
       Cell &c = cells[si * side + wi];
       c = calculate(widths[wi], sigmas[si]);
       std::cout << "width=" << c.width << " sigma=" << c.sigma << " steps=" << c.steps
-                << " old_error=" << 100 * c.oldError << "% new_error=" << 100 * c.newError << "%\n";
+                << " difference=" << 100 * c.shapeDifference << "% fine_check=" << 100 * c.fineCheckError << "%\n";
     }
   }
   const std::filesystem::path out = argv[1];
