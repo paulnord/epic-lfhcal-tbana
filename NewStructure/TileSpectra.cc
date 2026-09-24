@@ -1179,8 +1179,17 @@ double TileSpectra::langaufun(double *x, double *par) {
   static double mpshift  = -0.22278298;       // Landau maximum location
 
   // Control constants
-  static double np = 100.0;      // number of convolution steps
   static double sc =   5.0;      // convolution extends to +-sc Gaussian sigmas
+  static const double minSteps = 100.0;
+  static const double maxSteps = 10000.0;
+  static const double stepsPerLandauWidth = 5.0;
+
+  // Resolve narrow Landau peaks while bounding the cost of trial parameters.
+  double np = minSteps;
+  if (par[0] > 0.0 && par[3] > 0.0) {
+    double halfSteps = TMath::Ceil(sc * stepsPerLandauWidth * par[3] / par[0]);
+    np = 2.0 * TMath::Min(maxSteps / 2.0, TMath::Max(minSteps / 2.0, halfSteps));
+  }
 
   // Variables
   double xx;
