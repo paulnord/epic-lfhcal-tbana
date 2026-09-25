@@ -46,6 +46,7 @@ To inspect every fit gained or lost against both the historical legacy archive
 and the adaptive production, run the three-way audit inside the EIC container:
 
 ```tcsh
+set REPO = "$HOME/my_eic_work_with_LFHCAL/epic-lfhcal-legacy-width-grid"
 set LEGACY_ROOT = "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBanalysis"
 set AUDIT = "$LFHCAL_FULLSET_OUT/legacy-adaptive-adjusted.json"
 "$REPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
