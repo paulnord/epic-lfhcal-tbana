@@ -563,15 +563,16 @@ void TileSpectra::SetParametersFitHG (double* startvalues, double* parlimitslo, 
       parlimitshi[1]  = parlimitshi[1]*1.2;
     
     // width of Gaussian starting point and parameter limits
-    startvalues[3] = calib->PedestalSigH; 
-    parlimitslo[3] = calib->PedestalSigH*0.01;
+    // The detector response cannot be narrower than the measured pedestal
+    // resolution.  Use the pedestal sigma as both the starting value and the
+    // physical lower bound; keep the existing generous upper bound.
+    startvalues[3] = calib->PedestalSigH;
+    parlimitslo[3] = calib->PedestalSigH;
     parlimitshi[3] = calib->PedestalSigH*30;
     if (setupT->GetLayersInSegment(cellID) > 5)
       parlimitshi[3] = calib->PedestalSigH*50;
     if (vov > 6)
       parlimitshi[3] = parlimitshi[3]*2;
-    if (vov < 4.0)
-      parlimitslo[3] = parlimitslo[3]*0.1;
     
   //******************************************************
   // CAEN - Readout fit ranges
