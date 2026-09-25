@@ -5,6 +5,30 @@
 
 ClassImp(TileSpectra);
 
+namespace {
+constexpr double kLangauSigmaRange = 5.0;
+constexpr double kLangauMinSteps = 100.0;
+constexpr double kLangauMaxSteps = 10000.0;
+constexpr double kLangauStepsPerLandauWidth = 5.0;
+
+// A nonzero value freezes the convolution grid during a fit retry.  Keep this
+// thread-local so independent fits cannot change each other's integration rule.
+thread_local double gLangauFixedSteps = 0.0;
+
+double LangauConvolutionSteps(double landauWidth, double gaussianSigma) {
+  double np = kLangauMinSteps;
+  if (landauWidth > 0.0 && gaussianSigma > 0.0) {
+    const double halfSteps = TMath::Ceil(
+        kLangauSigmaRange * kLangauStepsPerLandauWidth *
+        gaussianSigma / landauWidth);
+    np = 2.0 * TMath::Min(
+        kLangauMaxSteps / 2.0,
+        TMath::Max(kLangauMinSteps / 2.0, halfSteps));
+  }
+  return np;
+}
+}  // namespace
+
 int TileSpectra::GetCellID(){
   return cellID;
 }
@@ -668,25 +692,66 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
   //    0 - Successful
   // 4070 - Problems
   //   70 - Problems
-  // 
-  if (!SignalHG.IsValid())
-    return false;
-  int limitStatus = 0;
-  for (int i=0; i<4; i++) {
-    if ( TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 || TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5 ) {
-      limitStatus++;
-      if (verbosity > 0) std::cout << i << "\t" << SignalHG.GetParameter(i) << "\t : \t"<< parlimitslo[i] << "\t" << parlimitshi[i] << "\t" << " layer: " << setupT->GetLayer(cellID) << std::endl;
+  //
+  // The width-scaled midpoint grid is fast, but its integer step count changes
+  // discontinuously as Minuit varies Width and GSigma.  If a marginal fit fails
+  // or lands on a parameter limit, retry from the same starting point with the
+  // maximum grid density held fixed for the whole minimization.  This keeps the
+  // common path fast while giving failed fits a smooth objective function.
+  auto acceptedFitStatus = [](int status) {
+    return status == 4000 || status == 0 || status == 4070 || status == 70;
+  };
+  auto countLimits = [&]() {
+    int count = 0;
+    for (int i=0; i<4; i++) {
+      if (TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 ||
+          TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5) {
+        count++;
+      }
+    }
+    return count;
+  };
+
+  int limitStatus = SignalHG.IsValid() ? countLimits() : 0;
+  bool fitAccepted = SignalHG.IsValid() && acceptedFitStatus(fitStatus) && limitStatus == 0;
+
+  if (!fitAccepted) {
+    if (verbosity > 0) {
+      std::cout << "==========> Retrying HG cell " << cellID
+                << " with fixed " << kLangauMaxSteps
+                << "-point Langau grid" << std::endl;
+    }
+
+    SignalHG.SetParameters(startvalues);
+    gLangauFixedSteps = kLangauMaxSteps;
+    fitStatus = hspectraHG.Fit(&SignalHG,fitOption);
+    gLangauFixedSteps = 0.0;
+
+    limitStatus = SignalHG.IsValid() ? countLimits() : 0;
+    fitAccepted = SignalHG.IsValid() && acceptedFitStatus(fitStatus) && limitStatus == 0;
+  }
+
+  if (verbosity > 0 && SignalHG.IsValid()) {
+    for (int i=0; i<4; i++) {
+      if (TMath::Abs(SignalHG.GetParameter(i) - parlimitslo[i]) < 1e-5 ||
+          TMath::Abs(SignalHG.GetParameter(i) - parlimitshi[i]) < 1e-5) {
+        std::cout << i << "\t" << SignalHG.GetParameter(i) << "\t : \t"
+                  << parlimitslo[i] << "\t" << parlimitshi[i] << "\t"
+                  << " layer: " << setupT->GetLayer(cellID) << std::endl;
+      }
     }
   }
-  if (verbosity > 1){
-    std::cout << "Fit status HG " << cellID << " \t" << fitStatus << "\t limit reached: " << limitStatus  << std::endl;
+  if (verbosity > 1) {
+    std::cout << "Fit status HG " << cellID << " \t" << fitStatus
+              << "\t limit reached: " << limitStatus << std::endl;
   }
-  if (!(fitStatus == 4000 || fitStatus == 0 || fitStatus == 4070 || fitStatus == 70 )){ // only accept fits which succeeded in general
-    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " fit failed" << std::endl;
-    return false;
-  }
-  if (limitStatus > 0){                        // don't accept fits which reached the set limits
-    if (verbosity > 0) std::cout << "==========> Skipped HG cell " << cellID << " too many limits reached" << std::endl;
+  if (!fitAccepted) {
+    if (verbosity > 0) {
+      if (!SignalHG.IsValid() || !acceptedFitStatus(fitStatus))
+        std::cout << "==========> Skipped HG cell " << cellID << " fit failed" << std::endl;
+      else
+        std::cout << "==========> Skipped HG cell " << cellID << " too many limits reached" << std::endl;
+    }
     return false;
   }
   bmipHG = true;
@@ -1178,18 +1243,12 @@ double TileSpectra::langaufun(double *x, double *par) {
   static double invsq2pi = 0.3989422804014;   // (2 pi)^(-1/2)
   static double mpshift  = -0.22278298;       // Landau maximum location
 
-  // Control constants
-  static double sc =   5.0;      // convolution extends to +-sc Gaussian sigmas
-  static const double minSteps = 100.0;
-  static const double maxSteps = 10000.0;
-  static const double stepsPerLandauWidth = 5.0;
-
   // Resolve narrow Landau peaks while bounding the cost of trial parameters.
-  double np = minSteps;
-  if (par[0] > 0.0 && par[3] > 0.0) {
-    double halfSteps = TMath::Ceil(sc * stepsPerLandauWidth * par[3] / par[0]);
-    np = 2.0 * TMath::Min(maxSteps / 2.0, TMath::Max(minSteps / 2.0, halfSteps));
-  }
+  // Normally the grid follows Width/GSigma.  A failed fit can request a fixed
+  // grid for its retry so Minuit sees a smooth objective function.
+  const double np = (gLangauFixedSteps > 0.0)
+      ? gLangauFixedSteps
+      : LangauConvolutionSteps(par[0], par[3]);
 
   // Variables
   double xx;
@@ -1205,8 +1264,8 @@ double TileSpectra::langaufun(double *x, double *par) {
   mpc = par[1] - mpshift * par[0];
 
   // Range of convolution integral
-  xlow = x[0] - sc * par[3];
-  xupp = x[0] + sc * par[3];
+  xlow = x[0] - kLangauSigmaRange * par[3];
+  xupp = x[0] + kLangauSigmaRange * par[3];
 
   step = (xupp-xlow) / np;
 
