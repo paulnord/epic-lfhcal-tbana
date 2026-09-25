@@ -61,3 +61,28 @@ The terminal output gives the three fit-presence flags. The JSON file also
 records each available fit's parameters and each method's stored calibration.
 Historical legacy inputs differ upstream, so the legacy comparison is
 descriptive rather than a controlled same-input replay.
+
+
+## Inspect the fit-parameter population
+
+After a rescue replay completes, compare its fit population with the adaptive
+baseline and identify both new gains and fits rescued from the earlier moving-grid
+replay:
+
+```tcsh
+set PREVIOUS = "$LFHCAL_WORK/legacy-width-grid-fullset-20260924T225130Z/summary.json"
+set FITAUDIT = "$LFHCAL_FULLSET_OUT/fit-population.json"
+
+"$REPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
+    python3 inspect_fit_population.py \
+    --adaptive-root "$LFHCAL_WORK" \
+    --candidate-root "$LFHCAL_FULLSET_OUT" \
+    --previous-summary "$PREVIOUS" \
+    --out "$FITAUDIT"
+```
+
+The terminal table reports Landau width, Gaussian sigma, sigma/Landau width,
+Landau width/MPV, sigma/pedestal sigma, chi-square/ndf, and bad-channel flag for
+the changed cells. The JSON contains population percentiles and both candidate
+and adaptive fit details; a sibling CSV contains the target-cell rows for quick
+plotting or spreadsheet inspection.
