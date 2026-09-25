@@ -40,3 +40,23 @@ cat "$LFHCAL_FULLSET_OUT/summary.json"
 
 The input trees remain untouched. The new ROOT, calibration, histogram, plot,
 comparison, and provenance files all remain under `LFHCAL_FULLSET_OUT`.
+
+
+To inspect every fit gained or lost against both the historical legacy archive
+and the adaptive production, run the three-way audit inside the EIC container:
+
+```tcsh
+set LEGACY_ROOT = "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBanalysis"
+set AUDIT = "$LFHCAL_FULLSET_OUT/legacy-adaptive-adjusted.json"
+"$REPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
+    python3 compare_legacy_archive.py \
+    --legacy-root "$LEGACY_ROOT" \
+    --adaptive-root "$LFHCAL_WORK" \
+    --candidate-root "$LFHCAL_FULLSET_OUT" \
+    --out "$AUDIT"
+```
+
+The terminal output gives the three fit-presence flags. The JSON file also
+records each available fit's parameters and each method's stored calibration.
+Historical legacy inputs differ upstream, so the legacy comparison is
+descriptive rather than a controlled same-input replay.
