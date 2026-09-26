@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -116,6 +117,37 @@ def load_cell(root: Path, code: str, set_name: str, cell: int, adaptive=False):
     }
 
 
+def display_error_graph(hist, name):
+    """Return a TGraphErrors for populated bins using sensible display errors.
+
+    Stored HGCROC refine5 errors already include the intended 15% relative
+    systematic, but zero-content bins can carry non-finite errors because the
+    production code forms a relative error before multiplying back by content.
+    For plotting only, omit empty bins and use the stored finite error.  If a
+    populated bin somehow has a non-finite stored error, fall back to
+    sqrt(N + (0.15*N)^2).
+    """
+    graph = ROOT.TGraphErrors()
+    graph.SetName(name)
+    point = 0
+    for b in range(1, hist.GetNbinsX() + 1):
+        y = hist.GetBinContent(b)
+        if y <= 0:
+            continue
+        x = hist.GetBinCenter(b)
+        err = hist.GetBinError(b)
+        if not math.isfinite(err) or err < 0:
+            err = math.sqrt(y + (0.15 * y) ** 2)
+        graph.SetPoint(point, x, y)
+        graph.SetPointError(point, 0.0, err)
+        point += 1
+    graph.SetMarkerStyle(20)
+    graph.SetMarkerSize(0.65)
+    graph.SetLineColor(ROOT.kBlack)
+    graph.SetMarkerColor(ROOT.kBlack)
+    return graph
+
+
 def fmtfit(label, data):
     if not data or not data["fit"]:
         return f"{label}: no saved fit"
@@ -227,7 +259,14 @@ def main():
         if ymax > 0:
             base.SetMaximum(ymax * 1.35)
 
-        base.Draw("E")
+        # Draw the histogram as a light step line for context, then overlay
+        # error bars only for populated bins.  This avoids zero-bin NaN errors
+        # while preserving the uncertainties used by the fit.
+        base.SetLineColor(ROOT.kGray + 2)
+        base.SetLineWidth(1)
+        base.Draw("HIST")
+        data_graph = display_error_graph(base, f"gdata_{code}_{cell}")
+        data_graph.Draw("PZ SAME")
 
         # Fredi's published ScaleH for this same cell in the other runs of
         # the same FullSet family.  Cross-family values are intentionally
@@ -248,9 +287,9 @@ def main():
         legend.SetBorderSize(0)
         legend.SetFillStyle(0)
         legend.SetTextSize(0.025)
-        legend.AddEntry(base, "data", "lep")
+        legend.AddEntry(data_graph, "data (populated bins; fit errors)", "lep")
 
-        keepalive = [base, legend]
+        keepalive = [base, data_graph, legend]
         keepalive.extend(cross_run_hashes)
         for label, color, style in METHODS:
             if label not in data:
@@ -311,7 +350,7 @@ def main():
         note.SetTextSize(0.028)
         note.DrawLatex(
             0.12, 0.94,
-            "Orange = current Fredi ScaleH; short ticks = same cell in same-family runs"
+            "Data errors shown only for populated bins; orange = current Fredi ScaleH"
         )
         keepalive.append(note)
 
