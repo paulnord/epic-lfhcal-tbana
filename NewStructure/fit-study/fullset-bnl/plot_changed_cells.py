@@ -25,6 +25,15 @@ METHODS = (
     ("floor-0.1", ROOT.kGreen + 2, 1),
 )
 
+FAMILY_COLORS = {
+    "B": ROOT.kRed + 1,
+    "C": ROOT.kBlue + 1,
+    "D": ROOT.kMagenta + 1,
+    "E": ROOT.kCyan + 2,
+    "F": ROOT.kGreen + 2,
+    "G": ROOT.kViolet + 1,
+}
+
 
 def calib(path: Path):
     out = {}
@@ -38,6 +47,30 @@ def calib(path: Path):
                 "bad_channel": int(f[17]),
             }
     return out
+
+
+def published_family_values(reference_dir: Path, cell: int):
+    values = []
+    for path in sorted(reference_dir.glob("calib_SPS-H2_FullSet*.txt")):
+        stem = path.stem.replace("calib_SPS-H2_FullSet", "")
+        if "_" not in stem:
+            continue
+        family = stem.split("_", 1)[0]
+        run_tag = f"FullSet{stem}"
+        row = calib(path).get(cell)
+        if not row:
+            continue
+        scale = row["mip_scale_h"]
+        width = row["mip_width_h"]
+        if scale <= -999 or width <= -999:
+            continue
+        values.append({
+            "family": family,
+            "run": run_tag,
+            "scale": scale,
+            "width": width,
+        })
+    return values
 
 
 def files(root: Path, code: str, set_name: str, adaptive=False):
@@ -151,6 +184,7 @@ def main():
         published = None
         if reference_path.is_file():
             published = calib(reference_path).get(cell)
+        family_values = published_family_values(args.reference_dir, cell)
 
         base = None
         for label in ("adaptive", "pre-floor", "floor-0.1", "floor-1.0"):
@@ -195,13 +229,27 @@ def main():
 
         base.Draw("E")
 
-        legend = ROOT.TLegend(0.40, 0.55, 0.95, 0.90)
+        # Fredi's published ScaleH for this same cell in other FullSets:
+        # short family-colored ticks at the bottom of the plot.
+        cross_run_hashes = []
+        hash_height = base.GetMaximum() * 0.055
+        for item in family_values:
+            if item["run"] == set_name:
+                continue
+            hline = ROOT.TLine(item["scale"], 0.0, item["scale"], hash_height)
+            hline.SetLineColor(FAMILY_COLORS.get(item["family"], ROOT.kGray + 2))
+            hline.SetLineWidth(3)
+            hline.Draw("same")
+            cross_run_hashes.append(hline)
+
+        legend = ROOT.TLegend(0.40, 0.52, 0.95, 0.90)
         legend.SetBorderSize(0)
         legend.SetFillStyle(0)
         legend.SetTextSize(0.025)
         legend.AddEntry(base, "data", "lep")
 
         keepalive = [base, legend]
+        keepalive.extend(cross_run_hashes)
         for label, color, style in METHODS:
             if label not in data:
                 continue
@@ -216,6 +264,13 @@ def main():
                 legend.AddEntry(f, fmtfit(label, d), "l")
             else:
                 legend.AddEntry(0, f"{label}: no saved fit", "")
+
+        if family_values:
+            legend.AddEntry(
+                0,
+                "other Fredi FullSets: short ticks near axis; colors by B/C/D/E/F/G",
+                "",
+            )
 
         if published:
             pscale = published["mip_scale_h"]
@@ -249,7 +304,7 @@ def main():
         note.SetTextSize(0.028)
         note.DrawLatex(
             0.12, 0.94,
-            "Same cell spectrum; orange line = Fredi published ScaleH (FWHM in legend)"
+            "Orange = current Fredi ScaleH; short colored ticks = same cell in other FullSets"
         )
         keepalive.append(note)
 
