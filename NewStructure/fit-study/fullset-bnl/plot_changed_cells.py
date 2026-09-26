@@ -229,12 +229,14 @@ def main():
 
         base.Draw("E")
 
-        # Fredi's published ScaleH for this same cell in other FullSets:
-        # short family-colored ticks at the bottom of the plot.
+        # Fredi's published ScaleH for this same cell in the other runs of
+        # the same FullSet family.  Cross-family values are intentionally
+        # omitted because those configurations have different operating settings.
         cross_run_hashes = []
+        current_family = set_name.replace("FullSet", "").split("_", 1)[0]
         hash_height = base.GetMaximum() * 0.055
         for item in family_values:
-            if item["run"] == set_name:
+            if item["run"] == set_name or item["family"] != current_family:
                 continue
             hline = ROOT.TLine(item["scale"], 0.0, item["scale"], hash_height)
             hline.SetLineColor(FAMILY_COLORS.get(item["family"], ROOT.kGray + 2))
@@ -265,10 +267,15 @@ def main():
             else:
                 legend.AddEntry(0, f"{label}: no saved fit", "")
 
-        if family_values:
+        same_family_values = [
+            item for item in family_values
+            if item["family"] == set_name.replace("FullSet", "").split("_", 1)[0]
+            and item["run"] != set_name
+        ]
+        if same_family_values:
             legend.AddEntry(
                 0,
-                "other Fredi FullSets: short ticks near axis; colors by B/C/D/E/F/G",
+                "other Fredi runs in same family: short ticks near axis",
                 "",
             )
 
@@ -304,7 +311,7 @@ def main():
         note.SetTextSize(0.028)
         note.DrawLatex(
             0.12, 0.94,
-            "Orange = current Fredi ScaleH; short colored ticks = same cell in other FullSets"
+            "Orange = current Fredi ScaleH; short ticks = same cell in same-family runs"
         )
         keepalive.append(note)
 
