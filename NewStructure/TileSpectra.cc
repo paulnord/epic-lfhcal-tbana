@@ -563,11 +563,11 @@ void TileSpectra::SetParametersFitHG (double* startvalues, double* parlimitslo, 
       parlimitshi[1]  = parlimitshi[1]*1.2;
     
     // width of Gaussian starting point and parameter limits
-    // The detector response cannot be narrower than the measured pedestal
-    // resolution.  Use the pedestal sigma as both the starting value and the
-    // physical lower bound; keep the existing generous upper bound.
+    // Prevent the fit from collapsing the Gaussian to an effectively zero
+    // width while still allowing solutions narrower than the measured
+    // pedestal width.  The 0.1 floor is intentionally conservative.
     startvalues[3] = calib->PedestalSigH;
-    parlimitslo[3] = calib->PedestalSigH;
+    parlimitslo[3] = calib->PedestalSigH*0.1;
     parlimitshi[3] = calib->PedestalSigH*30;
     if (setupT->GetLayersInSegment(cellID) > 5)
       parlimitshi[3] = calib->PedestalSigH*50;
