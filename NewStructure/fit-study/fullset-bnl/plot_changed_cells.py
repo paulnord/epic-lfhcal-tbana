@@ -34,6 +34,7 @@ def calib(path: Path):
             out[int(f[0])] = {
                 "pedestal_sigma_h": float(f[6]),
                 "mip_scale_h": float(f[9]),
+                "mip_width_h": float(f[10]),
                 "bad_channel": int(f[17]),
             }
     return out
@@ -104,8 +105,19 @@ def main():
     ap.add_argument("--pre-floor-root", type=Path, required=True)
     ap.add_argument("--candidate-root", type=Path, required=True)
     ap.add_argument("--floor1-root", type=Path)
+    ap.add_argument(
+        "--reference-dir",
+        type=Path,
+        help=(
+            "Directory containing Fredi's published calib_SPS-H2_FullSet*.txt "
+            "files. Defaults to <repo>/calibrations/TB2026."
+        ),
+    )
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+
+    if args.reference_dir is None:
+        args.reference_dir = Path(__file__).resolve().parents[3] / "calibrations" / "TB2026"
 
     summary = json.loads((args.candidate_root / "summary.json").read_text(encoding="utf-8"))
     targets = []
@@ -134,6 +146,11 @@ def main():
             label: load_cell(root, code, set_name, cell, adaptive)
             for label, (root, adaptive) in roots.items()
         }
+
+        reference_path = args.reference_dir / f"calib_SPS-H2_{set_name}.txt"
+        published = None
+        if reference_path.is_file():
+            published = calib(reference_path).get(cell)
 
         base = None
         for label in ("adaptive", "pre-floor", "floor-0.1", "floor-1.0"):
@@ -178,7 +195,7 @@ def main():
 
         base.Draw("E")
 
-        legend = ROOT.TLegend(0.43, 0.60, 0.94, 0.90)
+        legend = ROOT.TLegend(0.40, 0.55, 0.95, 0.90)
         legend.SetBorderSize(0)
         legend.SetFillStyle(0)
         legend.SetTextSize(0.025)
@@ -200,6 +217,31 @@ def main():
             else:
                 legend.AddEntry(0, f"{label}: no saved fit", "")
 
+        if published:
+            pscale = published["mip_scale_h"]
+            pwidth = published["mip_width_h"]
+            pbc = published["bad_channel"]
+            if pscale > -999 and pwidth > -999:
+                refline = ROOT.TLine(pscale, 0.0, pscale, base.GetMaximum())
+                refline.SetLineColor(ROOT.kOrange + 7)
+                refline.SetLineStyle(7)
+                refline.SetLineWidth(3)
+                refline.Draw("same")
+                keepalive.append(refline)
+                legend.AddEntry(
+                    refline,
+                    f"Fredi published: ScaleH={pscale:.3g}, FWHM={pwidth:.3g}, BC={pbc}",
+                    "l",
+                )
+            else:
+                legend.AddEntry(
+                    0,
+                    f"Fredi published: no MIP calib (ScaleH={pscale:.0f}, FWHM={pwidth:.0f}, BC={pbc})",
+                    "",
+                )
+        else:
+            legend.AddEntry(0, "Fredi published calibration: unavailable", "")
+
         legend.Draw()
 
         note = ROOT.TLatex()
@@ -207,7 +249,7 @@ def main():
         note.SetTextSize(0.028)
         note.DrawLatex(
             0.12, 0.94,
-            "Same cell spectrum; curves are saved TF1 fits from each method"
+            "Same cell spectrum; orange line = Fredi published ScaleH (FWHM in legend)"
         )
         keepalive.append(note)
 
