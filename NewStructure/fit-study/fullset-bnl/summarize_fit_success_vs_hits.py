@@ -21,6 +21,17 @@ def num(value):
     return x if math.isfinite(x) else None
 
 
+def median_relative_error(rows, value_key, error_key):
+    vals = []
+    for row in rows:
+        value = num(row.get(value_key))
+        error = num(row.get(error_key))
+        if value is None or error is None or value == 0:
+            continue
+        vals.append(abs(error / value))
+    return median(vals) if vals else None
+
+
 def label(lo, hi):
     if math.isinf(hi):
         return f">={lo:g}"
@@ -50,7 +61,10 @@ def main():
     print(f"Source: {source}")
     print(f"Rows with trigger statistics and source availability: {len(usable)}")
     print()
-    print("MIP triggers      rows   saved   save frac   median chi2/ndf (saved)")
+    print(
+        "MIP triggers      rows   saved   save frac   med chi2/ndf   "
+        "med dMPV/MPV   med dwL/wL   med dsig/sig"
+    )
     for lo, hi in zip(DEFAULT_BINS[:-1], DEFAULT_BINS[1:]):
         subset = [
             r for r in usable
@@ -62,10 +76,22 @@ def main():
         chis = [num(r.get(chi_key)) for r in saved]
         chis = [x for x in chis if x is not None]
         chi = median(chis) if chis else None
+        mpv_rel = median_relative_error(
+            saved, f"{source}_mpv", f"{source}_mpv_err"
+        )
+        wl_rel = median_relative_error(
+            saved, f"{source}_landau_width", f"{source}_landau_width_err"
+        )
+        sig_rel = median_relative_error(
+            saved, f"{source}_gaussian_sigma", f"{source}_gaussian_sigma_err"
+        )
         print(
             f"{label(lo,hi):14s} {len(subset):6d} {len(saved):7d} "
             f"{len(saved)/len(subset):10.3f} "
-            f"{chi if chi is not None else float('nan'):18.3g}"
+            f"{chi if chi is not None else float('nan'):14.3g} "
+            f"{mpv_rel if mpv_rel is not None else float('nan'):13.3g} "
+            f"{wl_rel if wl_rel is not None else float('nan'):12.3g} "
+            f"{sig_rel if sig_rel is not None else float('nan'):14.3g}"
         )
 
     failed = [r for r in usable if num(r[saved_key]) == 0]
