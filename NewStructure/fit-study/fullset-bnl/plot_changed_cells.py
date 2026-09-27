@@ -259,12 +259,9 @@ def main():
         if ymax > 0:
             base.SetMaximum(ymax * 1.35)
 
-        # Draw the histogram as a light step line for context, then overlay
-        # error bars only for populated bins.  This avoids zero-bin NaN errors
-        # while preserving the uncertainties used by the fit.
-        base.SetLineColor(ROOT.kGray + 2)
-        base.SetLineWidth(1)
-        base.Draw("HIST")
+        # Use the histogram only to establish axes.  Plot populated bins as
+        # independent points with error bars; do not connect neighboring bins.
+        base.Draw("AXIS")
         data_graph = display_error_graph(base, f"gdata_{code}_{cell}")
         data_graph.Draw("PZ SAME")
 
