@@ -174,6 +174,84 @@ def read_calibration(path):
     return meta, rows
 
 
+def load_histogram_stats(path, pedestal_sigmas):
+    """Extract per-cell statistics from the triggered MIP spectra.
+
+    GetEntries() is the same quantity called numMipTrig in Analyses.cc.
+    The signal/noise regions mirror the monitoring calculation there:
+    noise-like region [-1 sigma_ped, 3 sigma_ped], signal region above
+    3 sigma_ped.
+    """
+    import ROOT
+
+    ROOT.gROOT.SetBatch(True)
+    root_file = ROOT.TFile.Open(str(path))
+    if not root_file or root_file.IsZombie():
+        raise ValueError(f"cannot open ROOT histogram file: {path}")
+    directory = root_file.Get("IndividualCellsTrigg")
+    if not directory:
+        root_file.Close()
+        raise ValueError(f"IndividualCellsTrigg directory is absent: {path}")
+
+    result = {}
+    for cell, ped_sigma in pedestal_sigmas.items():
+        hist = directory.Get(f"hspectramipTriggADCCellID{cell}")
+        if not hist:
+            continue
+
+        nbins = hist.GetNbinsX()
+        integral = float(hist.Integral(1, nbins))
+        entries = float(hist.GetEntries())
+        effective = float(hist.GetEffectiveEntries())
+        nonzero = 0
+        max_bin_count = 0.0
+        bins_ge_5 = 0
+        bins_ge_10 = 0
+        for b in range(1, nbins + 1):
+            value = float(hist.GetBinContent(b))
+            if value > 0:
+                nonzero += 1
+            if value >= 5:
+                bins_ge_5 += 1
+            if value >= 10:
+                bins_ge_10 += 1
+            if value > max_bin_count:
+                max_bin_count = value
+
+        noise_count = None
+        signal_count = None
+        snr = None
+        signal_fraction = None
+        if ped_sigma is not None and ped_sigma > 0:
+            b_noise_lo = hist.FindBin(-1.0 * ped_sigma)
+            b_noise_hi = hist.FindBin(3.0 * ped_sigma)
+            b_signal_hi = hist.FindBin(1024.0)
+            noise_count = float(hist.Integral(b_noise_lo, b_noise_hi))
+            signal_count = float(hist.Integral(b_noise_hi, b_signal_hi))
+            snr = signal_count / noise_count if noise_count > 0 else None
+            denom = signal_count + noise_count
+            signal_fraction = signal_count / denom if denom > 0 else None
+
+        result[cell] = {
+            "mip_trigger_entries": entries,
+            "mip_trigger_integral": integral,
+            "mip_trigger_effective_entries": effective,
+            "mip_trigger_nonzero_bins": nonzero,
+            "mip_trigger_bins_ge_5": bins_ge_5,
+            "mip_trigger_bins_ge_10": bins_ge_10,
+            "mip_trigger_peak_bin_count": max_bin_count,
+            "mip_trigger_mean_adc": float(hist.GetMean()),
+            "mip_trigger_rms_adc": float(hist.GetRMS()),
+            "mip_trigger_noise_region_count": noise_count,
+            "mip_trigger_signal_region_count": signal_count,
+            "mip_trigger_snr": snr,
+            "mip_trigger_signal_fraction": signal_fraction,
+        }
+
+    root_file.Close()
+    return result
+
+
 def load_fits(path):
     import ROOT
 
@@ -361,6 +439,7 @@ def main():
         ped_db = run_db.get(meta["pedestal_run_number"])
 
         source_data = {}
+        canonical_hist_path = None
         for label, root, adaptive in fit_sources:
             calib_path, hist_path = replay_paths(root, code, set_name, adaptive=adaptive)
             source_available = hist_path.is_file()
@@ -370,6 +449,8 @@ def main():
                 _, replay_calib = read_calibration(calib_path)
             if source_available:
                 fits = load_fits(hist_path)
+                if canonical_hist_path is None or label == "adaptive":
+                    canonical_hist_path = hist_path
             source_data[label] = (replay_calib, fits, source_available)
             replay_cache[(set_name, label)] = {
                 "calib_path": str(calib_path),
@@ -377,6 +458,15 @@ def main():
                 "available": source_available,
                 "fit_count": len(fits),
             }
+
+        pedestal_sigmas = {
+            cell: calib["pedestal_sigma_h"]
+            for cell, calib in dataset["cells"].items()
+        }
+        histogram_stats = (
+            load_histogram_stats(canonical_hist_path, pedestal_sigmas)
+            if canonical_hist_path is not None else {}
+        )
 
         for cell, calib in sorted(dataset["cells"].items()):
             row = {
