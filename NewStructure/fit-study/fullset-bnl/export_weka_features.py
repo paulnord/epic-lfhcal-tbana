@@ -501,6 +501,24 @@ def main():
                 "published_bad_channel": calib["bad_channel"],
                 "published_mip_valid": 1 if calib["mip_scale_h"] is not None else 0,
             }
+            hist_stats = histogram_stats.get(cell, {})
+            for field in (
+                "mip_trigger_entries",
+                "mip_trigger_integral",
+                "mip_trigger_effective_entries",
+                "mip_trigger_nonzero_bins",
+                "mip_trigger_bins_ge_5",
+                "mip_trigger_bins_ge_10",
+                "mip_trigger_peak_bin_count",
+                "mip_trigger_mean_adc",
+                "mip_trigger_rms_adc",
+                "mip_trigger_noise_region_count",
+                "mip_trigger_signal_region_count",
+                "mip_trigger_snr",
+                "mip_trigger_signal_fraction",
+            ):
+                row[field] = hist_stats.get(field)
+
             row.update(db_features(mip_db, "mip"))
             row.update(db_features(ped_db, "ped"))
 
