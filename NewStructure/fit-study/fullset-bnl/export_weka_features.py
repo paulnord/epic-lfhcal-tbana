@@ -52,17 +52,28 @@ DB_NUMERIC_FIELDS = {
 }
 
 
-def number(text):
-    text = (text or "").strip()
+def number(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return int(value) if value.is_integer() else value
+
+    text = str(value).strip()
     if text in ("", "-"):
         return None
     try:
-        value = float(text)
+        parsed = float(text)
     except ValueError:
         return None
-    if value.is_integer():
-        return int(value)
-    return value
+    if not math.isfinite(parsed):
+        return None
+    return int(parsed) if parsed.is_integer() else parsed
 
 
 def missing_sentinel(value, sentinel):
