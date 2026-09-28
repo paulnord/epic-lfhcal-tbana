@@ -25,12 +25,15 @@ TARGETS = {'b1': (1024,1094), 'b2': (67,131,454,515,518),
            'e2': (1153,1410,2048), 'e3': (386,1153,1795,2048,2759),
            'f1': (1024,), 'f2': (1024,), 'g1': (1024,), 'g2': (1024,)}
 PAR_NAMES = ('landau_width','mpv','area','gaussian_sigma')
-# Last case doubles the FULL domain and nearly preserves dx by doubling N.
+# ROOT's TF1Convolution source squares an Int_t point count during normalization.
+# Stay below sqrt(INT32_MAX). Compare fft16384 with fft32768_wide for padding.
+MAX_SAFE_FFT_POINTS = 46340
 METHODS = (('legacy100','legacy100',0,1.), ('adaptive5','adaptive5',0,1.),
-           ('fft10000','fft',10000,1.), ('fft32768','fft',32768,1.),
-           ('fft65536','fft',65536,1.), ('fft131072_wide','fft',131072,2.))
+           ('fft10000','fft',10000,1.), ('fft16384','fft',16384,1.),
+           ('fft32768','fft',32768,1.), ('fft32768_wide','fft',32768,2.))
 FIT_OPTIONS = 'QRLMNS0'  # production QRLMN0 plus S to retain TFitResult
 BASE_COMMIT = '3a643646eb301c7112449e8f6d6ab31f12c72943'
+PROGRESS_PATH = None
 
 
 def clean(value):
@@ -44,17 +47,51 @@ def clean(value):
 
 
 def write_json(path, data):
-    path.write_text(json.dumps(clean(data), indent=2, allow_nan=False)+'\n')
+    path = Path(path)
+    temp = path.with_name(path.name + '.tmp')
+    temp.write_text(json.dumps(clean(data), indent=2, allow_nan=False)+'\n')
+    temp.replace(path)
 
 
 def write_csv(path, rows):
     fields = list(dict.fromkeys(k for row in rows for k in row))
-    with path.open('w', newline='') as f:
+    path = Path(path)
+    temp = path.with_name(path.name + '.tmp')
+    with temp.open('w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         for row in rows:
             row = clean(row)
             writer.writerow({k: '?' if row.get(k) is None else row[k] for k in fields})
+    temp.replace(path)
+
+
+def progress(stage, detail='', phase='checks', row=None):
+    """Atomic checkpoints, outside fit timing; an external process enforces limits."""
+    print(f'[{stage}] {detail}', flush=True)
+    if PROGRESS_PATH is not None:
+        if row is not None:
+            write_json(PROGRESS_PATH.parent/'partial-fit.json', row)
+        write_json(PROGRESS_PATH, dict(stage=stage, detail=detail, phase=phase,
+                                      monotonic_s=time.monotonic(), pid=os.getpid()))
+
+
+def finite_samples(values, label):
+    values = [float(x) for x in values]
+    if not values or not all(math.isfinite(x) for x in values):
+        raise ValueError(f'{label}: nonfinite/empty curve; refusing to fit or certify it')
+    return values
+
+
+def curve_error(values, reference):
+    values = finite_samples(values, 'candidate')
+    reference = finite_samples(reference, 'reference')
+    if len(values) != len(reference) or max(reference) <= 0:
+        raise ValueError('Invalid reference length or peak height')
+    result = max(abs(a-b) for a,b in zip(values,reference))/max(reference)
+    if not math.isfinite(result):
+        raise ValueError('Nonfinite curve discrepancy')
+    return result
 
 
 def read_calib(path):
@@ -95,11 +132,7 @@ def read_segments(path):
 
 
 def original_setup(h, ped, avg, vov, layers):
-    """Snapshot of original HGCROC improved/native-bin range and seed rules.
-
-    Matches TileSpectra at BASE_COMMIT, not the later sigma-floor experiments.
-    This reproduces only the fit SETUP, not the calibration/selection pipeline.
-    """
+    """Original HGCROC improved/native-bin range and seed rules at BASE_COMMIT."""
     if not (ped > 0 and avg > 0 and math.isfinite(vov)):
         raise ValueError('Invalid pedestal, global scale, or Vov')
     low_factor, high_factor = ((.6,3.) if layers==1 else
@@ -127,11 +160,13 @@ def original_setup(h, ped, avg, vov, layers):
 
 
 def load_root(here):
+    progress('ROOT startup', phase='startup')
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['ROOT_MAX_THREADS'] = '1'
     import ROOT
     ROOT.gROOT.SetBatch(True)
-    ROOT.DisableImplicitMT()
+    if ROOT.IsImplicitMTEnabled():
+        ROOT.DisableImplicitMT()
     ROOT.TF1.DefaultAddToGlobalList(False)
     ROOT.gInterpreter.ProcessLine('.O 2')
     if not ROOT.gInterpreter.Declare(f'#include "{(here/"models.hxx").as_posix()}"'):
@@ -143,8 +178,7 @@ def load_root(here):
     ROOT.Math.MinimizerOptions.SetDefaultTolerance(.01)
     for n in sorted({m[2] for m in METHODS if m[2]}):
         ROOT.lfhcal.convolution_benchmark.requireFFT(n)
-    # Load the fitter and Python bindings before timing the real fits. This
-    # analytic warm-up is not part of the convolution comparison.
+    # Analytic fitter/binding warm-up is outside convolution fit timing.
     warm = ROOT.TH1D('warm_up_hist','',40,-4.,4.)
     warm.SetDirectory(0)
     for b in range(1,41):
@@ -157,8 +191,9 @@ def load_root(here):
 
 def factory(R, case, method, tag):
     label, kind, points, expand = method
+    if kind == 'fft' and not 1000 <= points <= MAX_SAFE_FFT_POINTS:
+        raise ValueError('Unsafe FFT point count: integer-square normalization may overflow')
     lo,hi = case['fit_lo'],case['fit_hi']
-    # Based on FIXED parameter bounds, never on Minuit's current trial widths.
     half = ((hi-lo)/2 + 8*case['upper'][3])*expand
     middle = (hi+lo)/2
     cLo,cHi = middle-half,middle+half
@@ -184,7 +219,7 @@ def selected_cells(code, histograms, calibrations, preset):
     return out
 
 
-def load_cases(R, repo, work, datasets, preset):
+def load_cases(R, repo, work, datasets, preset, cells=None):
     cases = []
     for code in datasets:
         name = f'FullSet{code[0].upper()}_{code[1:]}'
@@ -207,14 +242,15 @@ def load_cases(R, repo, work, datasets, preset):
                 h = directory.Get(f'hspectramipTriggADCCellID{cell}')
                 if h:
                     histograms[cell] = h
-            for cell,kind in sorted(selected_cells(code,histograms,cals,preset).items()):
+            chosen = selected_cells(code,histograms,cals,preset)
+            if cells is not None:
+                chosen = {c:chosen.get(c,'explicit') for c in cells}
+            for cell,kind in sorted(chosen.items()):
                 if cell not in histograms or cell not in segments:
                     raise ValueError(f'Missing requested histogram/mapping {code}:{cell}')
                 h = histograms[cell].Clone(f'input_{code}_{cell}')
                 h.SetDirectory(0)
                 R.SetOwnership(h,True)
-                # Native count-histogram convention only. No rebinning, rescaling,
-                # error repair, or bin-integration changes hidden in this test.
                 values = [float(h.GetBinContent(b)) for b in range(h.GetNbinsX()+2)]
                 if any(not math.isfinite(v) or v<0 or abs(v-round(v))>1e-7 for v in values):
                     raise ValueError(f'Not an unweighted count histogram: {code}:{cell}')
@@ -228,8 +264,6 @@ def load_cases(R, repo, work, datasets, preset):
                 setup_difference = (max([abs(a-b) for a,b in zip(bounds,expected)]+
                     [abs(archived.GetXmin()-setup['fit_lo']),abs(archived.GetXmax()-setup['fit_hi'])])
                     if archived else None)
-                # Prefer recorded range/bounds when present: exact same historical
-                # setup for ALL engines; no need to trust a reconstruction there.
                 if archived:
                     setup.update(fit_lo=float(archived.GetXmin()),fit_hi=float(archived.GetXmax()),
                                  lower=bounds[::2],upper=bounds[1::2])
@@ -261,8 +295,6 @@ def ref_function(R, case, params, span, name):
 
 
 def coordinates(case, count=257):
-    # Stagger interior samples to avoid checking only points commensurate with
-    # the legacy sampling period. Always include the true histogram centres.
     lo,hi = case['fit_lo'],case['fit_hi']
     xs = [lo,hi]+[lo+(hi-lo)*(i+.37)/(count-1) for i in range(count-1)]
     h = case.get('histogram')
@@ -272,41 +304,47 @@ def coordinates(case, count=257):
 
 
 def probe(R, case, params, label, methods):
+    progress('probe reference', f'{case["case_id"]} {label}')
     xs = coordinates(case)
     p = R.std.vector('double')(params)
     xv = R.std.vector('double')(xs)
     ref5 = ref_function(R,case,params,5,'probe_ref5')
     ref8 = ref_function(R,case,params,8,'probe_ref8')
-    y5 = [ref5.Eval(x) for x in xs]
-    y8 = [ref8.Eval(x) for x in xs]
-    height = max(y8)
+    y5 = finite_samples((ref5.Eval(x) for x in xs), 'reference5')
+    y8 = finite_samples((ref8.Eval(x) for x in xs), 'reference8')
+    span_error = curve_error(y5,y8)
     rows = []
     for method in methods:
         name,kind,n,_ = method
+        progress('probe evaluator', f'{case["case_id"]} {label} {name}')
         t0 = time.perf_counter()
         f,cLo,cHi = factory(R,case,method,'probe_'+name)
         for i,value in enumerate(params): f.SetParameter(i,value)
-        f.Eval(xs[0])
+        first = f.Eval(xs[0])
         cold = time.perf_counter()-t0
-        ys = [f.Eval(x) for x in xs]
+        finite_samples([first], name)
+        ys = finite_samples((f.Eval(x) for x in xs), name)
         cache = R.lfhcal.convolution_benchmark.sweep(f,xv,p,3,False)
         changing = R.lfhcal.convolution_benchmark.sweep(f,xv,p,3,True)
+        finite_samples([cache.checksum,changing.checksum], name+' timing sweeps')
         rows.append(dict(case_id=case['case_id'],probe=label,method=name,
              n_fft=n,conv_lo=cLo,conv_hi=cHi,grid_spacing=(cHi-cLo)/(n-1) if n else None,
              **dict(zip(PAR_NAMES,params)),cold_setup_and_first_eval_s=cold,
              cached_sweep_s=cache.seconds/3,changed_parameters_sweep_s=changing.seconds/3,
              evaluations_per_sweep=len(xs),minimum_value=min(ys),
-             max_abs_error_over_peak_8=max(abs(a-b) for a,b in zip(ys,y8))/height,
-             max_abs_error_over_peak_5=max(abs(a-b) for a,b in zip(ys,y5))/height,
-             span5_vs_span8_over_peak=max(abs(a-b) for a,b in zip(y5,y8))/height))
+             max_abs_error_over_peak_8=curve_error(ys,y8),
+             max_abs_error_over_peak_5=curve_error(ys,y5),
+             span5_vs_span8_over_peak=span_error))
     return rows
 
 
 def fit_one(R, case, method, rep):
     label,kind,n,_ = method
+    identity = f'{case["case_id"]} {label} rep={rep}'
     row = dict(case_id=case['case_id'],dataset=case['dataset'],cell=case['cell'],
                category=case['category'],entries=case['entries'],method=label,repeat=rep,
                setup_source=case['setup_source'],fit_lo=case['fit_lo'],fit_hi=case['fit_hi'])
+    progress('construct', identity, phase='startup', row=row)
     t0 = time.perf_counter()
     f,cLo,cHi = factory(R,case,method,f'fit_{case["dataset"]}_{case["cell"]}_{label}_{rep}')
     row.update(n_fft=n,conv_lo=cLo,conv_hi=cHi,grid_spacing=(cHi-cLo)/(n-1) if n else None)
@@ -314,17 +352,19 @@ def fit_one(R, case, method, rep):
     h.SetDirectory(0)
     R.SetOwnership(h,True)
     row['construction_wall_s'] = time.perf_counter()-t0
+    progress('fit', identity, phase='fit', row=row)
     t0,c0 = time.perf_counter(),time.process_time()
     try:
         result = h.Fit(f,FIT_OPTIONS)
         row.update(fit_wall_s=time.perf_counter()-t0,fit_cpu_s=time.process_time()-c0,status=int(result))
+        progress('fit returned', f'{identity} status={row["status"]} {row["fit_wall_s"]:.3f}s', row=row)
         r = result.Get()
         if not r: raise RuntimeError('ROOT returned no TFitResult')
         row.update(valid=bool(r.IsValid()),covariance_status=int(r.CovMatrixStatus()),
                    n_calls=int(r.NCalls()),edm=float(r.Edm()),min_fcn=float(r.MinFcnValue()),
                    root_chi2=float(f.GetChisquare()),ndf=int(f.GetNDF()))
         row['root_chi2_ndf'] = row['root_chi2']/row['ndf'] if row['ndf']>0 else None
-        params = [float(f.GetParameter(i)) for i in range(4)]
+        params = finite_samples((f.GetParameter(i) for i in range(4)), 'fitted parameters')
         for i,name in enumerate(PAR_NAMES):
             row[name],row[name+'_err'] = params[i],float(f.GetParError(i))
             row[name+'_lo'],row[name+'_hi'] = case['lower'][i],case['upper'][i]
@@ -332,31 +372,40 @@ def fit_one(R, case, method, rep):
         row['bound_hits'] = sum(min(abs(p-a),abs(p-b))<1e-5 for p,a,b in zip(params,case['lower'],case['upper']))
         row['legacy_status_and_bounds_ok'] = row['status'] in (0,70,4000,4070) and row['bound_hits']==0
         row['strict_fit_ok'] = row['status']==0 and row['valid'] and row['covariance_status']==3 and row['bound_hits']==0
+        progress('peak/FWHM', identity, row=row)
         measure = R.lfhcal.convolution_benchmark.measure(f,kind=='fft',cLo,cHi)
         row.update(scale_h=float(measure.peak),fwhm_h=float(measure.fwhm),peak_error=str(measure.error))
+        progress('reference peak/FWHM', identity, row=row)
         ref8 = ref_function(R,case,params,8,'final_reference')
         reference_peak = R.lfhcal.convolution_benchmark.measure(ref8,False,0.,0.)
         row.update(reference8_scale_h=float(reference_peak.peak),reference8_fwhm_h=float(reference_peak.fwhm),
                    reference_peak_error=str(reference_peak.error))
+        progress('curve validation', identity, row=row)
         xs = coordinates(case)
         ys,yr = [f.Eval(x) for x in xs],[ref8.Eval(x) for x in xs]
-        row['curve_max_abs_error_over_peak_8'] = max(abs(a-b) for a,b in zip(ys,yr))/max(yr)
+        row['curve_max_abs_error_over_peak_8'] = curve_error(ys,yr)
+        progress('reference deviance', identity, row=row)
         terms = []
         for b in range(1,h.GetNbinsX()+1):
             x = h.GetBinCenter(b)
             if case['fit_lo']<=x<=case['fit_hi']:
-                observed,expected = h.GetBinContent(b),ref8.Eval(x)
-                if expected<0 or (expected==0 and observed>0):
+                observed,expected = float(h.GetBinContent(b)),float(ref8.Eval(x))
+                if not math.isfinite(expected) or expected<0 or (expected==0 and observed>0):
                     raise ValueError('Invalid expected count in common reference deviance')
                 terms.append(2*(expected-observed+observed*math.log(observed/expected)) if observed else 2*expected)
         row['common_reference8_deviance'] = math.fsum(terms)
         row['common_reference8_ndf'] = len(terms)-4
         row['common_reference8_deviance_ndf'] = math.fsum(terms)/(len(terms)-4) if len(terms)>4 else None
         row['error'] = ''
+        row['outcome'] = 'completed'
     except Exception as exc:
+        # Only a returned/raised Fit call has a measured fit duration. A timeout
+        # killed by the supervisor is recorded separately as a censored time.
         row.setdefault('fit_wall_s',time.perf_counter()-t0)
         row.setdefault('fit_cpu_s',time.process_time()-c0)
         row['error'] = str(exc)
+        row['outcome'] = 'error'
+    progress('attempt complete', identity, row=row)
     return row
 
 
@@ -368,9 +417,11 @@ def summarize(rows):
         times,errors = vals('fit_wall_s'),vals('curve_max_abs_error_over_peak_8')
         out[method] = {'attempts':len(subset), 'status_zero':sum(str(r.get('status'))=='0' for r in subset),
                        'strict_fit_ok':sum(str(r.get('strict_fit_ok')).lower()=='true' for r in subset),
+                       'timeouts':sum(r.get('outcome')=='timeout' for r in subset),
+                       'errors':sum(r.get('outcome') in ('error','crash') for r in subset),
+                       'timed_fit_returns':len(times),
                        'median_fit_s':statistics.median(times) if times else None,
                        'maximum_curve_error_over_peak':max(errors) if errors else None}
-    # Compare PAIRED spectra/repeats, not ratios of unrelated overall medians.
     reference = {(r['case_id'],str(r['repeat'])):r for r in rows if r['method']=='adaptive5'}
     for method,stats in out.items():
         speed,mpv,scales = [],[],[]
@@ -379,7 +430,8 @@ def summarize(rows):
             a = reference.get((r['case_id'],str(r['repeat'])))
             if r['method']!=method or a is None: continue
             try:
-                if float(r['fit_wall_s'])>0: speed.append(float(a['fit_wall_s'])/float(r['fit_wall_s']))
+                rt,at = float(r['fit_wall_s']),float(a['fit_wall_s'])
+                if rt>0 and at>=0 and math.isfinite(rt) and math.isfinite(at): speed.append(at/rt)
                 if str(r.get('strict_fit_ok')).lower()=='true' and str(a.get('strict_fit_ok')).lower()=='true':
                     mpv.append(abs(float(r['mpv'])-float(a['mpv']))/max(abs(float(a['mpv'])),1e-12))
                     for key in diffs:
@@ -388,7 +440,7 @@ def summarize(rows):
                     u,v = float(r['reference8_scale_h']),float(a['reference8_scale_h'])
                     if math.isfinite(u) and math.isfinite(v): scales.append(abs(u-v))
             except (ValueError,TypeError,KeyError): pass
-        stats.update(paired_median_speedup=statistics.median(speed) if speed else None,
+        stats.update(paired_timing_pairs=len(speed),paired_median_speedup=statistics.median(speed) if speed else None,
                      common_strict_pairs=len(mpv),max_rel_mpv_change=max(mpv) if mpv else None,
                      max_reference_peak_change_adc=max(scales) if scales else None,
                      max_absolute_changes={k:max(v) if v else None for k,v in diffs.items()})
@@ -399,32 +451,50 @@ def self_test(R):
     case = dict(case_id='synthetic_control',fit_lo=-5.,fit_hi=100.,
                 lower=[.1,1.,.01,.005],upper=[20.,80.,100.,10.],seed=[3.,30.,1.,5.])
     rows = probe(R,case,case['seed'],'ordinary',METHODS)
-    fft = next(r for r in rows if r['method']=='fft65536')
-    if fft['max_abs_error_over_peak_8']>1e-3:
-        raise RuntimeError(f'Ordinary FFT normalization/phase smoke check failed: {fft}')
-    # Check copy/lifetime safety of the small adapter and four-parameter order.
-    f,_,_ = factory(R,case,METHODS[4],'copy_control')
+    for row in rows:
+        if row['n_fft']:
+            error = row['max_abs_error_over_peak_8']
+            if not math.isfinite(error) or error>1e-3:
+                raise RuntimeError(f'FFT normalization/phase smoke check failed: {row}')
+            print(f'  {row["method"]}: finite, max error/peak={error:.3g}',flush=True)
+    # Exercise the C++ guard directly, before any overflowing ROOT arithmetic.
+    try:
+        R.lfhcal.fft_experiment.make('unsafe_grid',-5.,100.,-100.,200.,65536)
+    except Exception:
+        pass
+    else:
+        raise RuntimeError('C++ oversized-grid guard did not reject 65536')
+    method = next(m for m in METHODS if m[0]=='fft32768')
+    f,_,_ = factory(R,case,method,'copy_control')
     copy = f.Clone('copy_control_clone')
     R.SetOwnership(copy,True)
-    before = copy.Eval(30.)
+    before = float(copy.Eval(30.))
     del f
     copy.SetParameter(2,2.)
-    if abs(copy.Eval(30.)/before-2.)>1e-10:
+    after = float(copy.Eval(30.))
+    finite_samples([before,after],'copy/lifetime')
+    if before<=0 or abs(after/before-2.)>1e-10:
         raise RuntimeError('Area mapping or copied callback ownership failed')
-    print(f'ROOT {R.gROOT.GetVersion()}: FFT backend, parameter order, normalization and lifetime smoke checks passed.')
+    print(f'ROOT {R.gROOT.GetVersion()}: finite curves, safe FFT sizes, normalization and lifetime checks passed.')
     print('This is not validation across the allowed width domain; run --preset stress next.')
 
 
 def main():
+    global PROGRESS_PATH
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--work',type=Path)
     ap.add_argument('--out',type=Path)
     ap.add_argument('--preset',choices=('smoke','survey','stress'),default='smoke')
     ap.add_argument('--datasets',nargs='+',choices=SETS)
+    ap.add_argument('--cells',nargs='+',type=int)
+    ap.add_argument('--methods',nargs='+',choices=[m[0] for m in METHODS])
     ap.add_argument('--repeats',type=int,default=3)
+    ap.add_argument('--repeat-offset',type=int,default=0)
+    ap.add_argument('--prepare-only',action='store_true')
     ap.add_argument('--self-test',action='store_true')
     ap.add_argument('--collect',type=Path)
     args = ap.parse_args()
+    methods = [m for m in METHODS if not args.methods or m[0] in args.methods]
     if args.collect:
         rows = []
         for p in sorted(args.collect.glob('*/fits.csv')):
@@ -435,11 +505,12 @@ def main():
         write_json(args.collect/'summary.json',summary)
         print(json.dumps(clean(summary),indent=2));return
     here = Path(__file__).resolve().parent
-    if args.repeats<1: ap.error('--repeats must be positive')
+    if args.repeats<1 or args.repeat_offset<0: ap.error('Invalid repetition count/offset')
     if not args.self_test and not args.out: ap.error('--out is required')
     if args.out:
         args.out.mkdir(parents=True,exist_ok=True)
         if any(args.out.iterdir()): ap.error('Output directory must be empty; preserve earlier benchmarks')
+        PROGRESS_PATH = args.out/'progress.json'
     R = load_root(here)
     if args.self_test: self_test(R);return
     if args.preset=='stress':
@@ -448,13 +519,14 @@ def main():
         rows = []
         for tag,params in (('ordinary',[3.,30.,1.,5.]),('narrow_landau',[.1,30.,1.,10.]),
                            ('very_narrow_landau',[.01,30.,1.,20.]),('tiny_gaussian',[10.,30.,1.,.005])):
-            rows.extend(probe(R,case,params,tag,METHODS))
-        write_csv(args.out/'probes.csv',rows)
+            rows.extend(probe(R,case,params,tag,methods))
+            write_csv(args.out/'probes.csv',rows)
         write_json(args.out/'environment.json',{'ROOT':R.gROOT.GetVersion(),'argv':sys.argv})
         print(f'Saved numerical stress tests: {args.out}/probes.csv');return
     if not args.work: ap.error('--work is required for real spectra')
     datasets = args.datasets or (tuple(SMOKE) if args.preset=='smoke' else SETS)
-    cases = load_cases(R,here.parents[2],args.work,datasets,args.preset)
+    progress('read inputs', ','.join(datasets), phase='startup')
+    cases = load_cases(R,here.parents[2],args.work,datasets,args.preset,args.cells)
     if not cases: ap.error('Selected preset/datasets produced no cases')
     manifest = [{k:v for k,v in c.items() if k!='histogram'} for c in cases]
     def git(*command):
@@ -464,25 +536,33 @@ def main():
         'git_commit':git('rev-parse','HEAD'),'git_status':git('status','--porcelain'),
         'host':socket.gethostname(),'platform':platform.platform(),'python':sys.version,'argv':sys.argv,
         'repeats':args.repeats,'fit_options':FIT_OPTIONS,'max_calls':1000,'max_iterations':100,'tolerance':.01,
-        'methods':METHODS,'reference_numerics_base':BASE_COMMIT,
+        'methods':methods,'reference_numerics_base':BASE_COMMIT,
         'source_hashes':{p.name:hashlib.sha256(p.read_bytes()).hexdigest()
                         for p in (here/'benchmark.py',here/'models.hxx',here/'TF1Langau.h',here.parents[1]/'LangauNumerics.h')}})
+    if args.prepare_only:
+        progress('selection complete', f'{len(cases)} frozen spectra',phase='startup')
+        return
     rows,probes = [],[]
     for case in cases:
         print(f'{case["case_id"]} {case["category"]}, {case["entries"]:g} entries',flush=True)
         params = case['archived_parameters'] or case['seed']
-        probes.extend(probe(R,case,params,'archived' if case['archived_parameters'] else 'cold_seed',METHODS))
+        probes.extend(probe(R,case,params,'archived' if case['archived_parameters'] else 'cold_seed',methods))
         write_csv(args.out/'probes.csv',probes)
-        for rep in range(args.repeats):
-            order = list(METHODS)
+        # Separate pre-fit finite checks at the cold seed; no change to the
+        # fitted function's cache or seed. Accuracy remains a reported diagnostic.
+        if params != case['seed']:
+            probes.extend(probe(R,case,case['seed'],'cold_seed',methods))
+            write_csv(args.out/'probes.csv',probes)
+        for rep in range(args.repeat_offset,args.repeat_offset+args.repeats):
+            order = list(methods)
             random.Random(f'{case["case_id"]}:{rep}:20260928').shuffle(order)
             for method in order:
                 row = fit_one(R,case,method,rep)
                 rows.append(row)
+                write_csv(args.out/'fits.csv',rows)
+                write_json(args.out/'summary.json',summarize(rows))
                 print(f'  {method[0]:18s} rep={rep} status={row.get("status","error")} {row["fit_wall_s"]:.3f}s',flush=True)
-            write_csv(args.out/'fits.csv',rows)
-    write_json(args.out/'summary.json',summarize(rows))
-    print(f'Saved {len(rows)} fit attempts across {len(cases)} frozen spectra in {args.out}')
+    progress('done',f'{len(rows)} attempts in {args.out}',phase='startup')
 
 
 if __name__ == '__main__':
