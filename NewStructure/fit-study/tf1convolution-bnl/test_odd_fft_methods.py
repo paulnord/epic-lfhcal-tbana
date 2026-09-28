@@ -3,6 +3,7 @@
 import contextlib
 import csv
 import io
+import json
 import math
 from pathlib import Path
 import tempfile
@@ -15,10 +16,13 @@ import benchmark as b
 
 class FakeFunction:
     def __init__(self, area=1.):
-        self.area = area
+        self.area = area.area if isinstance(area, FakeFunction) else area
 
     def Clone(self, name):
-        return FakeFunction(self.area)
+        raise AssertionError('Use the live TF1 copy constructor, not streamed Clone')
+
+    def SetName(self, name):
+        self.name = name
 
     def Eval(self, x):
         return self.area
@@ -68,6 +72,7 @@ class OddGridTests(unittest.TestCase):
                 for name,kind,n,_ in b.METHODS if kind == 'fft']
         fake_root = SimpleNamespace(
             lfhcal=SimpleNamespace(fft_experiment=SimpleNamespace(make=unsafe_grid)),
+            TF1=FakeFunction,
             SetOwnership=lambda *args: None,
             gROOT=SimpleNamespace(GetVersion=lambda: 'test double'),
         )
@@ -78,6 +83,7 @@ class OddGridTests(unittest.TestCase):
             b.self_test(fake_root)
         self.assertEqual(factory.call_args.args[2][0], 'fft32769_odd')
         self.assertEqual(output.getvalue().count('PASS,'), 4)
+        self.assertIn('copy ratio=1.0, area ratio=2.0', output.getvalue())
 
     def test_accuracy_miss_still_fails_after_all_rows_saved_and_printed(self):
         rows = [dict(method='fft10001_odd',n_fft=10001,
@@ -108,6 +114,46 @@ class OddGridTests(unittest.TestCase):
                      contextlib.redirect_stdout(io.StringIO()):
                     with self.assertRaises(RuntimeError):
                         b.self_test(None)
+
+
+    def run_copy_control(self, constructor, directory=None):
+        rows = [dict(method='fft32769_odd',n_fft=32769,
+                     max_abs_error_over_peak_8=3e-5)]
+        fake_root = SimpleNamespace(
+            lfhcal=SimpleNamespace(fft_experiment=SimpleNamespace(make=unsafe_grid)),
+            TF1=constructor,
+            SetOwnership=lambda *args: None,
+            gROOT=SimpleNamespace(GetVersion=lambda: 'test double'),
+        )
+        progress = Path(directory)/'progress.json' if directory else None
+        with patch.object(b,'probe',return_value=rows), \
+             patch.object(b,'factory',side_effect=lambda *args: (FakeFunction(),0.,1.)), \
+             patch.object(b,'PROGRESS_PATH',progress), \
+             contextlib.redirect_stdout(io.StringIO()):
+            b.self_test(fake_root)
+
+    def test_frozen_copy_still_fails_with_values_saved(self):
+        class FrozenCopy(FakeFunction):
+            def SetParameter(self, index, value):
+                pass  # Deliberately emulate a serialized, sampled curve.
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(RuntimeError,'live copied callback'):
+                self.run_copy_control(FrozenCopy,directory)
+            diagnostic = json.loads((Path(directory)/'copy-lifetime.json').read_text())
+        self.assertEqual(diagnostic['area_ratio'],1.)
+        self.assertEqual(diagnostic['expected_area_ratio'],2.)
+        self.assertEqual(diagnostic['tolerance'],1e-10)
+
+    def test_nonfinite_live_copy_is_rejected(self):
+        class InvalidCopy(FakeFunction):
+            def Eval(self, x):
+                return math.nan if self.area==2. else self.area
+        with self.assertRaisesRegex(ValueError,'nonfinite'):
+            self.run_copy_control(InvalidCopy)
+
+    def test_live_copy_must_preserve_original_value(self):
+        with self.assertRaisesRegex(RuntimeError,'live copied callback'):
+            self.run_copy_control(lambda source: FakeFunction(source.area*1.1))
 
 
 if __name__ == '__main__':
