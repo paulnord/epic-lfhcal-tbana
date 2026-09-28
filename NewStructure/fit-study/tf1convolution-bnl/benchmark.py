@@ -478,17 +478,35 @@ def self_test(R):
         pass
     else:
         raise RuntimeError('C++ oversized-grid guard did not reject 65536')
+    # Clone() serializes callback TF1s into sampled curves. Such a snapshot
+    # is for plotting, not parameter changes. Exercise the live C++ copy
+    # constructor instead; see COPY_LIFETIME.md and TF1::Copy in ROOT.
+    progress('self-test copy/lifetime', 'live TF1 copy constructor (not Clone)')
     method = next(m for m in METHODS if m[0]=='fft32769_odd')
     f,_,_ = factory(R,case,method,'copy_control')
-    copy = f.Clone('copy_control_clone')
+    original = float(f.Eval(30.))
+    copy = R.TF1(f)
+    copy.SetName('copy_control_live_copy')
     R.SetOwnership(copy,True)
     before = float(copy.Eval(30.))
     del f
     copy.SetParameter(2,2.)
     after = float(copy.Eval(30.))
-    finite_samples([before,after],'copy/lifetime')
-    if before<=0 or abs(after/before-2.)>1e-10:
-        raise RuntimeError('Area mapping or copied callback ownership failed')
+    copy_ratio = before/original if original > 0 else None
+    area_ratio = after/before if before > 0 else None
+    diagnostic = dict(operation='TF1 copy constructor', original=original,
+                      before=before, after=after, copy_ratio=copy_ratio,
+                      area_ratio=area_ratio, expected_area_ratio=2., tolerance=1e-10)
+    print(f'  live copy: original={original:.17g}, before={before:.17g}, '
+          f'after={after:.17g}, copy ratio={copy_ratio}, area ratio={area_ratio}',flush=True)
+    if PROGRESS_PATH is not None:
+        write_json(PROGRESS_PATH.parent/'copy-lifetime.json', diagnostic)
+    finite_samples([original,before,after],'copy/lifetime')
+    if original<=0 or before<=0:
+        raise RuntimeError(f'Nonpositive live-copy control: {diagnostic}')
+    finite_samples([copy_ratio,area_ratio],'copy/lifetime ratios')
+    if abs(copy_ratio-1.)>1e-10 or abs(area_ratio-2.)>1e-10:
+        raise RuntimeError(f'Area mapping or live copied callback ownership failed: {diagnostic}')
     print(f'ROOT {R.gROOT.GetVersion()}: finite curves, safe FFT sizes, normalization and lifetime checks passed.')
     print('This is not validation across the allowed width domain; run --preset stress next.')
 
