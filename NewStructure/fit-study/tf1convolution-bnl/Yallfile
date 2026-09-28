@@ -1,0 +1,65 @@
+campaign lfhcal-tf1convolution-survey
+backend condor
+
+@env LFHCAL_WORK
+@env LFHCAL_FFT_OUT
+@env EIC_SHELL
+
+@table sets code fullset:
+    b1 FullSetB_1
+    b2 FullSetB_2
+    c1 FullSetC_1
+    c2 FullSetC_2
+    c3 FullSetC_3
+    d1 FullSetD_1
+    d2 FullSetD_2
+    e1 FullSetE_1
+    e2 FullSetE_2
+    e3 FullSetE_3
+    f1 FullSetF_1
+    f2 FullSetF_2
+    g1 FullSetG_1
+    g2 FullSetG_2
+
+%cpus 1
+%memory 4GB
+%disk 2GB
+%time 2h
+%getenv true
+%wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
+
+benchmark-{code}:
+    @each code fullset in sets
+    @input runner benchmark.py
+    @input adapter TF1Langau.h
+    @input models models.hxx
+    @input numerics ../../LangauNumerics.h
+    @input mapping_v1 ../../../configs/TB2026/mapping_HGCROC_SPSH2TB_sumV1_default.csv
+    @input mapping_v2 ../../../configs/TB2026/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input hist {LFHCAL_WORK}/adaptive-fullset-{code}-repro/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_{fullset}_Hists.root
+    @input previous {LFHCAL_WORK}/adaptive-fullset-{code}-repro/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_{fullset}_calib.txt
+    @output fits {LFHCAL_FFT_OUT}/{code}/fits.csv
+    @output probes {LFHCAL_FFT_OUT}/{code}/probes.csv
+    @output manifest {LFHCAL_FFT_OUT}/{code}/manifest.json
+    @output summary {LFHCAL_FFT_OUT}/{code}/summary.json
+    python3 @input.runner --work {LFHCAL_WORK} --preset survey --datasets {code} --repeats 3 --out {LFHCAL_FFT_OUT}/{code}
+
+summary: benchmark-b1 benchmark-b2 benchmark-c1 benchmark-c2 benchmark-c3 benchmark-d1 benchmark-d2 benchmark-e1 benchmark-e2 benchmark-e3 benchmark-f1 benchmark-f2 benchmark-g1 benchmark-g2
+    @input runner benchmark.py
+    @input b1 {LFHCAL_FFT_OUT}/b1/fits.csv
+    @input b2 {LFHCAL_FFT_OUT}/b2/fits.csv
+    @input c1 {LFHCAL_FFT_OUT}/c1/fits.csv
+    @input c2 {LFHCAL_FFT_OUT}/c2/fits.csv
+    @input c3 {LFHCAL_FFT_OUT}/c3/fits.csv
+    @input d1 {LFHCAL_FFT_OUT}/d1/fits.csv
+    @input d2 {LFHCAL_FFT_OUT}/d2/fits.csv
+    @input e1 {LFHCAL_FFT_OUT}/e1/fits.csv
+    @input e2 {LFHCAL_FFT_OUT}/e2/fits.csv
+    @input e3 {LFHCAL_FFT_OUT}/e3/fits.csv
+    @input f1 {LFHCAL_FFT_OUT}/f1/fits.csv
+    @input f2 {LFHCAL_FFT_OUT}/f2/fits.csv
+    @input g1 {LFHCAL_FFT_OUT}/g1/fits.csv
+    @input g2 {LFHCAL_FFT_OUT}/g2/fits.csv
+    @output report {LFHCAL_FFT_OUT}/summary.json
+    @output fits {LFHCAL_FFT_OUT}/all-fits.csv
+    python3 @input.runner --collect {LFHCAL_FFT_OUT}
