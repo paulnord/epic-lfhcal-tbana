@@ -1,180 +1,152 @@
 # TF1Convolution: isolated accuracy and speed benchmark
 
-This is **not a production fitter change**. It is based on
+This is **not a production fitter change**. The parent branch is
 `codex/adaptive-fit-clean` at `3a643646eb301c7112449e8f6d6ab31f12c72943`.
-The candidate replacement is the small `TF1Langau.h` factory. The remaining
-files are test infrastructure. `TileSpectra`, event selection, calibration
-iterations, parameter-limit policies and production build targets are untouched.
-The already-used EIC shell wrapper is copied unchanged from the earlier study.
+The small candidate adapter is `TF1Langau.h`. Other files are test infrastructure;
+`TileSpectra`, selection, calibration iterations and production targets are untouched.
 
-## What is compared
+## Important correction: FFT point-count overflow and nonfinite checks
+
+The ROOT `TF1Convolution::MakeFFTConv` source inspected during the investigation
+normalizes with `.../(fNofPoints*fNofPoints)`, multiplying two `Int_t` operands.
+For a 32-bit signed integer the largest safe count is **46340**, not INT_MAX:
+46340^2 = 2147395600; 65536^2 = 4294967296. Signed overflow is undefined behavior,
+not a legitimate large-grid approximation. The exact compiled BNL behavior has
+not been established by the Python stacks. This is a concrete upstream source
+hazard and a plausible explanation, not a claimed native-stack diagnosis.
+
+The earlier 65536/131072 experiments must not be trusted. Our old self-test also
+used a `discrepancy > tolerance` comparison without rejecting NaN first; NaN could
+therefore pass. The old pass message was not valid numerical certification.
+
+The Python and C++ adapters now reject unsafe counts before constructing the
+convolution. Every checked curve, timing-sweep checksum, normalization discrepancy
+and lifetime comparison must be finite. Nonfinite probes stop that worker before
+minimization; errors are not silently clipped or replaced with zero.
 
 | Label | Evaluator |
 |---|---|
 | `legacy100` | Original 100-midpoint, +/-5 Gaussian-sigma convolution |
-| `adaptive5` | Existing `LangauNumerics.h`, production tolerance and +/-5 sigma |
-| `fft10000` | ROOT `TF1Convolution`, fixed 10,000 samples |
-| `fft32768` | Same, 32,768 samples |
-| `fft65536` | Same, 65,536 samples |
-| `fft131072_wide` | Twice the entire convolution domain, 131,072 samples |
+| `adaptive5` | Existing adaptive integrator, production tolerance and +/-5 sigma |
+| `fft10000` | ROOT TF1Convolution, 10000 samples |
+| `fft16384` | Same, 16384 samples |
+| `fft32768` | Same, 32768 samples |
+| `fft32768_wide` | Twice the full convolution domain, 32768 samples |
 
-The last pair approximately holds grid spacing constant while changing the
-padding, so a domain/wrap-around effect is distinguishable from resolution.
-The convolution domain is the fit interval padded by eight times the **allowed
-maximum** Gaussian sigma on each side, fixed before minimization. Its actual
-endpoints and spacing are recorded. This conservative choice can be expensive
-and does NOT guarantee resolution of arbitrarily tiny allowed widths. The
-synthetic stress tests deliberately investigate both tiny Landau and tiny
-Gaussian widths. There is no claim that 10k or 64k is automatically sufficient.
+Compare `fft16384` with `fft32768_wide` for approximately equal grid spacing but
+different padding. Compare 10000/16384/32768 on the original domain for sampling
+resolution. Counts and domain stay fixed throughout each minimization. Safety
+from integer overflow does **not** imply adequate resolution of the narrowest
+allowed Landau/Gaussian width. Record actual spacing and compare curves.
 
-Both factors are normalized; the Landau mode correction and public parameter
-order `[width, MPV, area, sigma]` are preserved. Area multiplies the cached
-convolution externally. The ordinary ROOT Gaussian is **untruncated**, whereas
-the historical model integrates only +/-5 sigma. Therefore fixed-parameter
-checks use BOTH the existing +/-5-sigma reference and an independent call to
-the same integrator over +/-8 sigma. The latter approximates the untruncated
-Gaussian. A truncation difference is reported separately, not hidden as an FFT
-error. No RooFit data conversion is required.
+The domain is the fit interval padded on each side by eight times the allowed
+maximum Gaussian sigma, chosen before fitting. Both components are normalized;
+parameter order remains `[Landau width, MPV, area, Gaussian sigma]`. The Landau
+mode shift is preserved and area multiplies the cached convolution externally.
+FFT uses an untruncated Gaussian; the original integrates +/-5 sigma. Fixed-vector
+checks report differences against both +/-5 and +/-8 adaptive references.
 
-## Controlled inputs and selection
+## Inputs and controlled comparison
 
-Read-only inputs are the existing `adaptive-fullset-<code>-repro/refine5`
-triggered histograms and `refine4` calibration text. Histograms are cloned,
-not regenerated. Every engine gets the same native 1-ADC bins, same stored
-errors, fit range, starting vector, parameter limits, Minuit2/Migrad settings,
-and call budget. No 8/4/2/1 rebinning, sigma-floor experiment, retry cascade,
-new fit-acceptance rule, or calibration propagation is applied.
+Read-only inputs are existing `adaptive-fullset-<code>-repro/refine5` triggered
+histograms and `refine4` calibration text. All methods receive the same cloned
+native 1-ADC count histogram, stored errors, range, seeds, bounds and Minuit
+settings. No rebinning, sigma-floor experiment, rescue sequence or new scientific
+acceptance rule is introduced. Saved TF1s provide metadata, not executable
+reference callbacks.
 
-Where an archived adaptive TF1 exists, its saved range and parameter bounds
-are used. The cold starting vector follows the old rule: 3*pedestal sigma,
-incoming global MIP average, fit-window counts, pedestal sigma. It is NOT the
-already-minimized adaptive parameter vector. Where there was no saved TF1,
-the original improved HGCROC range/bound rules are reconstructed from the
-incoming calibration, native histogram, and mapping. Those cases are explicitly
-marked `setup_source=reconstructed_original_rules`. The reconstructed versus
-recorded setup difference is also logged for cases with a saved TF1. No
-out-of-bounds starting values are silently clipped.
+Where a saved adaptive TF1 exists, use its recorded range/bounds. Otherwise the
+original improved HGCROC setup rules are reconstructed and marked explicitly.
+The cold seed is the old rule (3*pedestal sigma, incoming global MIP scale,
+fit-window counts, pedestal sigma), not the already-minimized adaptive vector.
 
-* `smoke`: E1 cells 896 and 903, B2 cell 131, E3 cell 2759: four frozen spectra.
-* `survey`: all 14 FullSets; controls 965 and 1346 in each, the named problematic
-  cells in `TARGETS`, plus each set's lowest- and highest-entry eligible spectra.
-  Duplicate case selections are removed. Extremes are selected without testing
-  whether a fit was saved. This is a deliberately enriched benchmark sample,
-  **not** an estimate of population-wide fit efficiency.
-* `stress`: synthetic parameter vectors only (ordinary, narrow Landau,
-  very narrow Landau, tiny Gaussian). No detector input or minimization.
+`smoke` selects E1 896/903, B2 131, E3 2759. `survey` selects controls 965/1346 in
+all 14 sets, named problem cells and lowest/highest-entry eligible cells in each
+set, independent of saved-fit status. `--cells` restricts to explicit cells in
+selected datasets. This enriched sample is not a population efficiency estimate.
+`stress` runs synthetic parameter probes without fitting, via `benchmark.py`.
 
-A saved fit is not scientific acceptance. All fit attempts, including failed
-minimizations, covariance warnings, boundary hits, invalid curves and failed
-peak/FWHM extractions remain in the outputs. Strict convergence and the old
-status/bound check are reported separately; no 'best of several' calibration
-is selected. This test does NOT run the full calibration pathway.
+## Run with the external supervisor (BNL / tcsh)
 
-## BNL / tcsh: new working directory, no production rebuild
-
-Run the worktree command once, from the existing checkout. It neither switches
-nor rebuilds that checkout. If the new path/branch already exists, stop and
-inspect it instead of forcing or deleting it.
+The checkout should already exist. Stop old jobs first; do not change this
+checkout while workers are using it.
 
 ```tcsh
-set OLD = "$HOME/my_eic_work_with_LFHCAL/epic-lfhcal-legacy-width-grid"
 set FFTREPO = "$HOME/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark"
-git -C "$OLD" fetch origin codex/tf1convolution-benchmark
-git -C "$OLD" worktree add --track -b codex/tf1convolution-benchmark "$FFTREPO" origin/codex/tf1convolution-benchmark
-
 setenv LFHCAL_WORK "/gpfs01/star/scratch/pnord/lfhcal"
 setenv EIC_SHELL "$HOME/my_eic_work_with_LFHCAL/eic-shell"
-cd "$FFTREPO/NewStructure/fit-study/tf1convolution-bnl"
-
+cd "$FFTREPO"
+git pull --ff-only origin codex/tf1convolution-benchmark
+cd NewStructure/fit-study/tf1convolution-bnl
 python3 -m unittest -v test_benchmark.py
-"$FFTREPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" python3 benchmark.py --self-test
-```
 
-The ROOT smoke test checks the FFT backend, ordinary-curve normalization,
-parameter order, and TF1 copy/lifetime behavior. The C++ helpers are compiled
-by ROOT's interpreter with optimization enabled. No Python callback implements
-a convolution or runs inside the objective. FFT backend absence is fatal, so
-ROOT's numerical-convolution fallback cannot masquerade as an FFT benchmark.
-
-After those tests pass, make fresh outputs and run the four-spectrum smoke
-benchmark. One repeat is for functionality; use three or more for timing.
-
-```tcsh
-set FFTSMOKE = "$LFHCAL_WORK/tf1convolution-smoke-`date -u +%Y%m%dT%H%M%SZ`"
+set FFTSMOKE = "$LFHCAL_WORK/tf1convolution-bounded-`date -u +%Y%m%dT%H%M%SZ`"
 "$FFTREPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
-    python3 benchmark.py --work "$LFHCAL_WORK" \
-    --preset smoke --repeats 1 --out "$FFTSMOKE"
+    python3 -u run_benchmark.py --work "$LFHCAL_WORK" \
+    --preset smoke --datasets e1 --cells 896 903 \
+    --methods adaptive5 fft10000 fft16384 fft32768 \
+    --repeats 1 --fit-timeout 30 --check-timeout 60 --out "$FFTSMOKE"
 jq . "$FFTSMOKE/summary.json"
 ```
 
-A synthetic resolution check, without rerunning fits:
+No DataPrep rebuild: ROOT compiles the C++ helpers at startup. The supervisor
+runs the corrected ROOT self-test first under a timeout, then freezes the case
+manifest. Each (cell, method, repetition) runs in a **fresh executable process**,
+sequentially on the same host; order is deterministically shuffled. ROOT/JIT
+startup and input reads are outside fit timing, but increase total wall time.
+Do not compare this total worker wall time with the measured minimization time.
 
-```tcsh
-set FFTSTRESS = "$LFHCAL_WORK/tf1convolution-stress-`date -u +%Y%m%dT%H%M%SZ`"
-"$FFTREPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
-    python3 benchmark.py --preset stress --out "$FFTSTRESS"
-```
+Default budgets are 120 s startup/setup, 30 s fitting, 60 s checks, and 240 s total
+per worker. Phase budgets accumulate across that worker's stages. The parent
+prints stage changes plus a heartbeat every 10 s. It does not rely on a Python
+thread/signal handler running while ROOT is executing: it can terminate the
+worker process group (TERM, then KILL). Ctrl-C cleans up the active child.
 
-## Broader comparison on Condor
+A timeout is an explicit, censored observation, not a completed 30-second fit or
+an invisible omitted case. Other methods/cells continue. No automatic retry is
+made. Increase a budget deliberately in a fresh experiment when needed.
 
-The Yallfile runs **one job per FullSet, not per engine**. All engines for a
-spectrum run sequentially on the same worker/core, with order deterministically
-shuffled at each repetition. Each set uses three repetitions. Inputs are read
-in place; nothing is copied to or overwritten in the calibration archive.
+## Outputs
 
-```tcsh
-setenv LFHCAL_FFT_OUT "$LFHCAL_WORK/tf1convolution-survey-`date -u +%Y%m%dT%H%M%SZ`"
-yall-run validate
-yall-run plan
-set FFTCAM = `yall-run create --campaigns-dir "$LFHCAL_FFT_OUT/campaigns"`
-yall-run start "$FFTCAM"
-yall-run status "$FFTCAM" -vv
-```
+* `manifest.json`: cases/settings, source and input hashes, git state, ROOT
+  version, host and timeout policy. Per-worker manifests preserve exact inputs.
+* `logs/`: one log for each worker, including all ROOT warnings and tracebacks.
+* `attempts/`: progress and partial-fit checkpoints; completed per-worker files.
+* `probes.csv`: fixed-vector accuracy vs +/-5 and +/-8 references, FFT spacing,
+  cold first evaluation and cached/changing-parameter sweep timings.
+* `fits.csv`: fit CPU/wall time, status, covariance quality, EDM, calls, parameters,
+  errors/covariance, peak/FWHM and common-reference deviance. Completed fit details
+  survive a subsequent slow validation. Missing values are `?`.
+* `summary.json`: cumulative counts, timeout/error counts, paired timing and
+  answer comparisons, rewritten atomically after each worker.
 
-Do not change this checkout while the benchmark is running. The summary job
-writes `summary.json` and `all-fits.csv` at the survey root. A one-set local run
-is also available with `--preset survey --datasets e1 --repeats 3 --out NEW_DIR`.
+`fit_wall_s`/`fit_cpu_s` time only `TH1::Fit`. The first convolution rebuild is
+included; JIT/startup, construction, probes, diagnostics and reporting are not.
+A killed fit has no completed time; `fit_time_censored` and the observed elapsed
+fit-phase lower bound are separate. Paired speedups require actual fit timings;
+timeout counts must be inspected rather than judging medians of survivors alone.
 
-## Outputs and interpretation
+The common Poisson deviance uses the +/-8 reference at native bin centres,
+including empty bins; its NDF is included bins minus four, not necessarily ROOT's
+saved NDF convention. Strict status/covariance/bound checks and the legacy status
+policy are reported separately. Neither means scientific acceptance.
 
-* `manifest.json`: exact cases, setup origin, seeds/bounds/windows, input paths,
-  histogram-content hashes, calibration/mapping hashes, ROOT version, source
-  hashes, git state, host, settings and command line.
-* `probes.csv`: evaluate ALL engines at the SAME parameter vector before
-  minimization. Includes errors against +/-5 and +/-8 references, domain/spacing,
-  cold setup + first evaluation time, warm cached spectrum-evaluation time,
-  and spectrum-evaluation time after changing width (forcing FFT reconstruction).
-* `fits.csv`: per-attempt CPU/wall time, construction time, function calls,
-  status, covariance quality, EDM, parameter values/errors/covariances, bounds,
-  raw ROOT chi2/NDF, each engine's peak/FWHM and the accurate +/-8-sigma
-  peak/FWHM at that engine's fitted parameters. Weka missing token is `?`.
-* `summary.json`: paired speedups versus adaptive, convergence counts and
-  discrepancies. Failed attempts are not removed from overall timing summaries.
-  Parameter comparisons use pairs for which both strict optimizer checks pass.
+## Condor
 
-A common Poisson deviance is also recomputed for every solution using the
-+/-8-sigma reference at the original bin centres, including empty bins.
-`common_reference8_ndf` is explicitly number of included bins minus four;
-it need not be identical to ROOT's saved NDF convention. This common score
-prevents an inaccurate evaluator from winning merely by exploiting its own
-quadrature error. It is a numerical/model-comparison diagnostic, not a new
-production goodness-of-fit criterion.
+The Yallfile uses the supervisor with three repetitions per set. Validate and
+plan before submitting; do not launch a full survey until the small test works.
+`benchmark.py --collect DIR` still collects `DIR/<dataset>/fits.csv` into
+`all-fits.csv` and a combined `summary.json`.
 
-File reads, JIT startup, a generic fitter warm-up, post-fit numerical checks,
-peak extraction and report writing are outside `fit_wall_s`/`fit_cpu_s`.
-The first FFT construction needed by a real fit is INSIDE fit timing. The
-separate `construction_wall_s` allows total setup+fit costs to be compared.
-Peak-finding alone tolerates roundoff-level negative FFT tail values; the
-fit callback and the saved raw curve-error metrics are not clipped.
+## Validation status
 
-Do not treat old copied TF1s as executable reference functions. We reconstruct
-all callbacks from source; archived TF1s supply metadata only. Production ROOT
-serialization of an adopted FFT TF1 is a separate follow-up test, not yet claimed
-by this harness. BNL runtime results and the ROOT self-test remain necessary;
-the lightweight Python tests alone do not establish numerical accuracy.
+The pure-Python regression suite includes finite-value rejection, safe sample
+counts, censored timing, checkpoint retention, and terminating a subprocess
+blocked inside a compiled libc call. ROOT runtime checks and real-data validation
+must run on the target ROOT installation. Production FFT TF1 serialization is
+still a separate follow-up before adopting the adapter.
 
-ROOT primary references:
-- https://root.cern/doc/master/classTF1Convolution.html
+Primary references:
 - https://root.cern/doc/master/TF1Convolution_8cxx_source.html
-- https://root.cern/doc/master/fitConvolution_8C.html
-- https://root.cern/doc/master/classTH1.html
+- https://root.cern/doc/master/TF1Convolution_8h_source.html
+- https://docs.python.org/3/library/subprocess.html
