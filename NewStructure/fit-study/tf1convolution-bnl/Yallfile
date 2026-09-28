@@ -30,7 +30,8 @@ backend condor
 
 benchmark-{code}:
     @each code fullset in sets
-    @input runner benchmark.py
+    @input runner run_benchmark.py
+    @input worker benchmark.py
     @input adapter TF1Langau.h
     @input models models.hxx
     @input numerics ../../LangauNumerics.h
@@ -42,7 +43,7 @@ benchmark-{code}:
     @output probes {LFHCAL_FFT_OUT}/{code}/probes.csv
     @output manifest {LFHCAL_FFT_OUT}/{code}/manifest.json
     @output summary {LFHCAL_FFT_OUT}/{code}/summary.json
-    python3 @input.runner --work {LFHCAL_WORK} --preset survey --datasets {code} --repeats 3 --out {LFHCAL_FFT_OUT}/{code}
+    python3 @input.runner --work {LFHCAL_WORK} --preset survey --datasets {code} --repeats 3 --fit-timeout 30 --check-timeout 60 --out {LFHCAL_FFT_OUT}/{code}
 
 summary: benchmark-b1 benchmark-b2 benchmark-c1 benchmark-c2 benchmark-c3 benchmark-d1 benchmark-d2 benchmark-e1 benchmark-e2 benchmark-e3 benchmark-f1 benchmark-f2 benchmark-g1 benchmark-g2
     @input runner benchmark.py
