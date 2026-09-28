@@ -24,20 +24,47 @@ convolution. Every checked curve, timing-sweep checksum, normalization discrepan
 and lifetime comparison must be finite. Nonfinite probes stop that worker before
 minimization; errors are not silently clipped or replaced with zero.
 
+## Odd-grid control measured at BNL, 2026-09-28
+
+Paul reported these ordinary fixed-parameter results on ROOT 6.40.04 from
+`/gpfs01/star/scratch/pnord/lfhcal/tf1convolution-grid-report-20260928T193117Z/probes.csv`.
+The quoted discrepancy is max absolute curve error divided by reference peak
+height, expressed as a percentage. These are not fitted-parameter errors.
+
+| Domain | Even count / error (% of peak) | Odd count / error (% of peak) |
+|---|---|---|
+| Original | 10000 / 0.1197034 | 10001 / 0.01015548 |
+| Original | 16384 / 0.07305582 | 16385 / 0.006155242 |
+| Original | 32768 / 0.03652708 | 32769 / 0.003066579 |
+| Twice as wide | 32768 / 0.07476251 | 32769 / 0.003107299 |
+
+This strongly supports a parity/centering effect rather than just insufficient
+sample count for this ordinary control. The inspected ROOT source uses endpoint
+spacing `range/(N-1)` and an integer `N/2` output rotation, suggesting a half-step
+offset for even N. This does not establish accuracy over all allowed widths,
+rule out finite-domain effects, or measure fitting speed.
+
+The fitting candidates now use the odd counts below. `fft_grid_report.py` retains
+all even/odd pairs as a diagnostic control. The adapter itself is unchanged:
+no compensating parameter shift, normalization multiplier, tolerance relaxation,
+or ROOT-library patch. The self-test keeps its 0.1% target, but saves and prints
+all candidate probe results before raising on an accuracy failure.
+
 | Label | Evaluator |
 |---|---|
 | `legacy100` | Original 100-midpoint, +/-5 Gaussian-sigma convolution |
 | `adaptive5` | Existing adaptive integrator, production tolerance and +/-5 sigma |
-| `fft10000` | ROOT TF1Convolution, 10000 samples |
-| `fft16384` | Same, 16384 samples |
-| `fft32768` | Same, 32768 samples |
-| `fft32768_wide` | Twice the full convolution domain, 32768 samples |
+| `fft10001_odd` | ROOT TF1Convolution, 10001 samples |
+| `fft16385_odd` | Same, 16385 samples |
+| `fft32769_odd` | Same, 32769 samples |
+| `fft32769_odd_wide` | Twice the full convolution domain, 32769 samples |
 
-Compare `fft16384` with `fft32768_wide` for approximately equal grid spacing but
-different padding. Compare 10000/16384/32768 on the original domain for sampling
-resolution. Counts and domain stay fixed throughout each minimization. Safety
-from integer overflow does **not** imply adequate resolution of the narrowest
-allowed Landau/Gaussian width. Record actual spacing and compare curves.
+Compare `fft16385_odd` with `fft32769_odd_wide` for equal grid spacing but different
+padding. Compare 10001/16385/32769 on the original domain for sampling resolution.
+Counts and domain stay fixed throughout each minimization. Safety from integer
+overflow and passing the ordinary control do **not** imply adequate resolution
+of the narrowest allowed Landau/Gaussian width. Record actual spacing and compare
+curves on the pathological spectra and synthetic stress cases.
 
 The domain is the fit interval padded on each side by eight times the allowed
 maximum Gaussian sigma, chosen before fitting. Both components are normalized;
@@ -78,13 +105,13 @@ setenv EIC_SHELL "$HOME/my_eic_work_with_LFHCAL/eic-shell"
 cd "$FFTREPO"
 git pull --ff-only origin codex/tf1convolution-benchmark
 cd NewStructure/fit-study/tf1convolution-bnl
-python3 -m unittest -v test_benchmark.py
+python3 -m unittest -v test_benchmark.py test_fft_grid_report.py test_odd_fft_methods.py
 
-set FFTSMOKE = "$LFHCAL_WORK/tf1convolution-bounded-`date -u +%Y%m%dT%H%M%SZ`"
+set FFTSMOKE = "$LFHCAL_WORK/tf1convolution-odd-smoke-`date -u +%Y%m%dT%H%M%SZ`"
 "$FFTREPO/tools/run-in-eic-shell.sh" "$EIC_SHELL" \
     python3 -u run_benchmark.py --work "$LFHCAL_WORK" \
     --preset smoke --datasets e1 --cells 896 903 \
-    --methods adaptive5 fft10000 fft16384 fft32768 \
+    --methods adaptive5 fft10001_odd fft16385_odd fft32769_odd \
     --repeats 1 --fit-timeout 30 --check-timeout 60 --out "$FFTSMOKE"
 jq . "$FFTSMOKE/summary.json"
 ```
@@ -142,9 +169,12 @@ plan before submitting; do not launch a full survey until the small test works.
 
 The pure-Python regression suite includes finite-value rejection, safe sample
 counts, censored timing, checkpoint retention, and terminating a subprocess
-blocked inside a compiled libc call. ROOT runtime checks and real-data validation
-must run on the target ROOT installation. Production FFT TF1 serialization is
-still a separate follow-up before adopting the adapter.
+blocked inside a compiled libc call. `test_odd_fft_methods.py` additionally checks
+odd candidate names/counts, equal-spacing padding pairs, and that an accuracy
+miss or nonfinite discrepancy still fails after reporting all candidates.
+Its mocked checks are not ROOT numerical validation. ROOT runtime checks and
+real-data validation must run on the target ROOT installation. Production FFT
+TF1 serialization is still a separate follow-up before adopting the adapter.
 
 Primary references:
 - https://root.cern/doc/master/TF1Convolution_8cxx_source.html
