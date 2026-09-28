@@ -26,11 +26,14 @@ TARGETS = {'b1': (1024,1094), 'b2': (67,131,454,515,518),
            'f1': (1024,), 'f2': (1024,), 'g1': (1024,), 'g2': (1024,)}
 PAR_NAMES = ('landau_width','mpv','area','gaussian_sigma')
 # ROOT's TF1Convolution source squares an Int_t point count during normalization.
-# Stay below sqrt(INT32_MAX). Compare fft16384 with fft32768_wide for padding.
+# Stay below sqrt(INT32_MAX). Odd grids reduce the parity-dependent error
+# observed in the BNL fixed-parameter report (2026-09-28). The even/odd control
+# remains in fft_grid_report.py. No curve shift or normalization fix is applied.
+# fft16385_odd and fft32769_odd_wide have equal spacing and different padding.
 MAX_SAFE_FFT_POINTS = 46340
 METHODS = (('legacy100','legacy100',0,1.), ('adaptive5','adaptive5',0,1.),
-           ('fft10000','fft',10000,1.), ('fft16384','fft',16384,1.),
-           ('fft32768','fft',32768,1.), ('fft32768_wide','fft',32768,2.))
+           ('fft10001_odd','fft',10001,1.), ('fft16385_odd','fft',16385,1.),
+           ('fft32769_odd','fft',32769,1.), ('fft32769_odd_wide','fft',32769,2.))
 FIT_OPTIONS = 'QRLMNS0'  # production QRLMN0 plus S to retain TFitResult
 BASE_COMMIT = '3a643646eb301c7112449e8f6d6ab31f12c72943'
 PROGRESS_PATH = None
@@ -451,12 +454,23 @@ def self_test(R):
     case = dict(case_id='synthetic_control',fit_lo=-5.,fit_hi=100.,
                 lower=[.1,1.,.01,.005],upper=[20.,80.,100.,10.],seed=[3.,30.,1.,5.])
     rows = probe(R,case,case['seed'],'ordinary',METHODS)
+    # Save and report every candidate before raising on an accuracy failure.
+    # The 0.1% target is unchanged; choosing an odd grid is not certification
+    # of a narrow-width fit or permission to loosen this numerical check.
+    if PROGRESS_PATH is not None:
+        write_csv(PROGRESS_PATH.parent/'probes.csv', rows)
+    progress('self-test accuracy', 'ordinary control; target=0.1% of peak')
+    failures = []
     for row in rows:
         if row['n_fft']:
             error = row['max_abs_error_over_peak_8']
-            if not math.isfinite(error) or error>1e-3:
-                raise RuntimeError(f'FFT normalization/phase smoke check failed: {row}')
-            print(f'  {row["method"]}: finite, max error/peak={error:.3g}',flush=True)
+            passed = math.isfinite(error) and 0 <= error <= 1e-3
+            status = 'PASS' if passed else 'FAIL'
+            print(f'  {row["method"]}: {status}, max error/peak={error:.6g}',flush=True)
+            if not passed:
+                failures.append(row)
+    if failures:
+        raise RuntimeError(f'FFT normalization/phase smoke check failed: {failures}')
     # Exercise the C++ guard directly, before any overflowing ROOT arithmetic.
     try:
         R.lfhcal.fft_experiment.make('unsafe_grid',-5.,100.,-100.,200.,65536)
@@ -464,7 +478,7 @@ def self_test(R):
         pass
     else:
         raise RuntimeError('C++ oversized-grid guard did not reject 65536')
-    method = next(m for m in METHODS if m[0]=='fft32768')
+    method = next(m for m in METHODS if m[0]=='fft32769_odd')
     f,_,_ = factory(R,case,method,'copy_control')
     copy = f.Clone('copy_control_clone')
     R.SetOwnership(copy,True)
