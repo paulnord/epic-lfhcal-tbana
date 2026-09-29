@@ -28,29 +28,30 @@ backend condor
     307 308
     309 310
 
-prepare:
-    /bin/mkdir -p \
-        {LFHCAL_WORK}/scan-set-1/converted \
-        {LFHCAL_WORK}/scan-set-1/pedestal \
-        {LFHCAL_WORK}/scan-set-1/transfer \
-        {LFHCAL_WORK}/scan-set-1/mip \
-        {LFHCAL_WORK}/scan-set-1/selected \
-        {LFHCAL_WORK}/scan-set-1/refine1 \
-        {LFHCAL_WORK}/scan-set-1/refine2 \
-        {LFHCAL_WORK}/scan-set-1/refine3 \
-        {LFHCAL_WORK}/scan-set-1/calibrated \
-        {LFHCAL_WORK}/scan-set-1/waveform \
-        {LFHCAL_WORK}/scan-set-1/plots/pedestal \
-        {LFHCAL_WORK}/scan-set-1/plots/transfer \
-        {LFHCAL_WORK}/scan-set-1/plots/mip \
-        {LFHCAL_WORK}/scan-set-1/plots/refine1 \
-        {LFHCAL_WORK}/scan-set-1/plots/refine2 \
-        {LFHCAL_WORK}/scan-set-1/plots/refine3 \
-        {LFHCAL_WORK}/scan-set-1/plots/calibrated \
-        {LFHCAL_WORK}/scan-set-1/plots/waveform
+# Lightweight directory setup belongs on the submission host, not in Condor.
+# It runs during `yall-run create` and does not consume a worker slot.
+%preflight /bin/mkdir -p \
+    {LFHCAL_WORK}/scan-set-1/converted \
+    {LFHCAL_WORK}/scan-set-1/pedestal \
+    {LFHCAL_WORK}/scan-set-1/transfer \
+    {LFHCAL_WORK}/scan-set-1/mip \
+    {LFHCAL_WORK}/scan-set-1/selected \
+    {LFHCAL_WORK}/scan-set-1/refine1 \
+    {LFHCAL_WORK}/scan-set-1/refine2 \
+    {LFHCAL_WORK}/scan-set-1/refine3 \
+    {LFHCAL_WORK}/scan-set-1/calibrated \
+    {LFHCAL_WORK}/scan-set-1/waveform \
+    {LFHCAL_WORK}/scan-set-1/plots/pedestal \
+    {LFHCAL_WORK}/scan-set-1/plots/transfer \
+    {LFHCAL_WORK}/scan-set-1/plots/mip \
+    {LFHCAL_WORK}/scan-set-1/plots/refine1 \
+    {LFHCAL_WORK}/scan-set-1/plots/refine2 \
+    {LFHCAL_WORK}/scan-set-1/plots/refine3 \
+    {LFHCAL_WORK}/scan-set-1/plots/calibrated \
+    {LFHCAL_WORK}/scan-set-1/plots/waveform
 
 # Convert every unique run once; dependencies below remain per run/pair.
-convert-{run}: prepare
+convert-{run}:
     @each run in pairs.ped pairs.run
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
