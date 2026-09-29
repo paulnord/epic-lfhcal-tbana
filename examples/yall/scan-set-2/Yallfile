@@ -1,6 +1,9 @@
 campaign lfhcal-tb2026-scan-set-2
 backend condor
 
+# Set to full to record operator accounts when permitted by your site's privacy policy.
+%account-provenance off
+
 # Shared raw-data root and user-selected writable product root.
 @env LFHCAL_DATA
 @env LFHCAL_WORK

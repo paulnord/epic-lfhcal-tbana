@@ -1,6 +1,9 @@
 campaign lfhcal-simple
 backend local
 
+# Set to full to record operator accounts when permitted by your site's privacy policy.
+%account-provenance off
+
 # Shared raw TB2026 input and the user's writable scratch work area.
 @env LFHCAL_DATA
 @env LFHCAL_WORK
