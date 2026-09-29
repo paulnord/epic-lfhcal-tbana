@@ -103,8 +103,11 @@ def expand_launcher(source, specs, provenance):
         raise ValueError('Expected one launcher SPECS assignment')
     node = assignments[0]
     lines = source.splitlines(keepends=True)
+    # The next top-level statement also works on Python without AST end_lineno.
+    index = tree.body.index(node)
+    stop = tree.body[index+1].lineno-1 if index+1 < len(tree.body) else len(lines)
     source = ''.join(lines[:node.lineno-1])+('SPECS = '+pprint.pformat(specs)+'\n'
-              +'EXTENSION = '+pprint.pformat(provenance)+'\n')+''.join(lines[node.end_lineno:])
+              +'EXTENSION = '+pprint.pformat(provenance)+'\n')+''.join(lines[stop:])
     source = once(source,"cfg/'mapping_HGCROC_SPSH2TB_sumV2_default.csv'","cfg/spec['mapping']")
     source = once(source,"cfg/'badChannel_HGCROC_SPSTB2026_FullSetA-F.txt'","cfg/spec['bad_channels']")
     source = once(source,"cfg/f'ToAOffsets_TBSPS2026_FullSet{spec[\"toa\"]}.csv'","cfg/spec['toa_file']")
