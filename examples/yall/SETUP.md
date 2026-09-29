@@ -70,9 +70,14 @@ not instructions to change the host login shell.
 New BNL installations default to:
 
 ```text
-LFHCAL_DATA=/gpfs01/star/pwg/pnord/eic/2026TBdata
+LFHCAL_DATA=/gpfs01/star/pwg/pnord/eic/2026TBdata/raw
 LFHCAL_WORK=/gpfs01/star/scratch/<your-login-name>/lfhcal
 ```
+
+`LFHCAL_DATA` must name the directory directly containing `Run*.h2g`, not its
+parent. The shared data area now has `raw/`, `converted/`, and `merged/`
+subdirectories; these recipes read the raw files and write new products under
+`LFHCAL_WORK`. They do not modify the shared converted or merged data.
 
 The shared PWG path is a site-specific convenience, not part of the distribution
 and not guaranteed readable by every collaborator. Obtain access or set
@@ -87,20 +92,22 @@ rather than letting two campaigns write to the same output paths.
 
 ### Already installed with the old raw-data path?
 
-Older setup versions added `/gpfs/mnt` before `/gpfs01`. Use the shorter path
-above on BNL. A pull updates the defaults, but intentionally does not rewrite
-your generated `site-env.tcsh` outside the repository. Correct that one old
-value, retaining all other settings and a backup (BNL/Linux, host tcsh):
+Older setup versions used the parent `2026TBdata` directory, sometimes with
+an extra `/gpfs/mnt` prefix. The raw files are now under `2026TBdata/raw`.
+A pull updates defaults, but intentionally does not rewrite your generated
+`site-env.tcsh` outside the repository. Correct only the old shared-data values,
+retaining all other settings and a backup (BNL/Linux, host tcsh):
 
 ```tcsh
-setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata"
-sed -i.bnl-path-backup 's|/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata|/gpfs01/star/pwg/pnord/eic/2026TBdata|g' "$LFHCAL_HOME/site-env.tcsh"
+setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata/raw"
+sed -i.bnl-raw-backup -E 's|"/(gpfs/mnt/)?gpfs01/star/pwg/pnord/eic/2026TBdata(/raw)?"|"/gpfs01/star/pwg/pnord/eic/2026TBdata/raw"|g' "$LFHCAL_HOME/site-env.tcsh"
 ```
 
 Run this migration once; choose another backup suffix if that backup already
-exists. No reinstall or C++ rebuild is needed. Keep custom data locations as
-chosen; do not rewrite arbitrary paths or old campaign/provenance records.
-Verify the required files both on the host and inside eic-shell.
+exists. The replacement matches complete double-quoted values; it does not
+append a second `/raw`. No reinstall or C++ rebuild is needed. Keep custom data
+locations as chosen; do not rewrite arbitrary paths or old campaign/provenance
+records. Verify the required files both on the host and inside eic-shell.
 
 ## 1. Preflight checks
 

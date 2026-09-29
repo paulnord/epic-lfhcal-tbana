@@ -13,7 +13,8 @@ export EIC_SHELL="$LFHCAL_HOME/eic-shell"
 
 # If env.tcsh was sourced before entering eic-shell, these values are normally
 # inherited. Otherwise use the same BNL defaults directly.
-export LFHCAL_DATA="${LFHCAL_DATA:-/gpfs01/star/pwg/pnord/eic/2026TBdata}"
+# LFHCAL_DATA is the directory directly containing Run*.h2g.
+export LFHCAL_DATA="${LFHCAL_DATA:-/gpfs01/star/pwg/pnord/eic/2026TBdata/raw}"
 export LFHCAL_WORK="${LFHCAL_WORK:-/gpfs01/star/scratch/$(id -un)/lfhcal}"
 export LFHCAL_EXAMPLE="lfhcal-simple"
 export LFHCAL_EXAMPLE_WORK="$LFHCAL_WORK/$LFHCAL_EXAMPLE"
