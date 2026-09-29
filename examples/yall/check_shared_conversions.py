@@ -14,22 +14,22 @@ from unittest.mock import patch
 from yall_run.model import load_spec
 
 EXAMPLES = Path(__file__).resolve().parent
-EXPECTED = {'scan-set-1': 55, 'scan-set-2': 188, 'lfhcal-simple': 10}
+EXPECTED = {'scan-set-1': 55, 'scan-set-2': 187, 'lfhcal-simple': 9}
 FULLSET_EXPECTED = {
-    'fullset-b1-repro': 26,
-    'fullset-b2-repro': 20,
-    'fullset-c1-repro': 25,
-    'fullset-c2-repro': 19,
-    'fullset-c3-repro': 18,
-    'fullset-d1-repro': 30,
-    'fullset-d2-repro': 18,
-    'fullset-e1-repro': 19,
-    'fullset-e2-repro': 18,
-    'fullset-e3-repro': 19,
-    'fullset-f1-repro': 18,
-    'fullset-f2-repro': 19,
-    'fullset-g1-repro': 20,
-    'fullset-g2-repro': 21,
+    'fullset-b1-repro': 25,
+    'fullset-b2-repro': 19,
+    'fullset-c1-repro': 24,
+    'fullset-c2-repro': 18,
+    'fullset-c3-repro': 17,
+    'fullset-d1-repro': 29,
+    'fullset-d2-repro': 17,
+    'fullset-e1-repro': 18,
+    'fullset-e2-repro': 17,
+    'fullset-e3-repro': 18,
+    'fullset-f1-repro': 17,
+    'fullset-f2-repro': 18,
+    'fullset-g1-repro': 19,
+    'fullset-g2-repro': 20,
 }
 FULLSET_SUFFIX = {
     'fullset-b1-repro': 'b1',
@@ -49,7 +49,7 @@ FULLSET_SUFFIX = {
 }
 RUNDB_NAME = 'DataTakingDB_TBSPSH2_202605_HGCROC.csv'
 HVSCAN_MUONS = ('194', '195', '196', '197', '198', '199', '200', '201', '202')
-HVSCAN_EXPECTED = 93
+HVSCAN_EXPECTED = 92
 
 
 def pair_rows(text):
@@ -94,8 +94,7 @@ class SharedConversionTests(unittest.TestCase):
                          ['pedestal-' + p for p in pedestals])
         self.assertNotIn('converted', tasks)
         for run in runs:
-            expected_parents = () if which == 'scan-set-1' else ('prepare',)
-            self.assertEqual(tasks['convert-' + run].parents, expected_parents)
+            self.assertEqual(tasks['convert-' + run].parents, ())
         for ped in pedestals:
             self.assertEqual(tasks['pedestal-' + ped].parents, ('convert-' + ped,))
 
@@ -142,7 +141,7 @@ class SharedConversionTests(unittest.TestCase):
         self.assertEqual([name for name in tasks if name.startswith('convert-')],
                          conversions)
         for name in conversions:
-            self.assertEqual(tasks[name].parents, ('prepare',), (which, name))
+            self.assertEqual(tasks[name].parents, (), (which, name))
 
         muon_parents = tuple(f'convert-muon-{run}' for run in muon_runs)
         self.assertEqual(tasks['merge-muon'].parents, muon_parents)
