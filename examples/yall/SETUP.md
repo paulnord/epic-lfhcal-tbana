@@ -1,25 +1,51 @@
 # BNL setup: local LFHCal test, Condor test, then scan-set-1
 
-Use your normal BNL tcsh login/submit session for installation and all Condor work. The one exception is the first local LFHCal test: `lfhcal-simple` is intentionally wrapper-free and is run interactively inside `eic-shell`.
+Use the normal BNL tcsh login/submit session for installation and Condor work.
+The small `lfhcal-simple` test is deliberately wrapper-free and runs inside
+`eic-shell` (bash). Do not submit Condor jobs from inside the container.
 
-## Install
+For an existing installation or another site, start with [QUICKSTART.md](QUICKSTART.md).
+Yall is optional; it does not replace the analysis software or change its fitter.
 
-Create your software workspace in a location visible to batch nodes:
+## Install in a new workspace
+
+The installer creates/updates checkouts and builds LFHCal. It is not the command
+to use merely to start another campaign. Use a new workspace for this preview,
+not a checkout used by running jobs. Commands below download the installer to a
+file so it can be inspected before execution.
+
+**Before this contribution is merged upstream**, use the review branch explicitly:
 
 ```tcsh
-mkdir my_eic_work_with_LFHCAL
-cd my_eic_work_with_LFHCAL
-curl -fsSL https://raw.githubusercontent.com/paulnord/epic-lfhcal-tbana/yall-integration/tools/bootstrap-yall-integration.sh | bash
+mkdir -p "$HOME/lfhcal-yall-review"
+cd "$HOME/lfhcal-yall-review"
+curl -fL https://raw.githubusercontent.com/paulnord/epic-lfhcal-tbana/yall-integration-upstream/tools/bootstrap-yall-integration.sh -o bootstrap-yall-integration.sh
+less bootstrap-yall-integration.sh
+env LFHCAL_REPO_URL=https://github.com/paulnord/epic-lfhcal-tbana.git LFHCAL_BRANCH=yall-integration-upstream bash bootstrap-yall-integration.sh
 ```
 
-The current folder is the install root. The installer installs `eic-shell`, clones/updates `yall-run` on `main` and LFHCal on `yall-integration`, initializes the decoder submodule, and compiles `NewStructure` inside the EIC environment.
+**After upstream merges this contribution**, a fresh installation can use:
 
-Yall is installed editably for both the host Python and the Python inside `eic-shell`. That lets the local LFHCal example run Yall directly inside the EIC environment, while Condor submission still uses the host installation. There is no virtual environment, Python/Condor installation or pip upgrade.
+```tcsh
+mkdir -p "$HOME/lfhcal-yall"
+cd "$HOME/lfhcal-yall"
+curl -fL https://raw.githubusercontent.com/eic/epic-lfhcal-tbana/main/tools/bootstrap-yall-integration.sh -o bootstrap-yall-integration.sh
+less bootstrap-yall-integration.sh
+bash bootstrap-yall-integration.sh
+```
 
-The normal host-side setup is tcsh:
+The installer defaults to `eic/epic-lfhcal-tbana` on `main` and
+`paulnord/yall-run` on `main`. `LFHCAL_REPO_URL`, `LFHCAL_BRANCH`,
+`YALL_REPO_URL`, `YALL_BRANCH`, and `LFHCAL_BUILD_JOBS` override those defaults.
+`--prefix /path/to/workspace` overrides the installation directory. It initializes
+the decoder submodule at the revision recorded by LFHCal, installs yall-run for
+the host Python with `pip --user -e`, and builds LFHCal in the EIC environment.
+It does not install Condor or upgrade pip.
+
+The layout is:
 
 ```text
-my_eic_work_with_LFHCAL/
+workspace/
     eic-shell
     yall-run/
     epic-lfhcal-tbana/
@@ -27,34 +53,34 @@ my_eic_work_with_LFHCAL/
     site-env.tcsh
 ```
 
-`eic-shell` itself is bash. The `lfhcal-simple` example therefore includes one separate `env-eic.sh` file specifically for the interactive EIC shell. It is not a second host setup path.
+Inside the interactive EIC shell, `lfhcal-simple/env-eic.sh` uses the yall-run
+source checkout with the container's Python. There is no separate container pip
+installation. The `.sh` installer and payload wrapper are implementation scripts,
+not instructions to change the host login shell.
 
-## Storage: shared input, personal scratch output
+## Storage: shared input, personal output
 
-New installations default to:
+New BNL installations default to:
 
 ```text
 LFHCAL_DATA=/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata
 LFHCAL_WORK=/gpfs01/star/scratch/<your-login-name>/lfhcal
 ```
 
-The login name comes from `id -un`. Setup runs `mkdir -p` on the work tree, including creating `/gpfs01/star/scratch/<your-login-name>` if it does not exist. Example setup creates that example's subdirectory. For the first workflows:
+The shared PWG path is a site-specific convenience, not part of the distribution
+and not guaranteed readable by every collaborator. Obtain access or set
+`LFHCAL_DATA` to your own complete input files. Setup does not write into that
+input directory or change its permissions. Edit `site-env.tcsh` for other paths;
+existing settings are preserved. Do not append an example name to `LFHCAL_WORK`:
+the Yallfiles do that themselves.
 
-```text
-/gpfs01/star/scratch/<your-login-name>/
-    lfhcal/
-        campaigns/
-        lfhcal-simple/
-        scan-set-1/
-```
+The work root, software, inputs, campaign records and EIC launcher must be visible
+on worker nodes and inside the container. For a second run, use a fresh work root
+rather than letting two campaigns write to the same output paths.
 
-Software stays in the chosen workspace. Analysis products and campaign records go to the user's scratch area. Paul's PWG directory is input only. Setup does not write there, create directories there, or change permissions there.
+## 1. Preflight checks
 
-`site-env.tcsh` is the local host-side file to edit for different storage paths. If it is sourced before entering `eic-shell`, those environment values are inherited; otherwise `env-eic.sh` uses the same BNL defaults directly. Do not append an example name to `LFHCAL_WORK`; the Yallfiles add their own subdirectories.
-
-## 1. Preflight checks and Yall quick start
-
-After installation, from the software workspace:
+From the software workspace:
 
 ```tcsh
 source ./activate.tcsh
@@ -66,15 +92,13 @@ echo 'root-config --version' | "$EIC_SHELL"
 python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 ```
 
-All should succeed. The graph test uses no raw data and submits nothing.
-
-Before using the LFHCal workflows, spend a few minutes with the [yall-run Quick start](https://github.com/paulnord/yall-run/blob/main/docs/QUICKSTART.md). It explains the `validate -> plan -> create -> start -> status` lifecycle and the distinction between a reusable Yallfile and a frozen campaign.
+Stop on a failed check. Graph tests use no raw data, ROOT or scheduler. Read the
+[yall-run quick start](https://github.com/paulnord/yall-run/blob/main/docs/QUICKSTART.md)
+for the `validate -> plan -> create -> start -> status` lifecycle.
 
 ## 2. Small local LFHCal test inside eic-shell
 
-Start with [`lfhcal-simple`](./lfhcal-simple/README.md). It uses Yall's local backend and no wrapper. The point is to test the real LFHCal software in the EIC environment before adding Condor.
-
-From the normal BNL tcsh session:
+From the host tcsh session:
 
 ```tcsh
 cd "$LFHCAL_REPO/examples/yall/lfhcal-simple"
@@ -85,47 +109,40 @@ end
 $EIC_SHELL
 ```
 
-Now inside `eic-shell` (bash):
+Inside `eic-shell` (bash):
 
 ```bash
 source ./env-eic.sh
-which yall-run
 yall-run validate
 yall-run plan
-C=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j4)
+C=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 1)
 yall-run start "$C"
 yall-run status "$C"
-```
-
-`env-eic.sh` sets the LFHCal/Yall paths, storage paths, EIC Python user-bin PATH, and scratch directories inside the container. This submits no Condor jobs. The three pedestal/MIP pairs are `296/298`, `299/300`, and `303/304`. `Convert`, `DataPrep`, and `HGCROCStudy` are limited to the first 1000 events. Results go under `$LFHCAL_WORK/lfhcal-simple`.
-
-When it succeeds:
-
-```bash
 exit
 ```
 
-returns to the normal BNL tcsh login shell.
+This converts three pedestal/MIP pairs and extracts their pedestals with a
+1000-event limit. It does not attempt MIP calibration or waveform-summary fits.
+Use a site-approved interactive allocation; even bounded work is not permission
+to run heavy jobs on a login node. `-j 1` limits local concurrency.
 
 ## 3. Small Condor + EIC test
 
-Next use Yall's purpose-built [`eic-shell` example](https://github.com/paulnord/yall-run/tree/main/examples/eic-shell). This isolates DAGMan, execution on batch nodes, and the EIC payload wrapper without running test-beam analysis.
+Back on the host, run the no-data EIC-shell example supplied with yall-run:
 
 ```tcsh
 cd "$YALL_RUN_REPO/examples/eic-shell"
 yall-run validate
 yall-run plan
 set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns"`
-echo "$C"
 yall-run start "$C"
-yall-run status "$C"
+yall-run status "$C" -vv
 ```
 
-It checks ROOT and Python inside the EIC environment on batch nodes, then runs a final dependency check. Repeat `yall-run status "$C"` to inspect progress. Use `set C = ...`, not `setenv C`, for campaign handles in tcsh.
+It tests ROOT and Python on worker nodes plus dependency execution, without
+processing detector data. Wait for success before a production workflow.
 
 ## 4. Scan set 1
-
-Only after the local LFHCal test and the small Condor test work, move on to the first LFHCal production workflow:
 
 ```tcsh
 cd "$LFHCAL_REPO/examples/yall/scan-set-1"
@@ -137,23 +154,35 @@ yall-run validate
 yall-run plan
 ```
 
-Check that all ten files are present and readable. The pedestal/muon pairs are `296/298`, `299/300`, `303/304`, `307/308`, and `309/310`.
-
-Then submit from the normal BNL shell:
+After checking all ten files, paths and resources:
 
 ```tcsh
 set C = `yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns"`
 echo "$C"
 yall-run start "$C"
-yall-run status "$C"
+yall-run status "$C" -vv
 ```
 
-Results go under `$LFHCAL_WORK/scan-set-1`; campaign records and logs go under `$LFHCAL_WORK/campaigns`. Do not start a second campaign targeting the same output directories. Choose a fresh `LFHCAL_WORK` for a rerun.
+Results go under `$LFHCAL_WORK/scan-set-1`. Campaign records are under
+`$LFHCAL_WORK/campaigns`. The 14 FullSet workflows and HV scan are later, larger
+exercises; they are not the installation smoke test.
 
-The FullSet F1/F2/G1 workflows remain later reproduction exercises, not onboarding tests. `lfhcal-simple` is the recommended first LFHCal workflow.
+## Updating and restarting
 
-## Updating
+A campaign uses the existing `NewStructure/build` executables. These examples
+contain no build jobs. Rebuild only after analysis code, build configuration,
+decoder revision or runtime ABI changes; editing a Yallfile does not require a
+C++ rebuild. Never update or rebuild a shared checkout while jobs use it.
 
-Rerun the installer from the software workspace, or use `bash -s -- --prefix /path/to/workspace` after curl. Existing `site-env.tcsh`, data, and campaigns are preserved. Do not update or rebuild the shared checkout while jobs are using it.
+Re-running the bootstrap does update/build work; use it deliberately, not for
+every campaign. In a preview workspace, retain the same explicit fork/branch
+overrides when doing so. The updater preserves each checkout's existing origin;
+it does not silently replace a fork remote with the upstream remote.
 
-Earlier generated `activate.sh` / `site-env.sh` files are no longer used or regenerated. The `.sh` installer and EIC execution adapter are implementation scripts; `lfhcal-simple/env-eic.sh` is the one user-facing bash setup because `eic-shell` itself is bash.
+To restart unfinished tasks, first fix the cause and inspect partial outputs,
+then use `yall-run resume "$C" --dry-run` followed by `yall-run resume "$C"`.
+Do not rerun `start` on an already-started campaign. Resume preserves completed
+tasks and restarts unfinished programs from the beginning, not their last event.
+Consult the runner's [resume documentation](https://github.com/paulnord/yall-run/blob/main/docs/RESUME.md)
+for overwrite and queued-backend restrictions. Changed task resources require a
+new campaign with versions that support command-only amendments.
