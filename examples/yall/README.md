@@ -94,9 +94,11 @@ support from yall-run PR #26 (commit
 `a690f2551edb21e099aa2adf4b2b077d12c6a787`). The FullSet workflows also
 require partial explicit binding and patterned-parent inheritance from yall-run
 PR #33, merged as commit
-`1081e9dd39418262588248272618130ce0503b8a`. Use `main` containing that commit,
-not just a matching version string. The Condor workflows also use the merged
-payload-wrapper and `%time` features.
+`1081e9dd39418262588248272618130ce0503b8a`. The explicit account-provenance
+policy now raises the minimum to **yall-run 0.12.0a7**, including PR #45
+(merged as `5a39498d023b1c9edcaa08926c80f2bb848efda9`). Use `main` containing
+that change, not just a matching alpha version string. The Condor workflows
+also use the merged payload-wrapper and `%time` features.
 
 ```tcsh
 python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
@@ -143,3 +145,18 @@ LFHCal checkout while jobs are using it.
 Yall records campaign, task, executable, input/output, scheduler and attempt
 provenance separately; it does not inject LFHCal-specific provenance into ROOT
 files. Preserve campaign records together with important final products.
+
+## Account provenance
+
+The larger examples explicitly set `%account-provenance off`, with a comment
+showing when to select `full`. This directive requires **yall-run 0.12.0a7 or
+newer**. Account recording also defaults to off when the directive is omitted.
+
+Use `full` to preserve creator, submitter, and host-worker account attribution
+when permitted by your site's privacy policy. A creation-time
+`--account-provenance full` or `--account-provenance off` overrides the recipe;
+the resolved choice is frozen for that campaign before any account lookup.
+
+This controls explicit OS-account snapshots only. Paths, command arguments,
+logs, scheduler records, and analysis outputs are not anonymized. Existing
+campaigns and their archived workers are not retroactively changed.

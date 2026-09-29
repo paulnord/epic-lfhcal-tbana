@@ -43,8 +43,10 @@ A change to workflow text alone needs no C++ rebuild; changing the upstream
 analysis version or ROOT/decoder ABI can require one.
 
 Install a compatible yall-run on the **submission host**. Python 3.8 or newer is
-required. The FullSet recipes need partial `@each` binding from commit
-`1081e9dd39418262588248272618130ce0503b8a` or a later descendant. The existing
+required. The larger recipes now require **yall-run 0.12.0a7** with the
+`%account-provenance` directive from PR #45 (merged as
+`5a39498d023b1c9edcaa08926c80f2bb848efda9`). That revision also includes the
+partial `@each` binding required by the FullSet recipes. The existing
 source checkout install is:
 
 ```text

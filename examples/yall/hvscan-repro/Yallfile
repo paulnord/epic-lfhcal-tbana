@@ -1,6 +1,9 @@
 campaign lfhcal-tb2026-hvscan-repro
 backend condor
 
+# Set to full to record operator accounts when permitted by your site's privacy policy.
+%account-provenance off
+
 # Reproduce Fredi's nine published SPS H2 HV-scan muon calibrations.
 #
 # Shared pedestal: run 188.
