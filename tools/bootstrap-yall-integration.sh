@@ -33,9 +33,9 @@ while (($#)); do
 done
 
 YALL_REPO_URL=${YALL_REPO_URL:-"https://github.com/paulnord/yall-run.git"}
-LFHCAL_REPO_URL=${LFHCAL_REPO_URL:-"https://github.com/paulnord/epic-lfhcal-tbana.git"}
+LFHCAL_REPO_URL=${LFHCAL_REPO_URL:-"https://github.com/eic/epic-lfhcal-tbana.git"}
 YALL_BRANCH=${YALL_BRANCH:-main}
-LFHCAL_BRANCH=${LFHCAL_BRANCH:-yall-integration}
+LFHCAL_BRANCH=${LFHCAL_BRANCH:-main}
 LFHCAL_BUILD_JOBS=${LFHCAL_BUILD_JOBS:-2}
 
 say() { printf '\n==> %s\n' "$*"; }
