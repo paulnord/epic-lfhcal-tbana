@@ -8,6 +8,16 @@ It is highly recommended to follow that guide.
 
 Credit for the software development goes primarily to Vincent Andrieux (@vandrie), Tristan Protzman (@tlprotzman) and Friederike Bock (@FriederikeBock).
 
+## Optional yall-run workflows
+
+[Yall quick start](examples/yall/QUICKSTART.md) explains how to run the existing
+LFHCal programs locally or with HTCondor, with explicit task dependencies,
+separate output roots, status reporting and campaign records. See the
+[BNL setup guide](examples/yall/SETUP.md) for installation and a small smoke test,
+or the [workflow catalog](examples/yall/README.md) for the parameter scans,
+FullSet B-G and HV-scan examples. Yall is optional: these workflows do not change
+the analysis model, fitter or normal build, and raw input data are not included.
+
 ## Compilation
 To build the software, we recommend using cMake.
 1) Make sure you have the latest version of the decoder `git pull --recurse-submodules`.  If it is your first time using the submodule you should run `git submodule update --init --recursive`
