@@ -39,13 +39,14 @@ in the setup guide are site-specific defaults, not portable requirements.
 Already running LFHCal after following Fredi's instructions? Keep that
 installation and its working analysis environment. You are adding a launcher,
 not replacing your LFHCal setup. Having LFHCal installed does **not** mean you
-already have yall-run: it is a separate repository.
+already have yall-run or the new LFHCal examples: obtain both below.
 
-Use a checkout containing these examples and a matching LFHCal build at
-`NewStructure/build`. Build once in the environment that will execute the
-scientific payload. Do not replace or rebuild a checkout used by running jobs.
-A change to workflow text alone needs no C++ rebuild; changing the upstream
-analysis version or ROOT/decoder ABI can require one.
+The examples currently expect matching LFHCal executables at
+`NewStructure/build`. If your build is elsewhere (including an in-source build
+in `NewStructure`), change the example's `@set BUILD` to that existing build
+directory before `validate` and `create`; do not rebuild merely to satisfy a
+path convention. Use the runtime environment compatible with that build.
+Do not switch, update, or rebuild a checkout used by running jobs.
 
 ### Download and install yall-run
 
@@ -96,13 +97,71 @@ alpha version string alone does not identify supported recipe syntax. The
 incompatible. The bootstrap is an optional alternative for a fresh installation,
 not a dependency of these workflows.
 
-### Use your existing LFHCal paths
+### Get the integration examples into your existing checkout
 
-For a container-wrapped batch example, set the following in your **host tcsh**
-session, substituting your existing paths:
+Before upstream PR #82 is merged, the examples are on **Paul's fork**, on
+`yall-integration-upstream`. Pulling upstream `main` or installing yall-run
+alone does not add these files to LFHCal.
+
+First change directory to your **existing LFHCal source repository** (the Git
+checkout containing `NewStructure/`, not the yall-run checkout or a scratch
+analysis directory). Then, in host tcsh:
 
 ```tcsh
-setenv LFHCAL_REPO /path/to/epic-lfhcal-tbana
+setenv LFHCAL_REPO "`git rev-parse --show-toplevel`"
+cd "$LFHCAL_REPO"
+git status --short
+```
+
+Stop if this is not the LFHCal repository or if local changes are listed;
+preserve your changes before switching. Do not proceed while jobs use this
+checkout. Fetch explicitly from the fork, independently of where `origin` points:
+
+```tcsh
+git fetch https://github.com/paulnord/epic-lfhcal-tbana.git yall-integration-upstream
+git diff --stat HEAD FETCH_HEAD -- NewStructure OldStructure configs calibrations .gitmodules
+```
+
+Stop if fetch fails. If the diff is nonempty, the review branch also differs
+from your installed analysis/configuration version. Review that difference and
+ensure a matching build before running analysis; a branch switch does not
+update an old executable. The integration itself changes no C++ relative to
+its upstream base, so adding only the examples does not require a rebuild.
+
+For the **first checkout of this branch**:
+
+```tcsh
+git switch --no-track -c yall-integration-upstream FETCH_HEAD
+ls examples/yall/lfhcal-simple/Yallfile examples/yall/scan-set-1/Yallfile
+```
+
+Stop on any error. This creates a local review branch without merging into
+your original branch, changing `origin`, or creating a new installation.
+Do not use `git pull origin yall-integration-upstream` while on another branch:
+that remote may not have it, and pull integrates into the current branch rather
+than switching branches.
+
+**Already checked out this local review branch?** Use `git switch
+yall-integration-upstream` instead of `switch -c`. Only after the switch succeeds,
+update it with:
+
+```tcsh
+git pull --ff-only https://github.com/paulnord/epic-lfhcal-tbana.git yall-integration-upstream
+```
+
+If fast-forwarding is refused, stop rather than reset or force an update.
+After PR #82 is merged, users of upstream `main` can update that branch through
+their usual upstream remote instead. Existing campaigns remain unchanged.
+
+### Use your existing LFHCal paths
+
+`LFHCAL_REPO` now names the checkout selected above, with the examples present.
+For a container-wrapped batch example, set the remaining variables in your
+**host tcsh** session, substituting your existing paths. `LFHCAL_DATA` must
+directly contain `Run*.h2g`; the shared BNL location is
+`/gpfs01/star/pwg/pnord/eic/2026TBdata/raw`.
+
+```tcsh
 setenv LFHCAL_DATA /path/to/complete/raw-input
 setenv LFHCAL_WORK /path/to/new-output-root
 setenv EIC_SHELL /path/to/eic-shell
