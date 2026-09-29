@@ -34,10 +34,5 @@ set _lfhcal_env_rc = 0
 
 lfhcal_env_done:
 unset _example _lfhcal_workspace
-if ($_lfhcal_env_rc != 0) then
-    unset _lfhcal_env_rc
-    /bin/false
-else
-    unset _lfhcal_env_rc
-    /bin/true
-endif
+# Keep this last, outside every conditional. Do not exit a sourcing shell.
+/bin/test "$_lfhcal_env_rc" -eq 0
