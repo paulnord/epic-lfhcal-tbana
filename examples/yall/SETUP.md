@@ -49,6 +49,11 @@ the decoder submodule at the revision recorded by LFHCal, installs yall-run for
 the host Python with `pip --user -e`, and builds LFHCal in the EIC environment.
 It does not install Condor or upgrade pip.
 
+The larger Yallfiles require yall-run **0.12.0a7** with PR #45 or newer.
+They explicitly set `%account-provenance off`; set it to `full` only when
+operator attribution is needed and permitted by your site's privacy policy.
+This does not anonymize paths or logs. See [account provenance](README.md#account-provenance).
+
 The layout is:
 
 ```text

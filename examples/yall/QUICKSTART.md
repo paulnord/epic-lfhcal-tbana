@@ -86,8 +86,10 @@ or bypassing its package-management protections.
 This installs **yall-run only**. It does not clone, rebuild, move, or reconfigure
 LFHCal, install ROOT or Condor, or require bootstrap-generated activation files.
 
-The FullSet recipes require partial `@each` binding from commit
-`1081e9dd39418262588248272618130ce0503b8a` or a later descendant. The commands
+The larger recipes require **yall-run 0.12.0a7** with the
+`%account-provenance` directive from PR #45 (merged as
+`5a39498d023b1c9edcaa08926c80f2bb848efda9`). That revision also includes the
+partial `@each` binding required by the FullSet recipes. The commands
 above clone `main`; record the printed commit as well as the version, since an
 alpha version string alone does not identify supported recipe syntax. The
 [graph checks](#validation) fail before any job is submitted if expansion is
