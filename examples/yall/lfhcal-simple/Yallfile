@@ -1,0 +1,50 @@
+campaign lfhcal-simple
+backend local
+
+# Shared raw TB2026 input and the user's writable scratch work area.
+@env LFHCAL_DATA
+@env LFHCAL_WORK
+
+@set WORK {LFHCAL_WORK}/lfhcal-simple
+@set BUILD ../../../NewStructure/build
+@set TB2026_CONFIG ../../../configs/TB2026
+
+# This local example is intentionally wrapper-free. Run yall-run from inside
+# eic-shell so Convert and DataPrep are already available.
+#
+# Keep this as a smoke test, not a miniature calibration campaign. Limiting the
+# input to 1000 events is enough to exercise conversion and pedestal extraction,
+# but not enough to populate all MIP-fit histograms reliably.
+
+# Preserve pedestal / MIP pairs so the smoke test exercises the same table and
+# shared-conversion graph expansion used by the production scan workflows.
+@table pairs ped mip:
+    296 298
+    299 300
+    303 304
+
+prepare:
+    /bin/mkdir -p \
+        {WORK}/converted \
+        {WORK}/pedestal \
+        {WORK}/plots/pedestal
+
+# Convert every unique run from either table column once.
+convert-{run}: prepare
+    @each run in pairs.ped pairs.mip
+    @input raw {LFHCAL_DATA}/Run{run}.h2g
+    @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{run}.root
+    {BUILD}/Convert -d 0 -L 1000 -w -c @input.raw \
+        -o @output.root -m @input.mapping -r @input.rundb
+
+# Fit each unique pedestal from the bounded converted sample.
+pedestal-{ped}: convert-{ped}
+    @each ped in pairs.ped
+    @input raw {WORK}/converted/rawHGCROC_{ped}.root
+    @input rundb {TB2026_CONFIG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output plots {WORK}/plots/pedestal/Run{ped}
+    {BUILD}/DataPrep -p -L 1000 -i @input.raw \
+        -o @output.root -O @output.plots -r @input.rundb
