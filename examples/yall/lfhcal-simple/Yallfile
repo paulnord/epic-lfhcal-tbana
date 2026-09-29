@@ -26,14 +26,14 @@ backend local
     299 300
     303 304
 
-prepare:
-    /bin/mkdir -p \
+# Lightweight directory setup runs during `yall-run create`, not as a scheduled task.
+%preflight /bin/mkdir -p \
         {WORK}/converted \
         {WORK}/pedestal \
         {WORK}/plots/pedestal
 
 # Convert every unique run from either table column once.
-convert-{run}: prepare
+convert-{run}:
     @each run in pairs.ped pairs.mip
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv

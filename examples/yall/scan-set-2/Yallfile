@@ -40,8 +40,8 @@ backend condor
     358 359
     360 361
 
-prepare:
-    /bin/mkdir -p \
+# Lightweight directory setup runs during `yall-run create`, not as a scheduled task.
+%preflight /bin/mkdir -p \
         {LFHCAL_WORK}/scan-set-2/converted \
         {LFHCAL_WORK}/scan-set-2/pedestal \
         {LFHCAL_WORK}/scan-set-2/transfer \
@@ -62,7 +62,7 @@ prepare:
         {LFHCAL_WORK}/scan-set-2/plots/waveform
 
 # Convert every unique run once; dependencies below remain per run/pair.
-convert-{run}: prepare
+convert-{run}:
     @each run in pairs.ped pairs.run
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
