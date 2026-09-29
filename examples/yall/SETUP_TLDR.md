@@ -37,9 +37,11 @@ echo 'root-config --version' | "$EIC_SHELL"
 python3 "$LFHCAL_REPO/examples/yall/check_shared_conversions.py" -v
 ```
 
-Raw input defaults to **`/gpfs01/star/pwg/pnord/eic/2026TBdata`**. You need read
-access. Set a different `LFHCAL_DATA` in your environment or `site-env.tcsh`
-when necessary. For an older installation with the extra mount prefix, use
+Raw input defaults to **`/gpfs01/star/pwg/pnord/eic/2026TBdata/raw`**. This must
+be the directory directly containing `Run*.h2g`, not the parent with `raw/`,
+`converted/`, and `merged/`. You need read access. Set a different `LFHCAL_DATA`
+in your environment or `site-env.tcsh` when necessary. For an older installation
+pointing at the parent or using the extra mount prefix, use
 [the one-time path fix](SETUP.md#already-installed-with-the-old-raw-data-path).
 Pulling the repository does not rewrite your existing `site-env.tcsh`.
 

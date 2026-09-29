@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA = '/gpfs01/star/pwg/pnord/eic/2026TBdata'
+DEFAULT_DATA = '/gpfs01/star/pwg/pnord/eic/2026TBdata/raw'
 
 
 class OnboardingTests(unittest.TestCase):
@@ -34,6 +34,12 @@ class OnboardingTests(unittest.TestCase):
             text = (ROOT/relative).read_text()
             self.assertIn(DEFAULT_DATA, text)
             self.assertNotIn('/gpfs/mnt', text)
+
+    def test_guides_name_the_raw_subdirectory(self):
+        for name in ('SETUP.md', 'SETUP_TLDR.md'):
+            text = (ROOT/'examples/yall'/name).read_text()
+            self.assertIn(DEFAULT_DATA, text)
+            self.assertIn('directly containing `Run*.h2g`', text)
 
     def source_eic_environment(self, raw_override=None):
         with tempfile.TemporaryDirectory() as d:
@@ -67,17 +73,22 @@ class OnboardingTests(unittest.TestCase):
 
     def test_documented_one_time_fix_preserves_other_settings_and_backup(self):
         text = (ROOT/'examples/yall/SETUP.md').read_text()
-        command = next(line for line in text.splitlines() if line.startswith('sed -i.bnl-path-backup '))
-        original = ('if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "/gpfs/mnt'+DEFAULT_DATA+'"\n'
-                    'setenv LFHCAL_WORK "/my/existing/output"\n# keep this comment\n')
-        with tempfile.TemporaryDirectory() as d:
-            site = Path(d)/'site-env.tcsh'
-            site.write_text(original)
-            env = dict(os.environ, LFHCAL_HOME=d)
-            subprocess.run(['bash','-c',command],env=env,check=True)
-            expected = original.replace('/gpfs/mnt'+DEFAULT_DATA,DEFAULT_DATA)
-            self.assertEqual(site.read_text(),expected)
-            self.assertEqual(Path(str(site)+'.bnl-path-backup').read_text(),original)
+        command = next(line for line in text.splitlines() if line.startswith('sed -i.bnl-raw-backup '))
+        parent = str(Path(DEFAULT_DATA).parent)
+        variants = (parent, '/gpfs/mnt'+parent, DEFAULT_DATA,
+                    '/gpfs/mnt'+DEFAULT_DATA, '/custom/raw-input', parent+'/converted')
+        for old in variants:
+            with self.subTest(old=old), tempfile.TemporaryDirectory() as d:
+                original = ('if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "'+old+'"\n'
+                            'setenv LFHCAL_WORK "/my/existing/output"\n# keep this comment\n')
+                site = Path(d)/'site-env.tcsh'
+                site.write_text(original)
+                env = dict(os.environ, LFHCAL_HOME=d)
+                subprocess.run(['bash','-c',command],env=env,check=True)
+                expected = original if old in variants[-2:] else original.replace(old,DEFAULT_DATA)
+                self.assertEqual(site.read_text(),expected)
+                self.assertEqual(Path(str(site)+'.bnl-raw-backup').read_text(),original)
+                self.assertNotIn('/raw/raw',site.read_text())
 
 
 if __name__ == '__main__':

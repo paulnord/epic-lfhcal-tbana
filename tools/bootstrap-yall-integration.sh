@@ -77,7 +77,8 @@ YALL_USER_BIN="$(python3 -m site --user-base)/bin"
 if [[ ! -f "$LFHCAL_HOME/site-env.tcsh" ]]; then
     cat > "$LFHCAL_HOME/site-env.tcsh" <<'EOF'
 # BNL storage defaults. Change these paths here when needed.
-if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata"
+# LFHCAL_DATA is the directory directly containing Run*.h2g.
+if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata/raw"
 if (! $?LFHCAL_WORK) setenv LFHCAL_WORK "/gpfs01/star/scratch/`id -un`/lfhcal"
 EOF
 fi
