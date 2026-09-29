@@ -1,0 +1,34 @@
+name: Stage LFHCal account privacy examples
+on:
+  push:
+    branches: [automation/account-privacy-examples-20260929]
+permissions:
+  contents: write
+jobs:
+  stage:
+    if: github.repository == 'paulnord/epic-lfhcal-tbana'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Add explicit policy and verify unchanged expanded workflows
+        run: |
+          cp .development/account_privacy_examples.py /tmp/account_privacy_examples.py
+          git checkout --detach 0f82db064638b7a2abd595fbd02173fa84e8ebdc
+          python -m pip install 'git+https://github.com/paulnord/yall-run.git@c2486d4ba756d2db79966c41f998d4d00366e787'
+          python /tmp/account_privacy_examples.py
+          git diff --check
+      - name: Publish checked example edits on an isolated result branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add examples/yall
+          git diff --cached --stat
+          git commit -m 'Make account provenance explicitly off in complex Yall examples'
+          git push origin "HEAD:refs/heads/automation/account-privacy-examples-result-${GITHUB_RUN_ID}"
+          echo "RESULT_SHA=$(git rev-parse HEAD)"
