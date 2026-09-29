@@ -1,6 +1,9 @@
 campaign lfhcal-tb2026-fullset-b1-repro
 backend condor
 
+# Set to full to record operator accounts when permitted by your site's privacy policy.
+%account-provenance off
+
 # Reproduce Fredi's SPS H2 FullSetB_1 calibration chain from raw data.
 # Source recipe:
 #   NewStructure/convertDataHGCROC_TBSPSH2_2026.sh

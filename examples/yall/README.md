@@ -143,3 +143,18 @@ LFHCal checkout while jobs are using it.
 Yall records campaign, task, executable, input/output, scheduler and attempt
 provenance separately; it does not inject LFHCal-specific provenance into ROOT
 files. Preserve campaign records together with important final products.
+
+## Account provenance
+
+The larger examples explicitly set `%account-provenance off`, with a comment
+showing when to select `full`. This directive requires **yall-run 0.12.0a7 or
+newer**. Account recording also defaults to off when the directive is omitted.
+
+Use `full` to preserve creator, submitter, and host-worker account attribution
+when permitted by your site's privacy policy. A creation-time
+`--account-provenance full` or `--account-provenance off` overrides the recipe;
+the resolved choice is frozen for that campaign before any account lookup.
+
+This controls explicit OS-account snapshots only. Paths, command arguments,
+logs, scheduler records, and analysis outputs are not anonymized. Existing
+campaigns and their archived workers are not retroactively changed.
