@@ -16,17 +16,15 @@ class OnboardingTests(unittest.TestCase):
         self.assertIn('(SETUP_TLDR.md)', '\n'.join(lines[:6]))
         self.assertTrue((ROOT/'examples/yall/SETUP_TLDR.md').is_file())
 
-    def test_tldr_keeps_installation_separate_from_running(self):
+    def test_tldr_leads_with_fresh_install_and_links_existing_install(self):
         text = (ROOT/'examples/yall/SETUP_TLDR.md').read_text()
-        self.assertIn('**Skip step 1.**', text)
-        self.assertIn('QUICKSTART.md#existing-installation', text)
+        self.assertIn('## New installation: start here', text)
+        self.assertIn('curl -fL https://raw.githubusercontent.com/paulnord/epic-lfhcal-tbana/yall-integration-upstream/tools/bootstrap-yall-integration.sh', text)
         self.assertIn('LFHCAL_BRANCH=yall-integration-upstream', text)
-        running = text.split('## 2. Activate and check', 1)[1]
-        self.assertNotIn('bash bootstrap-yall-integration.sh', running)
-        self.assertNotIn('cmake --build', running)
-        self.assertIn('10 completed tasks', running)
-        self.assertIn('-j 1', running)
-        self.assertIn('site-approved interactive allocation', running)
+        self.assertIn('(EXISTING_INSTALL.md)', text)
+        self.assertIn('9 completed tasks', text)
+        self.assertIn('%preflight', text)
+        self.assertIn('-j 1', text)
 
     def test_defaults_match_and_do_not_canonicalize_mount_alias(self):
         for relative in ('tools/bootstrap-yall-integration.sh',
@@ -39,7 +37,6 @@ class OnboardingTests(unittest.TestCase):
         for name in ('SETUP.md', 'SETUP_TLDR.md'):
             text = (ROOT/'examples/yall'/name).read_text()
             self.assertIn(DEFAULT_DATA, text)
-            self.assertIn('directly containing `Run*.h2g`', text)
 
     def source_eic_environment(self, raw_override=None):
         with tempfile.TemporaryDirectory() as d:
