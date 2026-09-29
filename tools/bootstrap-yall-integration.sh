@@ -77,7 +77,7 @@ YALL_USER_BIN="$(python3 -m site --user-base)/bin"
 if [[ ! -f "$LFHCAL_HOME/site-env.tcsh" ]]; then
     cat > "$LFHCAL_HOME/site-env.tcsh" <<'EOF'
 # BNL storage defaults. Change these paths here when needed.
-if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata"
+if (! $?LFHCAL_DATA) setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata"
 if (! $?LFHCAL_WORK) setenv LFHCAL_WORK "/gpfs01/star/scratch/`id -un`/lfhcal"
 EOF
 fi
