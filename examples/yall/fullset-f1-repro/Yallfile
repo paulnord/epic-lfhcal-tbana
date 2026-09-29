@@ -43,8 +43,8 @@ backend condor
 %getenv true
 %wrapper ../../../tools/run-in-eic-shell.sh {EIC_SHELL} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 
-prepare:
-    /bin/mkdir -p \
+# Lightweight directory setup runs during `yall-run create`, not as a Condor job.
+%preflight /bin/mkdir -p \
         {LFHCAL_WORK}/fullset-f1-repro/converted \
         {LFHCAL_WORK}/fullset-f1-repro/pedestal \
         {LFHCAL_WORK}/fullset-f1-repro/transfer \
@@ -65,7 +65,7 @@ prepare:
         {LFHCAL_WORK}/fullset-f1-repro/plots/refine4 \
         {LFHCAL_WORK}/fullset-f1-repro/plots/refine5
 
-convert-{type}-{run}: prepare
+convert-{type}-{run}:
     @each type run in runs
     @input raw {LFHCAL_DATA}/Run{run}.h2g
     @input mapping {TB2026_CONFIG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
