@@ -36,26 +36,65 @@ in the setup guide are site-specific defaults, not portable requirements.
 
 ## Existing installation: do not run the bootstrap just to submit
 
+Already running LFHCal after following Fredi's instructions? Keep that
+installation and its working analysis environment. You are adding a launcher,
+not replacing your LFHCal setup. Having LFHCal installed does **not** mean you
+already have yall-run: it is a separate repository.
+
 Use a checkout containing these examples and a matching LFHCal build at
 `NewStructure/build`. Build once in the environment that will execute the
 scientific payload. Do not replace or rebuild a checkout used by running jobs.
 A change to workflow text alone needs no C++ rebuild; changing the upstream
 analysis version or ROOT/decoder ABI can require one.
 
-Install a compatible yall-run on the **submission host**. Python 3.8 or newer is
-required. The FullSet recipes need partial `@each` binding from commit
-`1081e9dd39418262588248272618130ce0503b8a` or a later descendant. The existing
-source checkout install is:
+### Download and install yall-run
 
-```text
-python3 -m pip install --user -e /path/to/yall-run
+For a collaborator who does not yet have yall-run, run the following in the
+normal **host tcsh** session, not inside eic-shell. Git and Python 3.8 or newer
+with pip must already be available. Stop if cloning or installation fails.
+
+```tcsh
+setenv YALL_RUN_REPO "$HOME/yall-run"
+git clone --branch main https://github.com/paulnord/yall-run.git "$YALL_RUN_REPO"
+python3 -m pip install --user -e "$YALL_RUN_REPO"
+
+setenv PATH "`python3 -m site --user-base`/bin:$PATH"
+rehash
+
+which yall-run
+yall-run --version
+git -C "$YALL_RUN_REPO" rev-parse HEAD
 ```
 
-Use the installed command's `--version` and record the actual checkout commit;
-an alpha version string alone does not identify supported recipe syntax. The
+`$HOME/yall-run` is the actual source directory created by `git clone`, not a
+placeholder or a required workspace layout. Choose another location in the
+first line if desired; it need not be alongside LFHCal. For queued workflows,
+use a location accessible from the worker nodes. If you already have a yall-run
+checkout, set `YALL_RUN_REPO` to that directory and skip `git clone`; do not
+clone over it or update it while an active local campaign is using it.
+
+The install is for your host Python account and does not require administrator
+privileges. `-e` makes the installed command use this source checkout, so keep
+the checkout in place. The PATH line makes the installed command visible in
+this shell. After these checks succeed, retain `YALL_RUN_REPO` and the PATH
+setting in your normal tcsh login setup (for example, `~/.tcshrc`); do not
+repeat the clone and install at every login. These commands do not edit your
+shell startup files automatically. If your Python installation disallows
+`--user`, use a site-supported Python environment rather than adding `sudo`
+or bypassing its package-management protections.
+
+This installs **yall-run only**. It does not clone, rebuild, move, or reconfigure
+LFHCal, install ROOT or Condor, or require bootstrap-generated activation files.
+
+The FullSet recipes require partial `@each` binding from commit
+`1081e9dd39418262588248272618130ce0503b8a` or a later descendant. The commands
+above clone `main`; record the printed commit as well as the version, since an
+alpha version string alone does not identify supported recipe syntax. The
 [graph checks](#validation) fail before any job is submitted if expansion is
-incompatible. The bootstrap is an optional alternative that installs and builds
-software; it is not a dependency of the workflows.
+incompatible. The bootstrap is an optional alternative for a fresh installation,
+not a dependency of these workflows.
+
+### Use your existing LFHCal paths
 
 For a container-wrapped batch example, set the following in your **host tcsh**
 session, substituting your existing paths:
