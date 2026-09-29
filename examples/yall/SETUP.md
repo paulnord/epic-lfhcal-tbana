@@ -1,14 +1,108 @@
 # BNL setup: local LFHCal test, Condor test, then scan-set-1
 
 **[TL;DR — the commands to install and run the small tests](SETUP_TLDR.md)**  
-Install once → local detector test → Condor/EIC test → scan-set-1.
+Add yall-run → get the integration examples → set paths → test.
+
+**Already installed LFHCal using Fredi's instructions? Start below.** Keep your
+working installation. The optional [new-workspace installer](#install-in-a-new-workspace)
+is for a fresh installation, not a prerequisite for using these examples.
 
 Use the normal BNL tcsh login/submit session for installation and Condor work.
-The small `lfhcal-simple` test is deliberately wrapper-free and runs inside
+The small `lfhcal-simple` test is deliberately wrapper-free: run it in your
+working LFHCal/ROOT environment. The fresh-installation route below uses
 `eic-shell` (bash). Do not submit Condor jobs from inside the container.
-
-For an existing installation or another site, start with [QUICKSTART.md](QUICKSTART.md).
 Yall is optional; it does not replace the analysis software or change its fitter.
+
+## Add yall-run to an existing LFHCal installation
+
+### 1. Download and install yall-run
+
+Having LFHCal installed does not mean yall-run is installed. In host tcsh,
+with Git and Python 3.8 or newer plus pip available:
+
+```tcsh
+setenv YALL_RUN_REPO "$HOME/yall-run"
+git clone --branch main https://github.com/paulnord/yall-run.git "$YALL_RUN_REPO"
+python3 -m pip install --user -e "$YALL_RUN_REPO"
+setenv PATH "`python3 -m site --user-base`/bin:$PATH"
+rehash
+which yall-run
+yall-run --version
+```
+
+Stop on errors. If you already have yall-run, keep its existing checkout and
+skip cloning/installing it again. `$HOME/yall-run` is an example destination,
+not a required sibling of LFHCal. Keep it in place because `-e` uses that source
+checkout. Retain the PATH setting in your normal shell setup after it works.
+If your Python disallows `--user`, use a site-supported Python environment;
+do not use sudo or bypass package-management protections.
+
+### 2. Fetch and switch to the LFHCal integration branch
+
+**Before upstream PR #82 is merged, an upstream LFHCal checkout does not have
+these examples.** Installing yall-run or setting `LFHCAL_REPO` will not add them.
+
+Change directory to your existing LFHCal Git repository, the one containing
+`NewStructure/`, then run:
+
+```tcsh
+setenv LFHCAL_REPO "`git rev-parse --show-toplevel`"
+cd "$LFHCAL_REPO"
+git status --short
+```
+
+Stop if you are in the wrong repository or have local changes to preserve.
+Do not switch or update a checkout used by running jobs. Fetch from Paul's fork
+explicitly, without assuming that your `origin` points there:
+
+```tcsh
+git fetch https://github.com/paulnord/epic-lfhcal-tbana.git yall-integration-upstream
+git diff --stat HEAD FETCH_HEAD -- NewStructure OldStructure configs calibrations .gitmodules
+```
+
+Stop if fetch fails. A nonempty diff means the review branch also differs from
+your installed analysis/configuration version; review it and ensure your build
+matches before running. Adding only workflow files requires no C++ rebuild,
+but switching to different analysis sources does not update existing binaries.
+
+For the first checkout of this local review branch:
+
+```tcsh
+git switch --no-track -c yall-integration-upstream FETCH_HEAD
+ls examples/yall/lfhcal-simple/Yallfile examples/yall/scan-set-1/Yallfile
+```
+
+If that local branch already exists, use `git switch yall-integration-upstream`
+instead of `switch -c`; after the switch succeeds, update it with:
+
+```tcsh
+git pull --ff-only https://github.com/paulnord/epic-lfhcal-tbana.git yall-integration-upstream
+```
+
+Do not pull this branch into an unrelated current branch. Stop on errors or a
+refused fast-forward; do not reset or force an update. These commands leave
+`origin` and your original branch in place. After PR #82 is merged, update
+upstream `main` through your usual upstream remote instead.
+
+### 3. Set paths and use the existing build
+
+Continue with [Use your existing LFHCal paths](QUICKSTART.md#use-your-existing-lfhcal-paths)
+now that the example files actually exist. `LFHCAL_DATA` must directly contain
+`Run*.h2g`; the BNL shared location is `/gpfs01/star/pwg/pnord/eic/2026TBdata/raw`.
+Choose your own writable `LFHCAL_WORK`. For EIC-wrapped batch workflows,
+`EIC_SHELL` must point to your working launcher.
+
+The examples default to `../../../NewStructure/build`. If your executables are
+elsewhere, change the example's `@set BUILD` to that existing build directory;
+an in-source build uses `../../../NewStructure`. Do not rebuild just to satisfy
+a directory convention. Run the bounded [lfhcal-simple](lfhcal-simple/README.md)
+test in the same runtime environment as the existing build before a full scan.
+
+**Do not source bootstrap-generated activation files for an unrelated existing
+installation.** The `env.tcsh` and `lfhcal-simple/env-eic.sh` conveniences assume
+the new-workspace layout. The detailed [existing-installation guide](QUICKSTART.md#existing-installation-do-not-run-the-bootstrap-just-to-submit)
+explains the manual route. The rest of this page describes the optional fresh
+BNL installation and its tests; it is not a second installation to perform.
 
 ## Install in a new workspace
 
@@ -19,7 +113,8 @@ file so it can be inspected before execution.
 
 The two installation blocks below are alternatives. The directory names are
 examples of a parent workspace, not required names; do not run both blocks.
-An existing bootstrap installation can skip directly to the preflight checks.
+If this installer has already completed in your chosen workspace, continue
+with the preflight checks rather than rerunning it.
 
 **Before this contribution is merged upstream**, use the review branch explicitly:
 
