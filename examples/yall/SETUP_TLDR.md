@@ -67,8 +67,9 @@ yall-run status "$C"
 exit
 ```
 
-Expect **10 completed tasks**: prepare, six conversions, and three pedestal
-extractions. The test uses 1,000 events and does no MIP fitting.
+Expect **9 completed tasks**: six conversions and three pedestal extractions.
+Directory creation runs as a `%preflight` during `create`, so it does not consume
+a scheduler task. The test uses 1,000 events and does no MIP fitting.
 
 ## Small Condor test
 
