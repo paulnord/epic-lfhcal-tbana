@@ -91,6 +91,7 @@ setenv YALL_RUN_REPO "${YALL_DIR}"
 setenv EIC_SHELL "${EIC_SHELL}"
 setenv PATH "${YALL_USER_BIN}:\$PATH"
 rehash
+set _lfhcal_activate_rc = 1
 source "${LFHCAL_HOME}/site-env.tcsh"
 if (\$status == 0) then
     # Read access only: never create or write into the shared raw-data tree.
@@ -103,16 +104,16 @@ if (\$status == 0) then
     if (\$status != 0) then
         echo "Cannot create work directories: \$LFHCAL_WORK"
         echo "Check scratch permissions or edit ${LFHCAL_HOME}/site-env.tcsh."
-        /bin/false
     else if (! -w "\$LFHCAL_WORK" || ! -w "\$LFHCAL_WORK/campaigns") then
         echo "Work directories are not writable: \$LFHCAL_WORK"
-        /bin/false
     else
         echo "Raw input: \$LFHCAL_DATA"
         echo "Work root: \$LFHCAL_WORK"
-        /bin/true
+        set _lfhcal_activate_rc = 0
     endif
 endif
+# Keep this last, outside every conditional. Do not exit a sourcing shell.
+/bin/test "\$_lfhcal_activate_rc" -eq 0
 EOF
 
 say "Preparing BNL scratch directories"
