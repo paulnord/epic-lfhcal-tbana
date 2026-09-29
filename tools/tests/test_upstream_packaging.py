@@ -29,7 +29,6 @@ class UpstreamPackagingTests(unittest.TestCase):
         text = (ROOT/'examples/yall/QUICKSTART.md').read_text()
         self.assertIn('do not run the bootstrap just to submit', text)
         self.assertIn('There are\nno build tasks in these example graphs.', text)
-        self.assertIn('does not require', text) if False else None
         self.assertIn('do **not** source `env.tcsh`', text)
 
 
