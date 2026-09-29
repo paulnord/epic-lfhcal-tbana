@@ -1,5 +1,8 @@
 # BNL setup: local LFHCal test, Condor test, then scan-set-1
 
+**[TL;DR — the commands to install and run the small tests](SETUP_TLDR.md)**  
+Install once → local detector test → Condor/EIC test → scan-set-1.
+
 Use the normal BNL tcsh login/submit session for installation and Condor work.
 The small `lfhcal-simple` test is deliberately wrapper-free and runs inside
 `eic-shell` (bash). Do not submit Condor jobs from inside the container.
@@ -13,6 +16,10 @@ The installer creates/updates checkouts and builds LFHCal. It is not the command
 to use merely to start another campaign. Use a new workspace for this preview,
 not a checkout used by running jobs. Commands below download the installer to a
 file so it can be inspected before execution.
+
+The two installation blocks below are alternatives. The directory names are
+examples of a parent workspace, not required names; do not run both blocks.
+An existing bootstrap installation can skip directly to the preflight checks.
 
 **Before this contribution is merged upstream**, use the review branch explicitly:
 
@@ -63,7 +70,7 @@ not instructions to change the host login shell.
 New BNL installations default to:
 
 ```text
-LFHCAL_DATA=/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata
+LFHCAL_DATA=/gpfs01/star/pwg/pnord/eic/2026TBdata
 LFHCAL_WORK=/gpfs01/star/scratch/<your-login-name>/lfhcal
 ```
 
@@ -77,6 +84,23 @@ the Yallfiles do that themselves.
 The work root, software, inputs, campaign records and EIC launcher must be visible
 on worker nodes and inside the container. For a second run, use a fresh work root
 rather than letting two campaigns write to the same output paths.
+
+### Already installed with the old raw-data path?
+
+Older setup versions added `/gpfs/mnt` before `/gpfs01`. Use the shorter path
+above on BNL. A pull updates the defaults, but intentionally does not rewrite
+your generated `site-env.tcsh` outside the repository. Correct that one old
+value, retaining all other settings and a backup (BNL/Linux, host tcsh):
+
+```tcsh
+setenv LFHCAL_DATA "/gpfs01/star/pwg/pnord/eic/2026TBdata"
+sed -i.bnl-path-backup 's|/gpfs/mnt/gpfs01/star/pwg/pnord/eic/2026TBdata|/gpfs01/star/pwg/pnord/eic/2026TBdata|g' "$LFHCAL_HOME/site-env.tcsh"
+```
+
+Run this migration once; choose another backup suffix if that backup already
+exists. No reinstall or C++ rebuild is needed. Keep custom data locations as
+chosen; do not rewrite arbitrary paths or old campaign/provenance records.
+Verify the required files both on the host and inside eic-shell.
 
 ## 1. Preflight checks
 
@@ -113,6 +137,7 @@ Inside `eic-shell` (bash):
 
 ```bash
 source ./env-eic.sh
+ls -lh "$LFHCAL_DATA"/Run{296,298,299,300,303,304}.h2g
 yall-run validate
 yall-run plan
 C=$(yall-run create --campaigns-dir "$LFHCAL_WORK/campaigns" -j 1)
