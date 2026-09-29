@@ -14,7 +14,7 @@ from unittest.mock import patch
 from yall_run.model import load_spec
 
 EXAMPLES = Path(__file__).resolve().parent
-EXPECTED = {'scan-set-1': 56, 'scan-set-2': 188, 'lfhcal-simple': 10}
+EXPECTED = {'scan-set-1': 55, 'scan-set-2': 188, 'lfhcal-simple': 10}
 FULLSET_EXPECTED = {
     'fullset-b1-repro': 26,
     'fullset-b2-repro': 20,
@@ -94,7 +94,8 @@ class SharedConversionTests(unittest.TestCase):
                          ['pedestal-' + p for p in pedestals])
         self.assertNotIn('converted', tasks)
         for run in runs:
-            self.assertEqual(tasks['convert-' + run].parents, ('prepare',))
+            expected_parents = () if which == 'scan-set-1' else ('prepare',)
+            self.assertEqual(tasks['convert-' + run].parents, expected_parents)
         for ped in pedestals:
             self.assertEqual(tasks['pedestal-' + ped].parents, ('convert-' + ped,))
 
