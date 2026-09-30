@@ -103,6 +103,38 @@ def signed_log_residual(scale, final_scale, r0):
     return residual, transformed
 
 
+
+
+def signed_log(value, r0):
+    if value == 0:
+        return 0.0
+    return math.copysign(math.log10(1.0 + abs(value) / r0), value)
+
+
+def add_signed_log_reference_axis(fig, r0, transform_clip):
+    """Add a right-side key for the signed-log fractional-residual coordinate."""
+    ref_ax = fig.add_axes([0.905, 0.16, 0.035, 0.70])
+    fractions = (-1.0, -0.1, -0.01, -0.001, -0.0001,
+                 0.0,
+                 0.0001, 0.001, 0.01, 0.1, 1.0)
+    positions = [signed_log(v, r0) for v in fractions]
+    labels = ("-100%", "-10%", "-1%", "-0.1%", "-0.01%",
+              "0",
+              "+0.01%", "+0.1%", "+1%", "+10%", "+100%")
+
+    ref_ax.set_ylim(transform_clip, -transform_clip)
+    ref_ax.set_yticks(positions, labels)
+    ref_ax.yaxis.tick_right()
+    ref_ax.yaxis.set_label_position("right")
+    ref_ax.set_ylabel("ΔH/H", rotation=270, labelpad=18)
+    ref_ax.set_xticks([])
+    ref_ax.tick_params(axis="y", labelsize=7, length=3)
+    ref_ax.set_title("signed log", fontsize=7, pad=5)
+    for name in ("left", "top", "bottom"):
+        ref_ax.spines[name].set_visible(False)
+    ref_ax.spines["right"].set_alpha(0.55)
+
+
 def transform(data, datasets, r0, transform_clip, lane_scale):
     rows = []
     lane_for = {dataset: i + 1 for i, dataset in enumerate(datasets)}
@@ -190,6 +222,8 @@ def plot_model(
     band_alpha,
     median_width,
     height_per_dataset,
+    r0,
+    transform_clip,
     pdf,
     show,
 ):
@@ -257,7 +291,8 @@ def plot_model(
     ax.set_ylim(0.45, len(datasets) + 0.55)
     ax.invert_yaxis()
     ax.grid(axis="x", alpha=0.18)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0.0, 0.0, 0.88, 1.0))
+    add_signed_log_reference_axis(fig, r0, transform_clip)
 
     png = Path(str(outstem) + f"-{model}.png")
     fig.savefig(png, dpi=200)
@@ -376,6 +411,8 @@ def main(
             args.band_alpha,
             args.median_width,
             args.height_per_dataset,
+            args.r0,
+            args.transform_clip,
             args.pdf,
             args.show,
         )
