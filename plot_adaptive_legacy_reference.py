@@ -125,33 +125,6 @@ def signed_log(value, r0):
         return 0.0
     return math.copysign(math.log10(1.0 + abs(value) / r0), value)
 
-
-
-
-def add_signed_log_reference_axis(fig, r0, transform_clip):
-    """Add a right-side key for the signed-log fractional-residual coordinate."""
-    ref_ax = fig.add_axes([0.905, 0.16, 0.035, 0.70])
-    fractions = (-1.0, -0.1, -0.01, -0.001, -0.0001,
-                 0.0,
-                 0.0001, 0.001, 0.01, 0.1, 1.0)
-    positions = [signed_log(v, r0) for v in fractions]
-    labels = ("-100%", "-10%", "-1%", "-0.1%", "-0.01%",
-              "0",
-              "+0.01%", "+0.1%", "+1%", "+10%", "+100%")
-
-    ref_ax.set_ylim(transform_clip, -transform_clip)
-    ref_ax.set_yticks(positions, labels)
-    ref_ax.yaxis.tick_right()
-    ref_ax.yaxis.set_label_position("right")
-    ref_ax.set_ylabel("ΔH/H", rotation=270, labelpad=18)
-    ref_ax.set_xticks([])
-    ref_ax.tick_params(axis="y", labelsize=7, length=3)
-    ref_ax.set_title("signed log", fontsize=7, pad=5)
-    for name in ("left", "top", "bottom"):
-        ref_ax.spines[name].set_visible(False)
-    ref_ax.spines["right"].set_alpha(0.55)
-
-
 def transform(data, datasets, r0, transform_clip, lane_scale):
     rows = []
     lane_for = {dataset: i + 1 for i, dataset in enumerate(datasets)}
@@ -333,6 +306,45 @@ def plot_model(
                     fontweight="bold",
                 )
 
+                # Mirror the same ADC ruler on the right side of the plot.
+                last_x = len(STAGES) - 1
+                xmark_r = last_x + 0.24
+                cap_left_r, cap_right_r = last_x + 0.20, last_x + 0.28
+                ax.vlines(
+                    xmark_r,
+                    lane - outer,
+                    lane + outer,
+                    color="black",
+                    linewidth=0.7,
+                    alpha=0.65,
+                )
+                for adc, dy in adc_marks:
+                    ax.hlines(
+                        [lane - dy, lane + dy],
+                        cap_left_r,
+                        cap_right_r,
+                        color="black",
+                        linewidth=0.7,
+                        alpha=0.65,
+                    )
+                    ax.text(
+                        last_x + 0.30,
+                        lane - dy,
+                        f"{adc:g}",
+                        ha="left",
+                        va="center",
+                        fontsize=6,
+                    )
+                ax.text(
+                    last_x + 0.30,
+                    lane,
+                    "ADC",
+                    ha="left",
+                    va="center",
+                    fontsize=6,
+                    fontweight="bold",
+                )
+
     for track in by_track.values():
         xs, ys = [], []
         for stage in STAGES:
@@ -374,12 +386,11 @@ def plot_model(
     ax.set_xlabel("Calibration pass")
     ax.set_ylabel("Calibration set; ΔH relative to legacy R5 on signed-log scale")
     ax.set_title(f"LFHCal calibration relative to accepted legacy R5: {model}")
-    ax.set_xlim(-0.48, len(STAGES) - 0.85)
+    ax.set_xlim(-0.48, (len(STAGES) - 1) + 0.48)
     ax.set_ylim(0.45, len(datasets) + 0.55)
     ax.invert_yaxis()
     ax.grid(axis="x", alpha=0.18)
-    fig.tight_layout(rect=(0.0, 0.0, 0.88, 1.0))
-    add_signed_log_reference_axis(fig, r0, transform_clip)
+    fig.tight_layout()
 
     png = Path(str(outstem) + f"-{model}.png")
     fig.savefig(png, dpi=200)
