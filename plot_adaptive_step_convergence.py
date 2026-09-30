@@ -22,7 +22,8 @@ Input is one or more campaign roots containing reports/*-comparison.csv as
 written by adaptive_fulltests.py / recover_adaptive_d1.py.
 
 Outputs are separate legacy/adaptive PNGs, optional PDFs, a transformed CSV,
-and a median/central-68%-band CSV.
+and a median/central-68%-band CSV.  Each dataset lane also gets a +/-1 ADC
+reference bracket, converted with that dataset/model's median R5 scale.
 """
 
 from __future__ import annotations
@@ -199,6 +200,8 @@ def plot_model(
     band_alpha,
     median_width,
     height_per_dataset,
+    r0,
+    transform_clip,
     pdf,
     show,
 ):
@@ -223,7 +226,53 @@ def plot_model(
     fig, ax = plt.subplots(figsize=(13.0, height))
 
     for dataset in datasets:
-        ax.axhline(lane_for[dataset], linewidth=0.7, alpha=0.28)
+        lane = lane_for[dataset]
+        ax.axhline(lane, linewidth=0.7, alpha=0.28)
+
+        # Physical scale reference: +/-1 ADC around the zero-change lane.
+        # Use the median R5 scale for this dataset/model as the local conversion
+        # from one ADC count to fractional calibration change.
+        final_scales = [
+            r["after_scale_h"]
+            for r in rows
+            if r["dataset"] == dataset
+            and r["model"] == model
+            and r["transition"] == "R4→R5"
+        ]
+        if final_scales:
+            ref_scale = float(np.median(np.asarray(final_scales, dtype=float)))
+            if ref_scale > 0:
+                q_adc = min(
+                    transform_clip,
+                    abs(signed_log(1.0 / ref_scale, r0)),
+                )
+                dy = lane_scale * q_adc
+                xmark = -0.24
+                cap_left, cap_right = -0.28, -0.20
+                ax.vlines(
+                    xmark,
+                    lane - dy,
+                    lane + dy,
+                    color="black",
+                    linewidth=0.8,
+                    alpha=0.75,
+                )
+                ax.hlines(
+                    [lane - dy, lane + dy],
+                    cap_left,
+                    cap_right,
+                    color="black",
+                    linewidth=0.8,
+                    alpha=0.75,
+                )
+                ax.text(
+                    -0.30,
+                    lane,
+                    "±1 ADC",
+                    ha="right",
+                    va="center",
+                    fontsize=7,
+                )
 
     for track in by_track.values():
         xs, ys = [], []
@@ -265,7 +314,7 @@ def plot_model(
         "Dataset lane; signed-log fractional change from previous calibration"
     )
     ax.set_title(f"LFHCal calibration step size: {model}")
-    ax.set_xlim(-0.15, len(labels) - 0.85)
+    ax.set_xlim(-0.48, len(labels) - 0.85)
     ax.set_ylim(0.45, len(datasets) + 0.55)
     ax.invert_yaxis()
     ax.grid(axis="x", alpha=0.18)
@@ -390,6 +439,8 @@ def main(
             args.band_alpha,
             args.median_width,
             args.height_per_dataset,
+            args.r0,
+            args.transform_clip,
             args.pdf,
             args.show,
         )
