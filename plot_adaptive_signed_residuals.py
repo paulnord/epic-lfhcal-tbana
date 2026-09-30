@@ -283,9 +283,7 @@ def plot_model(
     ax.set_xticks(range(len(STAGES)), STAGE_LABELS)
     ax.set_yticks([lane_for[d] for d in datasets], [d.upper() for d in datasets])
     ax.set_xlabel("Calibration pass")
-    ax.set_ylabel(
-        "Dataset lane; signed-log fractional residual from each cell's R5 scale"
-    )
+    ax.set_ylabel("Calibration set; ΔH from own R5 shown on signed-log scale")
     ax.set_title(f"LFHCal calibration convergence: {model}")
     ax.set_xlim(-0.15, len(STAGES) - 0.85)
     ax.set_ylim(0.45, len(datasets) + 0.55)
@@ -336,7 +334,7 @@ def main(
     ap.add_argument(
         "--transform-clip",
         type=float,
-        default=3.5,
+        default=4.0,
         help="Clip plotted signed-log residual at +/- this value",
     )
     ap.add_argument(
