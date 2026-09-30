@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused B1/B2/E1/E2/E3 LFHCal step-to-step convergence plot."""
+"""Focused B1/B2/E1/E2/E3 step convergence plot with +/-1 ADC references."""
 
 from plot_adaptive_step_convergence import main
 
