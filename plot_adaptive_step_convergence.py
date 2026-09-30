@@ -22,8 +22,9 @@ Input is one or more campaign roots containing reports/*-comparison.csv as
 written by adaptive_fulltests.py / recover_adaptive_d1.py.
 
 Outputs are separate legacy/adaptive PNGs, optional PDFs, a transformed CSV,
-and a median/central-68%-band CSV.  Each dataset lane also gets a +/-1 ADC
-reference bracket, converted with that dataset/model's median R5 scale.
+and a median/central-68%-band CSV.  Each dataset lane also gets a symmetric
+ADC reference ruler at 0.01, 0.1, 1, and 10 ADC, converted with that
+dataset/model's median R5 scale.
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ DEFAULT_LANE_SCALE = 0.12
 DEFAULT_HEIGHT_PER_DATASET = 0.58
 DEFAULT_ALPHA = 0.08
 DEFAULT_LINEWIDTH = 0.50
+ADC_REFERENCES = (0.01, 0.1, 1.0, 10.0)
 
 
 def parse_float(value):
@@ -229,9 +231,10 @@ def plot_model(
         lane = lane_for[dataset]
         ax.axhline(lane, linewidth=0.7, alpha=0.28)
 
-        # Physical scale reference: +/-1 ADC around the zero-change lane.
-        # Use the median R5 scale for this dataset/model as the local conversion
-        # from one ADC count to fractional calibration change.
+        # Physical scale reference around the zero-change lane.  Convert
+        # 0.01, 0.1, 1, and 10 ADC to this signed-log coordinate using the
+        # dataset/model's median R5 scale.  The ruler is symmetric: labels are
+        # shown on one side, with matching unlabeled ticks on the other.
         final_scales = [
             r["after_scale_h"]
             for r in rows
@@ -242,36 +245,50 @@ def plot_model(
         if final_scales:
             ref_scale = float(np.median(np.asarray(final_scales, dtype=float)))
             if ref_scale > 0:
-                q_adc = min(
-                    transform_clip,
-                    abs(signed_log(1.0 / ref_scale, r0)),
-                )
-                dy = lane_scale * q_adc
+                adc_marks = []
+                for adc in ADC_REFERENCES:
+                    q_adc = min(
+                        transform_clip,
+                        abs(signed_log(adc / ref_scale, r0)),
+                    )
+                    adc_marks.append((adc, lane_scale * q_adc))
+
                 xmark = -0.24
                 cap_left, cap_right = -0.28, -0.20
+                outer = max(dy for _, dy in adc_marks)
                 ax.vlines(
                     xmark,
-                    lane - dy,
-                    lane + dy,
+                    lane - outer,
+                    lane + outer,
                     color="black",
-                    linewidth=0.8,
-                    alpha=0.75,
+                    linewidth=0.7,
+                    alpha=0.65,
                 )
-                ax.hlines(
-                    [lane - dy, lane + dy],
-                    cap_left,
-                    cap_right,
-                    color="black",
-                    linewidth=0.8,
-                    alpha=0.75,
-                )
+                for adc, dy in adc_marks:
+                    ax.hlines(
+                        [lane - dy, lane + dy],
+                        cap_left,
+                        cap_right,
+                        color="black",
+                        linewidth=0.7,
+                        alpha=0.65,
+                    )
+                    ax.text(
+                        -0.30,
+                        lane - dy,
+                        f"{adc:g}",
+                        ha="right",
+                        va="center",
+                        fontsize=6,
+                    )
                 ax.text(
                     -0.30,
                     lane,
-                    "±1 ADC",
+                    "ADC",
                     ha="right",
                     va="center",
-                    fontsize=7,
+                    fontsize=6,
+                    fontweight="bold",
                 )
 
     for track in by_track.values():
@@ -364,7 +381,7 @@ def main(
     ap.add_argument(
         "--transform-clip",
         type=float,
-        default=3.5,
+        default=4.0,
         help="Clip plotted signed-log step at +/- this value",
     )
     ap.add_argument(
