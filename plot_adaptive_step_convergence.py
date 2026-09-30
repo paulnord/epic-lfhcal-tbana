@@ -328,7 +328,7 @@ def plot_model(
     ax.set_yticks([lane_for[d] for d in datasets], [d.upper() for d in datasets])
     ax.set_xlabel("Refinement step")
     ax.set_ylabel(
-        "Dataset lane; signed-log fractional change from previous calibration"
+        "Calibration set; ΔH shown on signed-log scale"
     )
     ax.set_title(f"LFHCal calibration step size: {model}")
     ax.set_xlim(-0.48, len(labels) - 0.85)
