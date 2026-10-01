@@ -57,6 +57,15 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def requested_rows(rows, cells):
+    by_cell = {int(r['cell_id']): r for r in rows}
+    missing = sorted(set(cells) - set(by_cell))
+    if missing:
+        raise ValueError('Requested cells absent from report: ' + str(missing))
+    return [dict(by_cell[cell], reason='Requested matching cell; difference thresholds bypassed', score=0.)
+            for cell in dict.fromkeys(cells)]
+
+
 def checked_source(parent, model, relative):
     path = parent/'sources'/model/relative
     expected = json.loads((parent/'source-hashes.json').read_text())[model][relative]
@@ -215,7 +224,7 @@ def draw_page(ROOT, dataset, stage, row, data, destination, pdf, wiggle=False):
             if d.get('error'):
                 keep.append(label(ROOT,'CURVE ERROR: see index.html',y=.83,size=.032))
             if band == 1 or wiggle:
-                keep.append(label(ROOT,'Fine curve detail' if wiggle else 'Fit region (linear scale)',y=.83,size=.03))
+                keep.append(label(ROOT,'Wiggle zoom (display only; no refit)' if wiggle else 'Fit region (linear scale)',y=.83,size=.03))
     canvas.Print(str(destination)); canvas.Print(str(pdf))
     canvas.Close()
 
@@ -224,7 +233,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--work',type=Path,default=Path('/gpfs01/star/scratch/pnord/lfhcal'))
     ap.add_argument('--out',type=Path,required=True)
-    ap.add_argument('--datasets',nargs='+',choices=('b2','e1','e2','e3'),default=['b2','e1','e2','e3'])
+    ap.add_argument('--datasets',nargs='+',choices=('b1','b2','e1','e2','e3'),default=['b2','e1','e2','e3'])
+    ap.add_argument('--cells',nargs='+',type=int,help='Plot these cells regardless of method differences')
     ap.add_argument('--h-threshold',type=float,default=.01)
     ap.add_argument('--mpv-threshold',type=float,default=.05)
     ap.add_argument('--width-threshold',type=float,default=.25)
@@ -248,17 +258,22 @@ def main():
         selection='abs(A-L)/max((abs(A)+abs(L))/2,0.1); either saved-fit mismatch also included',
         refit=False, histogram_normalization='none; original bins and counts',
         root_version=ROOT.gROOT.GetVersion(), datasets={}, errors=[])
+    if args.cells:
+        metadata['selection'] = 'Explicit requested cells; difference thresholds bypassed'
+        metadata['requested_cells'] = args.cells
     gallery = ['<!doctype html><meta charset="utf-8"><title>Discrepant LFHCal spectra</title>',
         '<style>body{font:16px sans-serif;margin:2em}img{max-width:100%}section{margin:3em 0}code{overflow-wrap:anywhere}</style>',
-        '<h1>B2 and E spectra review</h1><p>Original bins; no refits. Curves evaluated from archived source with saved parameters. '
+        '<h1>LFHCal spectra review</h1><p>Original bins; no refits. Curves evaluated from archived source with saved parameters. '
         'Top: logarithmic overview. Bottom: linear fit region. Dotted lines: fit limits. '
         'Both methods share axes. Their selected histograms can differ.</p>',
         f'<p>Selection: H ≥{100*limits[0]:g}%, MPV ≥{100*limits[1]:g}%, either width ≥{100*limits[2]:g}%, or only one saved fit. '
         'Exact configured thresholds and all candidate rankings: <a href="manifest.json">manifest</a>.</p>']
+    if args.cells:
+        gallery[-1] = '<p>Explicit matching cells: ' + ', '.join(map(str,args.cells)) + '. Difference thresholds bypassed. <a href="manifest.json">Manifest</a>.</p>'
     header_hash = None
     errors = []
     for index, dataset in enumerate(args.datasets):
-        parent = remaining if dataset == 'e2' else early
+        parent = remaining if dataset in ('b1','e2') else early
         root = extension if dataset == 'b2' else parent
         stage = 'refine8' if dataset == 'b2' else 'refine5'
         report = root/'reports'/f'{dataset}-comparison.csv'
@@ -266,7 +281,7 @@ def main():
             rows = [r for r in csv.DictReader(stream) if r['stage']==stage]
         if not rows:
             raise ValueError('No rows for '+dataset+' '+stage)
-        candidates = select_rows(rows,limits)
+        candidates = requested_rows(rows,args.cells) if args.cells else select_rows(rows,limits)
         chosen = candidates[:args.max_per_set] if args.max_per_set else candidates
         print(f'{dataset.upper()} {stage}: {len(candidates)} candidates, plotting {len(chosen)}',flush=True)
         meta = dict(stage=stage, report=str(report), report_sha256=sha(report),
@@ -323,7 +338,7 @@ def main():
                 # A narrow extra view avoids compressing real fixed-grid oscillations into pixels.
                 d=data['legacy']
                 if d.get('graph') and d['parameters'][0] < d['parameters'][3]/10:
-                    zoom=f'{dataset}-{stage}-cell{cell}-fine.png'
+                    zoom=f'{dataset}-{stage}-cell{cell}-wiggle-zoom.png'
                     draw_page(ROOT,dataset,stage,row,data,out/zoom,pdf,wiggle=True)
                     gallery.append(f'<p>Fine view: legacy Landau width is smaller than its convolution grid spacing.</p>'
                                    f'<img loading="lazy" src="{zoom}">')
