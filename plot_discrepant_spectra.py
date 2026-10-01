@@ -66,6 +66,18 @@ def requested_rows(rows, cells):
             for cell in dict.fromkeys(cells)]
 
 
+def cells_from_selection(path):
+    with path.open() as stream:
+        reader = csv.DictReader(stream)
+        if not {'cell_id', 'plotted'} <= set(reader.fieldnames or []):
+            raise ValueError('Selection CSV must contain cell_id and plotted columns')
+        cells = list(dict.fromkeys(int(r['cell_id']) for r in reader
+                     if str(r['plotted']).lower() in ('true', '1')))
+    if not cells:
+        raise ValueError('No plotted cells in selection CSV: ' + str(path))
+    return cells
+
+
 def checked_source(parent, model, relative):
     path = parent/'sources'/model/relative
     expected = json.loads((parent/'source-hashes.json').read_text())[model][relative]
@@ -234,7 +246,9 @@ def main():
     ap.add_argument('--work',type=Path,default=Path('/gpfs01/star/scratch/pnord/lfhcal'))
     ap.add_argument('--out',type=Path,required=True)
     ap.add_argument('--datasets',nargs='+',choices=('b1','b2','e1','e2','e3'),default=['b2','e1','e2','e3'])
-    ap.add_argument('--cells',nargs='+',type=int,help='Plot these cells regardless of method differences')
+    selection = ap.add_mutually_exclusive_group()
+    selection.add_argument('--cells',nargs='+',type=int,help='Plot these cells regardless of method differences')
+    selection.add_argument('--cells-from',type=Path,help='Plot every cell marked plotted in an earlier selection CSV')
     ap.add_argument('--h-threshold',type=float,default=.01)
     ap.add_argument('--mpv-threshold',type=float,default=.05)
     ap.add_argument('--width-threshold',type=float,default=.25)
@@ -244,6 +258,8 @@ def main():
     limits = [args.h_threshold,args.mpv_threshold,args.width_threshold,args.width_threshold]
     if min(limits)<=0 or args.max_per_set<0 or args.max_points<2001:
         ap.error('Thresholds must be positive, max-per-set >=0 and max-points >=2001')
+    if args.cells_from:
+        args.cells = cells_from_selection(args.cells_from)
     import ROOT
     ROOT.gROOT.SetBatch(True); ROOT.gStyle.SetOptStat(0); ROOT.gStyle.SetOptTitle(1)
     out = args.out.resolve()
@@ -261,6 +277,9 @@ def main():
     if args.cells:
         metadata['selection'] = 'Explicit requested cells; difference thresholds bypassed'
         metadata['requested_cells'] = args.cells
+    if args.cells_from:
+        metadata['selection_csv'] = str(args.cells_from.resolve())
+        metadata['selection_csv_sha256'] = sha(args.cells_from)
     gallery = ['<!doctype html><meta charset="utf-8"><title>Discrepant LFHCal spectra</title>',
         '<style>body{font:16px sans-serif;margin:2em}img{max-width:100%}section{margin:3em 0}code{overflow-wrap:anywhere}</style>',
         '<h1>LFHCal spectra review</h1><p>Original bins; no refits. Curves evaluated from archived source with saved parameters. '
