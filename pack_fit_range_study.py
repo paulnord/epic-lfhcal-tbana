@@ -51,6 +51,14 @@ def clean(value):
     return x if math.isfinite(x) else None
 
 
+def histogram_number(value):
+    """Keep exceptional values distinguishable in strict JSON and comparisons."""
+    x = float(value)
+    if math.isnan(x): return 'NaN'
+    if math.isinf(x): return '+Infinity' if x > 0 else '-Infinity'
+    return x
+
+
 def one(directory, pattern):
     paths = list(directory.glob(pattern))
     if len(paths) != 1:
@@ -60,10 +68,44 @@ def one(directory, pattern):
 
 def hist_values(h):
     n = h.GetNbinsX()
-    return dict(class_name=h.ClassName(), nbins=n, entries=float(h.GetEntries()),
-                edges=[float(h.GetBinLowEdge(i)) for i in range(1,n+2)],
-                contents=[float(h.GetBinContent(i)) for i in range(n+2)],
-                errors=[float(h.GetBinError(i)) for i in range(n+2)])
+    return dict(class_name=h.ClassName(), nbins=n, entries=histogram_number(h.GetEntries()),
+                edges=[histogram_number(h.GetBinLowEdge(i)) for i in range(1,n+2)],
+                contents=[histogram_number(h.GetBinContent(i)) for i in range(n+2)],
+                errors=[histogram_number(h.GetBinError(i)) for i in range(n+2)],
+                sumw2=[histogram_number(h.GetSumw2().At(i)) for i in range(h.GetSumw2N())],
+                error_option=int(h.GetBinErrorOption()))
+
+
+def histogram_issues(values):
+    """Diagnose unusual data without changing the histogram being archived."""
+    issues=[]
+    for field in ('entries','edges','contents','errors','sumw2'):
+        items=[values[field]] if field=='entries' else values[field]
+        for index,value in enumerate(items):
+            kind='nonfinite' if isinstance(value,str) else (
+                'negative' if field!='edges' and value<0 else None)
+            if kind is None: continue
+            issue=dict(field=field,value=value,kind=kind)
+            if field=='edges': issue['edge_index']=index
+            elif field!='entries':
+                issue['bin']=index
+                issue['region']=('underflow' if index==0 else
+                                 'overflow' if index==values['nbins']+1 else 'regular')
+            issues.append(issue)
+    return issues
+
+
+def issue_summary(issues):
+    counts={}
+    for issue in issues:
+        key=issue['field']+' '+issue['kind']
+        counts[key]=counts.get(key,0)+1
+    examples=[]
+    for issue in issues[:4]:
+        where=(f' bin {issue["bin"]} ({issue["region"]})' if 'bin' in issue else
+               f' edge {issue["edge_index"]}' if 'edge_index' in issue else '')
+        examples.append(f'{issue["field"]}{where}={issue["value"]}')
+    return ', '.join(f'{key}: {count}' for key,count in counts.items())+'; '+', '.join(examples)
 
 
 def fit_values(f):
@@ -137,8 +179,9 @@ def main():
                 if not p.is_file(): raise ValueError('Missing context: '+str(p))
             selections.append(spec)
     out.mkdir(parents=True)
-    manifest=dict(format_version=1,created_by=Path(__file__).name,
+    manifest=dict(format_version=2,created_by=Path(__file__).name,
         extraction_root_version=ROOT.gROOT.GetVersion(),fitting_performed=False,
+        histogram_nonfinite_encoding='JSON strings NaN, +Infinity, -Infinity; original ROOT values preserved',
         selection=CASES,purposes={str(k):v for k,v in PURPOSE.items()},cases=[],files=[],campaigns={},warnings=[],
         controls_note='Normal-looking controls, not certified good calibrations. Selected deliberately, not a representative sample.',
         reproduction_note='Saved fits provide final parameters and limits, not original starts or a complete TFitResult. '
@@ -201,9 +244,11 @@ def main():
                     expected=str(rows[cell].get('fit_saved','')).lower() in ('true','1')
                     if bool(fit)!=expected:raise ValueError('CSV/ROOT saved-fit mismatch')
                     values=hist_values(h)
-                    if not all(math.isfinite(v) for k in ('edges','contents','errors') for v in values[k]):
-                        raise ValueError('Nonfinite histogram')
-                    if any(v<0 for v in values['contents']+values['errors']):raise ValueError('Negative counts or errors')
+                    issues=histogram_issues(values)
+                    if issues:
+                        warning=f'{ds.upper()} {stage} {model} cell {cell}: '+issue_summary(issues)
+                        manifest['warnings'].append(warning)
+                        print('WARNING (preserved unchanged): '+warning,flush=True)
                     dest=output
                     for part in (ds,stage,model,'cell'+str(cell)):
                         dest=dest.GetDirectory(part) or dest.mkdir(part)
@@ -213,7 +258,8 @@ def main():
                         purpose=PURPOSE[cell],campaign=s['parent'].name,
                         original_file=str(s['hists']),original_histogram=h.GetName(),
                         root_path=f'{ds}/{stage}/{model}/cell{cell}/spectrum',
-                        audit_row=rows[cell],histogram=values,fit=fit_values(fit) if fit else None)
+                        audit_row=rows[cell],histogram=values,histogram_issues=issues,
+                        fit=fit_values(fit) if fit else None)
                     manifest['cases'].append(record);verify.append(record)
             finally:file.Close()
     finally:output.Close()
@@ -231,11 +277,16 @@ def main():
     manifest['histograms_root_sha256']=digest(out/'histograms.root')
     manifest['histogram_count']=len(verify)
     manifest['original_fit_count']=sum(r['fit'] is not None for r in verify)
+    manifest['histograms_with_issues']=sum(bool(r['histogram_issues']) for r in verify)
     dump(out/'manifest.json',manifest)
     (out/'README.txt').write_text(
         'Frozen LFHCal range study: 20 dataset/cell cases, each with legacy-selected and adaptive-selected histograms.\n'
         'histograms.root contains original-bin TH1 spectra and saved TF1 records only; no event trees.\n'
         'manifest.json also includes every bin edge, count, error, entries and saved-fit parameters/limits.\n'
+        'Raw Sumw2 and the bin-error option are included to diagnose invalid errors.\n'
+        'Nonfinite histogram numbers use JSON strings NaN, +Infinity, -Infinity. ROOT values are unchanged.\n'
+        'Per-case histogram_issues identifies every nonfinite or unexpected negative value, including flow bins.\n'
+        'Extraction warnings require investigation before fitting; successful copying does not certify valid fit input.\n'
         'Do not evaluate a deserialized callback TF1 as the authoritative continuous model; rebuild from archived source.\n'
         'context/ contains current and previous calibrations, stage reports and available rejection-log excerpts.\n'
         'campaigns/ contains hash-checked first-party C++ source, configuration and original ROOT build versions.\n'
@@ -246,6 +297,8 @@ def main():
             if p.is_file():z.write(p,str(Path(out.name)/p.relative_to(out)))
     size=archive.stat().st_size
     print(f'Verified {len(verify)} histograms and {manifest["original_fit_count"]} saved fits.',flush=True)
+    if manifest['histograms_with_issues']:
+        print(f'Preserved data warnings in {manifest["histograms_with_issues"]} histograms; see manifest.json.',flush=True)
     print(f'Upload: {archive}\nSize: {size/1024/1024:.2f} MiB',flush=True)
     if size>32*1024*1024:
         raise ValueError('Archive exceeds 32 MiB upload-tool limit; contact me before uploading')
