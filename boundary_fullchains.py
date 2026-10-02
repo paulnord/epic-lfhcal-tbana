@@ -13,6 +13,34 @@ def numeric(v):
   x=float(v);return x if math.isfinite(x) else None
  except (ValueError,TypeError):return None
 
+def common_input(b,out,code):
+ """Verify a surviving pre-MIP copy before publishing the DAG's ready marker."""
+ incoming=b.load(out/'manifest.json')['inputs'][code]
+ if incoming.get('mode')!='transfer':raise ValueError('Boundary comparison requires original pre-MIP transfer input')
+ expected=incoming['expected_transfer'];ready=out/'inputs'/code/'ready.json'
+ if ready.exists():raise ValueError('Preserving existing verified input: '+str(ready))
+ b.check_sources(out,'legacy');b.environment(out,'legacy')
+ failures=[];verified=None
+ for info in incoming['transfer_candidates']:
+  try:
+   b.check_info(info)
+   print('Checking original pre-MIP SHA-256: '+info['path'],flush=True)
+   actual=b.file_info(info['path'],hashed=True)
+   b.check_info(info)  # Also reject a file modified during the hash read.
+   if actual['size']!=expected['size'] or actual['sha256']!=expected['sha256']:
+    raise ValueError('SHA-256 differs from original input')
+   verified=actual;break
+  except (OSError,ValueError) as e:failures.append(info['path']+': '+str(e))
+ if verified is None:raise ValueError('No byte-identical original pre-MIP input for '+code+'; '+ '; '.join(failures))
+ trees=b.check_root(Path(verified['path']),events=True)
+ if trees!=incoming['expected_trees']:raise ValueError('Original event-tree counts differ: '+code)
+ b.check_info(verified)
+ ready.parent.mkdir(parents=True,exist_ok=True)
+ temporary=ready.with_suffix('.json.tmp')
+ b.dump(temporary,dict(transfer=verified,trees=trees,boundary='before initial MIP calibration',mode='transfer',verified_against_original=True,original_ready_sha256=incoming['original_ready_sha256']))
+ temporary.replace(ready)
+ print('Verified original input for '+code.upper()+': '+verified['path'],flush=True)
+
 def audit(b,out,model,code,stage):
  b.audit_stage(out,model,code,stage)
  if stage=='select':return
@@ -90,7 +118,7 @@ def main():
   if getattr(a,arg) is None:p.error('Missing --'+arg)
  if a.stage and a.stage not in stages(a.dataset):p.error('Stage outside this dataset plan')
  if a.action=='build':build(b,a.out,a.model)
- elif a.action=='input':b.common_input(a.out,a.dataset)
+ elif a.action=='input':common_input(b,a.out,a.dataset)
  elif a.action=='stage':run_stage(b,a.out,a.model,a.dataset,a.stage)
  elif a.action=='audit':audit(b,a.out,a.model,a.dataset,a.stage)
  elif a.action=='compare':compare(b,a.out,a.dataset)
