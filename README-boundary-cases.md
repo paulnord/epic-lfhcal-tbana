@@ -67,3 +67,30 @@ the review. Existing output is preserved; use another `--out` to rerun.
 histogram/parameter/range checks, and nonfinite-error display behavior without
 ROOT. These checks do not validate physical fits or ROOT rendering; those run
 in the BNL EIC shell.
+
+## Repair PDF books from existing PNGs
+
+The first version opened ROOT PDF books with a 10-by-10 placeholder canvas.
+ROOT could calculate a zero drawable size and collapse the PDF page coordinates.
+The canvas sizes are now explicit and nonzero. This was an export bug, not a fit
+or histogram change. `check_boundary_case_rendering.py` reproduces the old bug
+and checks the corrected ROOT export and PNG-to-PDF recovery with synthetic data.
+
+For an already completed review, rebuild only the PDF books from the existing
+PNGs. This uses ordinary Python with Matplotlib (the same environment as the
+flow plotter), without ROOT, refits, or curve evaluation. It leaves the original
+review untouched and places the corrected books in a new directory and ZIP.
+These recovered books embed the original PNGs, so their resolution is the PNG
+resolution. A fresh run of the corrected ROOT plotter produces vector PDF books.
+
+```tcsh
+set REPO = ~/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark
+set RANGEWORK = /gpfs01/star/scratch/pnord/lfhcal/boundary-fullchains-20261002
+git -C "$REPO" fetch origin codex/adaptive-langau-minimal && \
+git -C "$REPO" show FETCH_HEAD:rebuild_case_pdfs.py > /tmp/rebuild_case_pdfs.py && \
+python3 /tmp/rebuild_case_pdfs.py --input "$RANGEWORK/interesting-cases" \
+  --out "$RANGEWORK/interesting-cases-pdfs"
+```
+
+Download `interesting-cases-pdfs.zip`. It contains the three rebuilt books and
+the page order, original PNG sizes, and SHA-256 checksums in `provenance.json`.
