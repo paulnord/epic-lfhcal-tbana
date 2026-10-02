@@ -15,6 +15,8 @@ and matplotlib, not ROOT. CSVs retain unclipped values and source provenance.
 Use --steps-only for the original two per-method step figures. Boundary campaigns
 are supported: their per-cell boundary-comparison tables are ignored, and their
 normal method-comparison tables contain the newly computed fit parameters.
+Use --original-boundary on that same root to read the frozen original results
+instead, including B2 R6-R8. The saved-fit masks come from original_saved.
 """
 import argparse
 import csv
@@ -82,24 +84,58 @@ def read_report(path):
     return data
 
 
-def load(roots, replacements):
+def read_original_boundary_report(path):
+    """Read frozen original fits from a boundary campaign's paired reports."""
+    data = {}
+    dataset = path.name.removesuffix('-boundary-comparison.csv')
+    with path.open(newline='') as f:
+        reader = csv.DictReader(f)
+        required = {'dataset', 'stage', 'model', 'cell_id', 'original_saved'}
+        required |= {'original_'+p for p, _ in PARAMETERS}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f'{path}: missing columns {sorted(missing)}')
+        for row in reader:
+            if row['dataset'].lower() != dataset.lower() or row['model'] not in MODELS:
+                raise ValueError(f'{path}: unexpected dataset or method')
+            n = stage_index(row['stage'])
+            if n is None:
+                continue
+            key = (row['model'], int(row['cell_id']), n)
+            if key in data:
+                raise ValueError(f'{path}: duplicate row {key}')
+            flag = row['original_saved'].lower().strip()
+            if flag not in ('true', 'false', '1', '0'):
+                raise ValueError(f'{path}: invalid original_saved flag {flag!r}')
+            data[key] = {p: number(row['original_'+p]) if flag in ('true','1') else None
+                         for p, _ in PARAMETERS}
+    if not data:
+        raise ValueError(f'{path}: empty original-boundary report')
+    return data
+
+
+def load(roots, replacements, original_boundary=False):
     data, sources = {}, {}
+    suffix = '-boundary-comparison.csv' if original_boundary else '-comparison.csv'
+    reader = read_original_boundary_report if original_boundary else read_report
     for root in roots:
-        paths = sorted(p for p in (root/'reports').glob('*-comparison.csv')
-                       if not p.name.endswith('-boundary-comparison.csv'))
+        paths = sorted(p for p in (root/'reports').glob('*'+suffix)
+                       if original_boundary or not p.name.endswith('-boundary-comparison.csv'))
         if not paths:
-            raise ValueError(f'No comparison reports under {root}/reports')
+            raise ValueError(f'No {suffix} reports under {root}/reports')
         for path in paths:
             print('Reading '+str(path), flush=True)
-            dataset = path.name.removesuffix('-comparison.csv').lower()
+            dataset = path.name.removesuffix(suffix).lower()
             if dataset in data:
                 raise ValueError(f'Duplicate dataset {dataset}; use --replace-report explicitly')
-            data[dataset], sources[dataset] = read_report(path), str(path.resolve())
+            data[dataset], sources[dataset] = reader(path), str(path.resolve())
     for path in replacements:
-        dataset = path.name.removesuffix('-comparison.csv').lower()
+        if not path.name.endswith(suffix):
+            raise ValueError(f'Replacement requires a {suffix} report: {path}')
+        dataset = path.name.removesuffix(suffix).lower()
         if dataset not in data:
             raise ValueError(f'Replacement has no original dataset: {dataset}')
-        data[dataset], sources[dataset] = read_report(path), str(path.resolve())
+        data[dataset], sources[dataset] = reader(path), str(path.resolve())
     return data, sources
 
 
@@ -285,10 +321,14 @@ def main():
     ap.add_argument('--steps-only',action='store_true',
                     help='Only the two original per-method step figures; no absolute/reference figures')
     ap.add_argument('--label',default='',help='Optional campaign label in figure titles and provenance')
+    ap.add_argument('--original-boundary',action='store_true',
+                    help='Read frozen original_* fits from the boundary campaign paired reports')
     args=ap.parse_args()
     if not (args.r0>0 and args.clip>0 and 0<args.alpha<=1):
         ap.error('r0 and clip must be positive; alpha must be in (0,1]')
-    data,sources=load(args.root,args.replace_report)
+    if args.original_boundary and not args.label:
+        args.label='original boundary'
+    data,sources=load(args.root,args.replace_report,args.original_boundary)
     datasets=[d.lower() for d in args.datasets]
     for ds in datasets+([] if args.steps_only else [args.absolute_dataset.lower()]):
         if ds not in data:
@@ -304,6 +344,7 @@ def main():
     write_csv(Path(str(args.out)+'-values.csv'),rows)
     Path(str(args.out)+'-sources.json').write_text(json.dumps(dict(sources=sources,
         datasets=datasets,max_stage=last,r0=args.r0,clip=args.clip,label=args.label,views=modes,
+        boundary_source='frozen original fits' if args.original_boundary else 'campaign method-comparison fits',
         fixed_reference='legacy R5, newly saved fit only',
         gap_policy='Both endpoint fits required; zero denominator omitted'),indent=2)+'\n')
     for mode in modes:
