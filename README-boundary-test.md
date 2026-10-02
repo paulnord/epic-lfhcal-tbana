@@ -5,6 +5,14 @@ It runs B1, B2, C1, C2, C3, D1, D2, E1, E2, E3, F1, F2, G1 and G2 through R5,
 then continues B2 through R8. The 233-task Condor DAG includes separate builds,
 14 shared pre-MIP inputs, 28 chains, 14 comparisons, and a summary.
 
+With `--reuse-selection`, the test starts at **refine1** using each method's
+surviving original selected events. This is a 191-task DAG: 2 builds,
+28 selection snapshots, 146 refinements, 14 comparisons, and the summary.
+The original MIP and selection stages are explicitly reused. The boundary
+change is guarded by `impE=true`, so those stages do not exercise changed code.
+All refinements are rerun, starting with the original calibration embedded in
+each method's selected-event ROOT file. Legacy and Adaptive keep separate inputs.
+
 Existing original-boundary campaigns supply the other two arms of the four-way
 comparison. Their reports are copied and fingerprinted; their sources, binaries,
 ROOT files and calibrations are not modified. D1 uses its successful recovery
@@ -44,13 +52,17 @@ flag, not a new optimizer fallback or a scientifically accepted fit.
 
 ## BNL preparation (tcsh)
 
+Use this resume command when the pre-MIP transfer files are unavailable but the
+28 original selected-event files survive. Omit `--reuse-selection` to prepare
+the original 233-task test from pre-MIP inputs instead.
+
 ```tcsh
 set REPO = ~/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark
 set RANGEWORK = /gpfs01/star/scratch/pnord/lfhcal/boundary-fullchains-20261002
 
 git -C "$REPO" fetch origin codex/adaptive-langau-minimal && \
 git -C "$REPO" show FETCH_HEAD:prepare_boundary_fullchains.py > /tmp/prepare_boundary_fullchains.py && \
-python3 /tmp/prepare_boundary_fullchains.py --repo "$REPO" --ref FETCH_HEAD --out "$RANGEWORK" && \
+python3 /tmp/prepare_boundary_fullchains.py --repo "$REPO" --ref FETCH_HEAD --reuse-selection --out "$RANGEWORK" && \
 cd "$RANGEWORK" && \
 yall-run validate && \
 yall-run plan > plan.txt
@@ -60,7 +72,39 @@ Preparation resolves FETCH_HEAD to a commit, retrieves all helper files from
 that same commit, and records their hashes. It verifies original sources,
 recipes, successful reference stages, original input records, ROOT versions,
 and the EIC shell. It refuses an existing output directory. No jobs are submitted.
-If a transfer file was moved, preparation searches the work directory and
+
+### Resuming from original selections
+
+Preparation checks the 28 expected selected-event paths and their successful
+stage reports, including method/dataset identities and original event-tree
+counts. Missing selections are reported together before any output is created.
+It does not require the missing pre-MIP files or their readiness markers.
+
+Each worker copies its original selection into the new campaign's
+`<method>/<set>/select/` directory. The copy preserves all bytes, including the
+embedded calibration. It calculates SHA-256 while copying and checks the saved
+copy against that digest, then checks ROOT validity and the original tree counts.
+Original-file metadata must remain unchanged during the copy. Only after these
+checks does it publish `inputs/<method>/<set>/ready.json` and release refine1.
+Every refinement checks its local selection's recorded metadata and identity.
+Copies are made read-only; original files are not modified.
+
+This establishes a new fingerprint of the surviving selection. The historical
+selection report records tree counts, not a historical whole-file SHA-256;
+the resume mode does not claim a comparison against an unavailable old hash.
+Preparation prints the total selected-data copy size. Copying and hashing run
+on Condor workers, and each method starts as soon as its own snapshot is verified.
+
+Original MIP/selection statistics are retained as `execution_origin=reused_original`.
+Their old timings remain under `original_execution`, and they have no new
+wall-time measurement. New refinement results are labeled `new_run`.
+There are no new MIP ROOT products in resume mode; those stages were not rerun.
+The original MIP/selection reports and all original refinement references remain
+fingerprinted separately under `references/`.
+
+### Full chains from pre-MIP inputs
+
+Without `--reuse-selection`, if a transfer file was moved, preparation searches the work directory and
 `/gpfs01/star/pwg/pnord/eic/2026TBanalysis` for its exact pre-MIP basename, down
 to four directory levels. `--archive DIR` changes that archive location;
 repeatable `--input-root DIR` adds other locations. All unresolved sets are
@@ -83,8 +127,10 @@ To create and start the prepared test, capturing the campaign path automatically
 
 ```tcsh
 cd "$RANGEWORK" && \
-set RANGECAM = `yall-run create --campaigns-dir "$RANGEWORK/campaigns" | tail -n 1`
-yall-run start "$RANGECAM" && yall-run status "$RANGECAM" -v
+yall-run create --campaigns-dir "$RANGEWORK/campaigns" > "$RANGEWORK/create.log" && \
+set RANGECAM = `tail -n 1 "$RANGEWORK/create.log"` && \
+yall-run start "$RANGECAM" && \
+yall-run status "$RANGECAM" -v
 ```
 
 The full plan is `$RANGEWORK/plan.txt`. Fit jobs have an 8-hour internal timeout
@@ -103,7 +149,8 @@ production builds happen on BNL, not in the local frozen-histogram environment.
 * `reports/<set>-four-way-stages.json`: original/new stage summaries.
 * `reports/<set>-comparison.csv`: new Legacy versus new Adaptive, compatible
   with the previous comparison layout.
-* Each fit stage retains `cells.csv`, `range-audit.json`, ROOT outputs and plots.
+* Each newly run fit stage retains `cells.csv`, `range-audit.json`, ROOT outputs and plots.
+* Both combined tables identify reused initial results with `execution_origin`.
 
 Changed calibrations can affect later selection and convergence. Review those
 trajectories and spectra before accepting a production calibration change.
@@ -122,5 +169,10 @@ Successful minimization, or more saved fits, is not itself scientific approval.
   four-way report joins; originals remain unchanged and overwrite is rejected.
   It also verifies relocated inputs, rejection of same-size wrong contents,
   changed metadata, missing original hashes, and aggregation of missing inputs.
+* The same fixture validates the 191-task resume Yallfile with all pre-MIP files
+  and readiness markers absent. All 28 method-specific copies and hashes are
+  checked; changed source metadata, wrong tree counts, and cross-method readiness
+  records are rejected. The report joins retain unchanged, labeled initial
+  results and calculate shifts only for newly run refinements.
 * A ROOT fixture verifies boundary diagnostics, carried-forward counts, and
   rejection of a saved-fit/logged-edge mismatch.
