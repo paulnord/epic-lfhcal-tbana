@@ -18,6 +18,7 @@ import zipfile
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 import numpy as np
 
 PARAMETERS = [('scale_h', 'H'), ('mpv', 'MPV'),
@@ -94,19 +95,49 @@ def color(cell):
     return plt.get_cmap('turbo')((cell * .6180339887498949) % 1)
 
 
+def draw_tracks(ax, ns, tracks, cells, alpha):
+    """Batch artists; adjacent finite endpoints only, preserving all fit gaps."""
+    ys = np.asarray(tracks, dtype=float)
+    if ys.size == 0:
+        return
+    xs = np.broadcast_to(np.asarray(ns), ys.shape)
+    colors = np.array([color(cell) for cell in cells])
+    points = np.stack((xs, ys), axis=-1)
+    segments = np.stack((points[:, :-1], points[:, 1:]), axis=2)
+    valid = np.isfinite(segments).all(axis=(2, 3))
+    segment_colors = np.broadcast_to(colors[:, None, :], (*valid.shape, 4))
+    if valid.any():
+        ax.add_collection(LineCollection(segments[valid], colors=segment_colors[valid],
+                          linewidths=.65, alpha=alpha, rasterized=True))
+    finite = np.isfinite(ys)
+    if finite.any():
+        point_colors = np.broadcast_to(colors[:, None, :], (*ys.shape, 4))
+        ax.scatter(xs[finite], ys[finite], c=point_colors[finite], s=2,
+                   alpha=alpha, linewidths=0, rasterized=True)
+        ax.autoscale_view()
+
+
 def save(fig, out, name, pdf):
+    print('  Saving PNG: '+name, flush=True)
     fig.savefig(out / (name + '.png'), dpi=150)
     if pdf:
+        print('  Saving PDF: '+name, flush=True)
         fig.savefig(out / (name + '.pdf'))
     plt.close(fig)
     print(name, flush=True)
 
 
 def plots(all_data, lasts, args):
-    exported = []
     names = []
+    fields = ['dataset', 'method', 'boundary', 'cell_id', 'parameter', 'stage',
+              'view', 'fractional_change', 'clipped']
+    with (args.out/'flow-values.csv').open('w', newline='') as f:
+        csv.DictWriter(f, fieldnames=fields).writeheader()
+    cells_by_set = {ds: sorted({c for m,b,c,n in data}) for ds,data in all_data.items()}
     for p, title in PARAMETERS:
         for mode in ('step', 'legacy-r5'):
+            print('Drawing flow-%s-%s' % (p,mode), flush=True)
+            exported = []
             fig, axs = plt.subplots(2, 2, figsize=(15, max(7, .6*len(all_data)+4)),
                                     sharex=True, sharey=True)
             clipped = 0
@@ -114,25 +145,31 @@ def plots(all_data, lasts, args):
                 for lane, (ds, data) in enumerate(all_data.items(), 1):
                     ns = np.arange(1 if mode == 'step' else 0, lasts[ds]+1)
                     tracks = []
+                    cells = cells_by_set[ds]
                     ax.axhline(lane, color='0.6', lw=.5)
-                    for cell in sorted({c for m, b, c, n in data}):
+                    for cell in cells:
                         ys = series(data, arm, cell, ns, p, mode)
                         q = np.sign(ys)*np.log10(1+np.abs(ys)/args.r0)
                         hit = np.isfinite(q) & (np.abs(q)>args.clip)
                         clipped += int(hit.sum())
-                        scaled = lane - .42*np.clip(q, -args.clip, args.clip)/args.clip
-                        ax.plot(ns, scaled, color=color(cell), alpha=.18, lw=.6, marker='.', ms=2)
-                        for sign, marker in ((1, '^'), (-1, 'v')):
-                            mask = hit & (np.sign(q)==sign)
-                            ax.scatter(ns[mask], scaled[mask], marker=marker, s=9, color=color(cell))
                         tracks.append(q)
                         for n, y in zip(ns, ys):
                             exported.append(dict(dataset=ds, method=arm[0], boundary=arm[1],
                                 cell_id=cell, parameter=p, stage=int(n), view=mode,
                                 fractional_change=float(y) if np.isfinite(y) else '',
                                 clipped=bool(np.isfinite(y) and math.log10(1+abs(y)/args.r0)>args.clip)))
+                    tracks = np.asarray(tracks)
+                    scaled = lane-.42*np.clip(tracks, -args.clip, args.clip)/args.clip
+                    draw_tracks(ax, ns, scaled, cells, .18)
+                    colors = np.array([color(cell) for cell in cells])
+                    for sign, marker in ((1, '^'), (-1, 'v')):
+                        hit = np.isfinite(tracks) & (sign*tracks > args.clip)
+                        ci, ni = np.where(hit)
+                        if len(ci):
+                            ax.scatter(ns[ni], scaled[ci,ni], marker=marker, s=9,
+                                       c=colors[ci], rasterized=True)
                     for i, n in enumerate(ns):
-                        vals = np.array(tracks)[:, i]
+                        vals = tracks[:, i]
                         vals = vals[np.isfinite(vals)]
                         if len(vals):
                             lo, med, hi = np.quantile(vals, [.16, .5, .84])
@@ -166,16 +203,18 @@ def plots(all_data, lasts, args):
             name = 'flow-%s-%s' % (p,mode)
             save(fig,args.out,name,args.pdf)
             names.append(name)
+            with (args.out/'flow-values.csv').open('a', newline='') as f:
+                csv.DictWriter(f, fieldnames=fields).writerows(exported)
+            del exported
         for ds, data in all_data.items():
+            print('Drawing %s-absolute-%s' % (ds,p), flush=True)
             fig, axs = plt.subplots(2,2,figsize=(12,8),sharex=True,sharey=True)
             ns = np.arange(lasts[ds]+1)
             for ax, arm in zip(axs.flat,ARMS):
-                count = 0
-                for cell in sorted({c for m,b,c,n in data}):
-                    ys = series(data,arm,cell,ns,p,'absolute')
-                    count += int(np.isfinite(ys).sum())
-                    ax.plot(ns,ys,color=color(cell),alpha=.25,lw=.7,marker='.',ms=2)
-                if not count:
+                cells = cells_by_set[ds]
+                tracks = np.array([series(data,arm,cell,ns,p,'absolute') for cell in cells])
+                draw_tracks(ax, ns, tracks, cells, .25)
+                if not np.isfinite(tracks).any():
                     ax.text(.5,.5,'No saved finite values',transform=ax.transAxes,ha='center')
                 ax.set_title('%s / %s boundary'% (arm[0].capitalize(),arm[1]))
                 ax.set_ylabel(title+' (ADC)')
@@ -188,10 +227,6 @@ def plots(all_data, lasts, args):
             name = '%s-absolute-%s'%(ds,p)
             save(fig,args.out,name,args.pdf)
             names.append(name)
-    with (args.out/'flow-values.csv').open('w',newline='') as f:
-        w = csv.DictWriter(f,fieldnames=list(exported[0]))
-        w.writeheader()
-        w.writerows(exported)
     return names
 
 
@@ -212,7 +247,9 @@ def main():
         if ds not in DATASETS or ds in data:
             ap.error('Unknown or duplicate dataset: '+ds)
         path = args.root/'reports'/(ds+'-boundary-comparison.csv')
+        print('Reading '+str(path), flush=True)
         data[ds], lasts[ds] = read(path,ds)
+        print('  %d cell/stage/arm records' % len(data[ds]), flush=True)
         sources[ds] = dict(path=str(path.resolve()),sha256=hashlib.sha256(path.read_bytes()).hexdigest())
     stats = args.root/'all-stage-statistics.csv'
     if not stats.is_file():
@@ -230,6 +267,7 @@ def main():
     bundle = args.out.with_name(args.out.name+'.zip')
     files = [args.out/(n+ext) for n in names for ext in (['.png','.pdf'] if args.pdf else ['.png'])]
     files += [args.out/n for n in ('flow-values.csv','all-stage-statistics.csv','sources.json','index.html')]
+    print('Packaging '+str(bundle), flush=True)
     with zipfile.ZipFile(bundle,'w',zipfile.ZIP_DEFLATED) as z:
         for path in files:
             z.write(path,path.name)
