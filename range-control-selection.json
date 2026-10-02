@@ -1,0 +1,263 @@
+{
+  "selection": {
+    "b1": [
+      192,
+      2817,
+      194,
+      2819,
+      196,
+      2821,
+      2822,
+      199
+    ],
+    "e1": [
+      768,
+      769,
+      770,
+      1283,
+      1988,
+      773,
+      774,
+      1287
+    ],
+    "e2": [
+      1984,
+      1281,
+      1282,
+      2243,
+      1284,
+      1989,
+      1286,
+      1287
+    ],
+    "b2": [
+      192,
+      2817,
+      194,
+      2819,
+      196,
+      2821,
+      2822,
+      199
+    ]
+  },
+  "audit": [
+    {
+      "dataset": "b1",
+      "layer": 0,
+      "cell": 192,
+      "entries": 28158.0,
+      "adaptive_H": 37.221903,
+      "legacy_H": 37.221903,
+      "eligible_count": 45
+    },
+    {
+      "dataset": "b1",
+      "layer": 1,
+      "cell": 2817,
+      "entries": 27926.0,
+      "adaptive_H": 52.674707,
+      "legacy_H": 52.674708,
+      "eligible_count": 48
+    },
+    {
+      "dataset": "b1",
+      "layer": 2,
+      "cell": 194,
+      "entries": 27619.0,
+      "adaptive_H": 51.003002,
+      "legacy_H": 51.003001,
+      "eligible_count": 46
+    },
+    {
+      "dataset": "b1",
+      "layer": 3,
+      "cell": 2819,
+      "entries": 27958.0,
+      "adaptive_H": 53.664908,
+      "legacy_H": 53.664804,
+      "eligible_count": 46
+    },
+    {
+      "dataset": "b1",
+      "layer": 4,
+      "cell": 196,
+      "entries": 27850.0,
+      "adaptive_H": 65.468602,
+      "legacy_H": 65.468598,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "b1",
+      "layer": 5,
+      "cell": 2821,
+      "entries": 27614.0,
+      "adaptive_H": 82.067771,
+      "legacy_H": 82.067751,
+      "eligible_count": 48
+    },
+    {
+      "dataset": "b1",
+      "layer": 6,
+      "cell": 2822,
+      "entries": 27755.0,
+      "adaptive_H": 104.035076,
+      "legacy_H": 104.035076,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "b1",
+      "layer": 7,
+      "cell": 199,
+      "entries": 28158.0,
+      "adaptive_H": 98.592955,
+      "legacy_H": 98.59294,
+      "eligible_count": 42
+    },
+    {
+      "dataset": "e1",
+      "layer": 0,
+      "cell": 768,
+      "entries": 13111.0,
+      "adaptive_H": 14.057533,
+      "legacy_H": 14.056126,
+      "eligible_count": 43
+    },
+    {
+      "dataset": "e1",
+      "layer": 1,
+      "cell": 769,
+      "entries": 13028.0,
+      "adaptive_H": 16.563166,
+      "legacy_H": 16.563499,
+      "eligible_count": 48
+    },
+    {
+      "dataset": "e1",
+      "layer": 2,
+      "cell": 770,
+      "entries": 12819.0,
+      "adaptive_H": 18.753362,
+      "legacy_H": 18.752521,
+      "eligible_count": 43
+    },
+    {
+      "dataset": "e1",
+      "layer": 3,
+      "cell": 1283,
+      "entries": 13007.0,
+      "adaptive_H": 18.184923,
+      "legacy_H": 18.184492,
+      "eligible_count": 44
+    },
+    {
+      "dataset": "e1",
+      "layer": 4,
+      "cell": 1988,
+      "entries": 13179.0,
+      "adaptive_H": 19.970664,
+      "legacy_H": 19.969866,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "e1",
+      "layer": 5,
+      "cell": 773,
+      "entries": 13077.0,
+      "adaptive_H": 24.300713,
+      "legacy_H": 24.299711,
+      "eligible_count": 48
+    },
+    {
+      "dataset": "e1",
+      "layer": 6,
+      "cell": 774,
+      "entries": 13204.0,
+      "adaptive_H": 26.841938,
+      "legacy_H": 26.847264,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "e1",
+      "layer": 7,
+      "cell": 1287,
+      "entries": 13335.0,
+      "adaptive_H": 39.64988,
+      "legacy_H": 39.652649,
+      "eligible_count": 42
+    },
+    {
+      "dataset": "e2",
+      "layer": 0,
+      "cell": 1984,
+      "entries": 13353.0,
+      "adaptive_H": 16.760457,
+      "legacy_H": 16.752927,
+      "eligible_count": 42
+    },
+    {
+      "dataset": "e2",
+      "layer": 1,
+      "cell": 1281,
+      "entries": 13017.0,
+      "adaptive_H": 15.203645,
+      "legacy_H": 15.200837,
+      "eligible_count": 46
+    },
+    {
+      "dataset": "e2",
+      "layer": 2,
+      "cell": 1282,
+      "entries": 12961.0,
+      "adaptive_H": 16.455485,
+      "legacy_H": 16.46194,
+      "eligible_count": 44
+    },
+    {
+      "dataset": "e2",
+      "layer": 3,
+      "cell": 2243,
+      "entries": 13257.0,
+      "adaptive_H": 16.600082,
+      "legacy_H": 16.60007,
+      "eligible_count": 46
+    },
+    {
+      "dataset": "e2",
+      "layer": 4,
+      "cell": 1284,
+      "entries": 13077.0,
+      "adaptive_H": 25.118848,
+      "legacy_H": 25.118268,
+      "eligible_count": 45
+    },
+    {
+      "dataset": "e2",
+      "layer": 5,
+      "cell": 1989,
+      "entries": 13214.0,
+      "adaptive_H": 27.605303,
+      "legacy_H": 27.603909,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "e2",
+      "layer": 6,
+      "cell": 1286,
+      "entries": 13267.0,
+      "adaptive_H": 30.774254,
+      "legacy_H": 30.773298,
+      "eligible_count": 47
+    },
+    {
+      "dataset": "e2",
+      "layer": 7,
+      "cell": 1287,
+      "entries": 13224.0,
+      "adaptive_H": 39.366645,
+      "legacy_H": 39.370801,
+      "eligible_count": 41
+    }
+  ],
+  "rule": "Exclude all previously studied cell IDs. Both original fits saved, BC>=2, H inside window, legacy/adaptive H within 1%. One cell at lower median adaptive entry count per layer, ties by cell ID. B2 uses matched B1 cells without screening B2 results. These are agreement-selected controls, not an unbiased detector sample."
+}
