@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare an isolated 233-task Legacy/Adaptive valley-boundary campaign.
+"""Prepare an isolated Legacy/Adaptive valley-boundary campaign.
 Reads original campaign snapshots and references; never submits jobs.
 """
 import argparse,csv,hashlib,importlib.util,json,os,shutil,subprocess,sys,time
@@ -59,7 +59,7 @@ def resolve_input(b, code, original, ready_path, indexed, roots):
  return dict(mode='transfer',files={'transfer':infos[0]},transfer_candidates=infos,expected_transfer=expected,expected_trees=ready['trees'],original_ready_path=str(ready_path),original_ready_sha256=sha(ready_path))
 
 def make_yall(out,worker,b):
- m=load(out/'manifest.json');lines=['campaign lfhcal-valley-boundary-fullchains','backend condor','','%cpus 1','%memory 8GB','%disk 16GB','%time 10h','%getenv true',f'%wrapper {out}/run-in-eic-shell.sh {m["eic_shell"]} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1',''];count=0
+ m=load(out/'manifest.json');resume=m.get('reuse_selection',False);campaign='lfhcal-valley-boundary-refinements' if resume else 'lfhcal-valley-boundary-fullchains';lines=['campaign '+campaign,'backend condor','','%cpus 1','%memory 8GB','%disk 16GB','%time 10h','%getenv true',f'%wrapper {out}/run-in-eic-shell.sh {m["eic_shell"]} /usr/bin/env ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1',''];count=0
  def task(name,deps,cmd,outputs,inputs=(),settings=()):
   nonlocal count
   count+=1;lines.append(name+':'+(' '+' '.join(deps) if deps else ''));lines.extend('    '+s for s in settings)
@@ -68,25 +68,30 @@ def make_yall(out,worker,b):
   lines.extend([f'    python3 @input.runner {cmd} --out {out}',''])
  for model in b.MODELS:task('build-'+model,[],f'build --model {model}',[out/f'build-{model}.json'],settings=['%cpus 4','%time 2h'])
  for code in CODES:
-  task('input-'+code,['build-legacy','build-adaptive'],f'input --dataset {code}',[out/'inputs'/code/'ready.json'],settings=['%time 24h'])
+  if not resume:task('input-'+code,['build-legacy','build-adaptive'],f'input --dataset {code}',[out/'inputs'/code/'ready.json'],settings=['%time 24h'])
   for model in b.MODELS:
    previous='input-'+code
+   if resume:
+    previous=f'selection-{model}-{code}';selected=m['selection_inputs'][code][model]
+    task(previous,['build-'+model],f'selection --model {model} --dataset {code}',[worker.selection_ready(out,model,code),b.paths(out,model,code,'select')['root']],inputs=[('original_selection',Path(selected['file']['path'])),('original_stage',out/selected['reference'])],settings=['%time 24h'])
    for stage in worker.stages(code):
+    if resume and stage in ('mip','select'):continue
     p=b.paths(out,model,code,stage);products=[p['root'],p['summary']];inputs=[('build_record',out/f'build-{model}.json')]
     if stage!='select':products.extend([p['calib'],p['hists'],p['report'],p['directory']/'range-audit.json'])
     if stage=='mip':inputs.append(('ready',out/'inputs'/code/'ready.json'))
     elif stage=='select':inputs.append(('initial_events',b.paths(out,model,code,'mip')['root']))
     else:
      inputs.append(('selected_events',b.paths(out,model,code,'select')['root']));n=int(stage[6:])
+     if resume:inputs.append(('selection_record',worker.selection_ready(out,model,code)))
      if n>1:inputs.append(('previous_calibration',b.paths(out,model,code,f'refine{n-1}')['calib']))
     name=f'{stage}-{model}-{code}';task(name,[previous],f'stage --model {model} --dataset {code} --stage {stage}',products,inputs);previous=name
   final=worker.stages(code)[-1]
   task('compare-'+code,[f'{final}-{model}-{code}' for model in b.MODELS],f'compare --dataset {code}',[out/'reports'/f'{code}-boundary-comparison.csv',out/'reports'/f'{code}-four-way-stages.json',out/'reports'/f'{code}-comparison.csv',out/'reports'/f'{code}-stages.json'])
  task('summary',['compare-'+c for c in CODES],'summary',[out/'summary.json',out/'all-stage-statistics.csv',out/'all-cell-boundary-comparisons.csv'])
- assert count==233;return '\n'.join(lines)+'\n',count
+ assert count==(191 if resume else 233);return '\n'.join(lines)+'\n',count
 
 def main():
- ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--repo',type=Path,required=True);ap.add_argument('--ref',default='FETCH_HEAD');ap.add_argument('--work',type=Path,default=Path('/gpfs01/star/scratch/pnord/lfhcal'));ap.add_argument('--archive',type=Path,default=DEFAULT_ARCHIVE);ap.add_argument('--input-root',type=Path,action='append',default=[],help='Additional directory to search for exact original pre-MIP files (repeatable; depth <=4)');ap.add_argument('--out',type=Path,required=True);a=ap.parse_args();a.work=a.work.resolve();a.out=a.out.resolve();a.repo=a.repo.resolve()
+ ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--repo',type=Path,required=True);ap.add_argument('--ref',default='FETCH_HEAD');ap.add_argument('--work',type=Path,default=Path('/gpfs01/star/scratch/pnord/lfhcal'));ap.add_argument('--archive',type=Path,default=DEFAULT_ARCHIVE);ap.add_argument('--input-root',type=Path,action='append',default=[],help='Additional directory to search for exact original pre-MIP files (repeatable; depth <=4)');ap.add_argument('--reuse-selection',action='store_true',help='Copy each method\'s original selected events on workers and rerun from refine1; initial MIP/selection reports are explicitly reused');ap.add_argument('--out',type=Path,required=True);a=ap.parse_args();a.work=a.work.resolve();a.out=a.out.resolve();a.repo=a.repo.resolve()
  for path in (a.work,a.out,a.repo):
   if any(ch.isspace() or ch in '{}\"\'' for ch in str(path)):raise ValueError('Use paths without whitespace, braces or quotes')
  if a.out.exists():raise ValueError('Use a new output directory; refusing '+str(a.out))
@@ -119,30 +124,44 @@ def main():
   if m['eic_shell_sha256']!=sha(shell):raise ValueError('Original EIC shells differ')
  if sha(source_parent/'run-in-eic-shell.sh')!=sha(a.work/REMAINING/'run-in-eic-shell.sh'):raise ValueError('Original wrappers differ')
  search_roots=list(dict.fromkeys(p.resolve() for p in [a.work,a.archive]+a.input_root))
- names={Path(load(a.work/originals[c]/'manifest.json')['inputs'][c]['files']['transfer']['path']).name for c in CODES}
- indexed,search_warnings=input_index(search_roots,names)
- incoming={};reference_files=[];reference_provenance=[];input_errors=[]
+ indexed={};search_warnings=[]
+ if not a.reuse_selection:
+  names={Path(load(a.work/originals[c]/'manifest.json')['inputs'][c]['files']['transfer']['path']).name for c in CODES}
+  indexed,search_warnings=input_index(search_roots,names)
+ incoming={};selection_inputs={};reference_files=[];reference_provenance=[];input_errors=[]
  for c in CODES:
   parent=a.work/originals[c];manifest=load(parent/'manifest.json')
   if manifest.get('specs',{}).get(c)!=specs[c]:raise ValueError('Reference recipe mismatch: '+c)
-  # This comparison deliberately reuses the same unselected pre-MIP input.
-  ready_path=parent/'inputs'/c/'ready.json'
-  try:
-   incoming[c]=resolve_input(b,c,manifest['inputs'][c],ready_path,indexed,search_roots)
-   reference_files.append((ready_path,Path('references')/'inputs'/c/'ready.json',incoming[c]['original_ready_sha256']))
-   first=incoming[c]['files']['transfer']['path'];count=len(incoming[c]['transfer_candidates'])
-   print(f'{c.upper()}: {count} pre-MIP candidate(s); first {first}; original SHA-256 will be checked on worker.',flush=True)
-  except (OSError,ValueError,KeyError) as e:input_errors.append(f'{c.upper()}: {e}')
+  if a.reuse_selection:selection_inputs[c]={}
+  else:
+   # Full mode deliberately reuses the same unselected pre-MIP input.
+   ready_path=parent/'inputs'/c/'ready.json'
+   try:
+    incoming[c]=resolve_input(b,c,manifest['inputs'][c],ready_path,indexed,search_roots)
+    reference_files.append((ready_path,Path('references')/'inputs'/c/'ready.json',incoming[c]['original_ready_sha256']))
+    first=incoming[c]['files']['transfer']['path'];count=len(incoming[c]['transfer_candidates'])
+    print(f'{c.upper()}: {count} pre-MIP candidate(s); first {first}; original SHA-256 will be checked on worker.',flush=True)
+   except (OSError,ValueError,KeyError) as e:input_errors.append(f'{c.upper()}: {e}')
   reference_provenance.append(dict(dataset=c,campaign=str(parent),manifest_sha256=sha(parent/'manifest.json')))
   for model in b.MODELS:
    for stage in ('mip','select')+tuple('refine'+str(n) for n in range(1,9 if c=='b2' else 6)):
     root=a.work/EXTENSION if c=='b2' and stage in ('refine6','refine7','refine8') else parent
     folder=root/model/c/stage;record=load(folder/'stage.json')
     if record.get('execution',{}).get('returncode')!=0:raise ValueError('Reference stage not successful: '+str(folder))
+    if a.reuse_selection and stage=='select':
+     try:
+      if (record.get('model'),record.get('dataset'),record.get('stage'))!=(model,c,'select'):raise ValueError('Selected-event report identity mismatch')
+      trees=record['event_trees']
+      if max(trees.values(),default=0)<=1:raise ValueError('Original selected-event report has no nonempty event tree')
+      info=b.file_info(b.paths(parent,model,c,'select')['root'])
+      selection_inputs[c][model]=dict(file=info,event_trees=trees,reference=str(Path('references')/model/c/'select/stage.json'),reference_sha256=sha(folder/'stage.json'))
+      print(f'{c.upper()} {model}: original selection found; copy and verification scheduled on worker: {info["path"]}',flush=True)
+     except (OSError,ValueError,KeyError) as e:input_errors.append(f'{c.upper()} {model}: {e}')
     for name in (['stage.json'] if stage=='select' else ['stage.json','cells.csv']):
      src=folder/name;reference_files.append((src,Path('references')/model/c/stage/name,sha(src)))
  if input_errors:
-  raise SystemExit('Input preflight failed; no output created or jobs submitted.\n'+'\n'.join(input_errors)+'\nSearched (depth <=4): '+', '.join(map(str,search_roots))+'\nUse --input-root DIR for another archive directory. Only byte-identical pre-MIP inputs are accepted.'+('\nSearch warnings: '+'; '.join(search_warnings) if search_warnings else ''))
+  advice='\nResume mode requires each method\'s successful original selected-event file.' if a.reuse_selection else '\nSearched (depth <=4): '+', '.join(map(str,search_roots))+'\nUse --input-root DIR for another archive directory. Only byte-identical pre-MIP inputs are accepted.'
+  raise SystemExit('Input preflight failed; no output created or jobs submitted.\n'+'\n'.join(input_errors)+advice+('\nSearch warnings: '+'; '.join(search_warnings) if search_warnings else ''))
  for warning in search_warnings:print('Search warning: '+warning,file=sys.stderr)
  a.out.mkdir(parents=True)
  for name,data in payload.items():(a.out/name).write_bytes(data)
@@ -163,7 +182,15 @@ def main():
  for model in b.MODELS:
   changed={p for p,h in hashes[model].items() if source_hashes[model].get(p)!=h}
   if changed!={'NewStructure/TileSpectra.cc','NewStructure/MipRangeFinder.h','NewStructure/tests/test_mip_range.cc'}:raise ValueError('Unexpected source changes: '+repr(changed))
- dump(a.out/'manifest.json',dict(rule='mip_range_v1',test_code_commit=ref,reference_root_version=next(iter(versions)),eic_shell=str(shell),eic_shell_sha256=sha(shell),wrapper_sha256=sha(a.out/'run-in-eic-shell.sh'),inputs=incoming,specs={c:specs[c] for c in CODES},reference_campaigns=reference_provenance,reference_files=copied,source_parent=str(source_parent),original_source_hashes=source_hashes,base_runner_sha256=sha(base_path),payload_hashes={name:sha(a.out/name) for name in payload},created_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),scope='Both evaluators; boundary changes only HG HGCROC refinement windows. Initial MIP pass remains original. No fit option, MPV bound, error model or acceptance changes.'))
- worker=module(a.out/'boundary_fullchains.py','range_worker');text,count=make_yall(a.out,worker,b);(a.out/'Yallfile').write_text(text)
- print('Prepared:',a.out);print(f'{count} tasks: 2 builds, 14 shared inputs, 28 full chains, 14 comparisons, summary.');print('R5 for all sets; B2 continues through R8. Both Legacy and Adaptive use the new boundary.');print('Original results copied as read-only references. No jobs submitted.');print('Run yall-run validate and yall-run plan here.')
+ dump(a.out/'manifest.json',dict(rule='mip_range_v1',test_code_commit=ref,reference_root_version=next(iter(versions)),eic_shell=str(shell),eic_shell_sha256=sha(shell),wrapper_sha256=sha(a.out/'run-in-eic-shell.sh'),inputs=incoming,reuse_selection=a.reuse_selection,selection_inputs=selection_inputs,specs={c:specs[c] for c in CODES},reference_campaigns=reference_provenance,reference_files=copied,source_parent=str(source_parent),original_source_hashes=source_hashes,base_runner_sha256=sha(base_path),payload_hashes={name:sha(a.out/name) for name in payload},created_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),scope='Both evaluators; boundary changes only HG HGCROC refinement windows. Initial MIP pass remains original. No fit option, MPV bound, error model or acceptance changes.'))
+ worker=module(a.out/'boundary_fullchains.py','range_worker')
+ if a.reuse_selection:worker.reuse_initial_reports(b,a.out)
+ text,count=make_yall(a.out,worker,b);(a.out/'Yallfile').write_text(text)
+ print('Prepared:',a.out)
+ if a.reuse_selection:
+  total=sum(x['file']['size'] for inputs in selection_inputs.values() for x in inputs.values())
+  print(f'{count} tasks: 2 builds, 28 selection snapshots, 146 refinements, 14 comparisons, summary.')
+  print(f'Initial MIP and selection reused; refine1 onward rerun. Workers will copy {total/1e9:.2f} GB of selected events into the new campaign.')
+ else:print(f'{count} tasks: 2 builds, 14 shared inputs, 28 full chains, 14 comparisons, summary.')
+ print('R5 for all sets; B2 continues through R8. Both Legacy and Adaptive use the new boundary.');print('Original results copied as read-only references. No jobs submitted.');print('Run yall-run validate and yall-run plan here.')
 if __name__=='__main__':main()
