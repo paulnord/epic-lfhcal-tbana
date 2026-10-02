@@ -185,6 +185,7 @@ def draw_page(ROOT, dataset, stage, row, data, destination, pdf, wiggle=False):
     overview_lo = min(0.,lo)
     overview_hi = hi*1.15 if hi > 0 else hi+10
     canvas = ROOT.TCanvas('review', 'Spectra review', 1500, 550 if wiggle else 1000)
+    canvas.SetCanvasSize(1500, 550 if wiggle else 1000)
     canvas.Divide(2,1 if wiggle else 2, .005,.005)
     keep = []
     for band in range(1 if wiggle else 2):
@@ -328,7 +329,8 @@ def main():
             files[model] = file
             meta['root_files'][model] = str(matches[0])
         pdf = out/f'{dataset}-spectra.pdf'
-        book = ROOT.TCanvas('book','book',10,10); book.Print(str(pdf)+'[')
+        book = ROOT.TCanvas('book','book',1500,1000)
+        book.SetCanvasSize(1500,1000); book.Print(str(pdf)+'[')
         gallery.append(f'<p><a href="{pdf.name}">PDF book</a></p>')
         try:
             for position,row in enumerate(chosen,1):
