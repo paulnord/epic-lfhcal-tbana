@@ -89,8 +89,8 @@ def setup_case(ROOT,bundle,manifest,c,h):
     p=peers[0];pl=int(rows[p['cell_id']][1]);avg=p['fit']['xmax']/(3 if pl<4 else 4)/(1.2 if vov>6 else 1)
     assert abs(avg-avg_text)<1e-5, (avg,avg_text)
     saved=c['fit']
-    donor=saved or next(d['fit'] for d in manifest['cases'] if d['dataset']==c['dataset'] and d['cell_id']==c['cell_id'] and d['fit'])
-    ped=donor['parameters'][3]['lower']/(.001 if vov<4 else .01)
+    donor=saved or next((d['fit'] for d in manifest['cases'] if d['dataset']==c['dataset'] and d['cell_id']==c['cell_id'] and d['fit']),None)
+    ped=donor['parameters'][3]['lower']/(.001 if vov<4 else .01) if donor else rows[c['cell_id']][6]
     assert abs(ped-rows[c['cell_id']][6])<1e-5
     xmin_default=(.3 if layers<6 else .6)*avg;xmax=(3 if layers<6 else 4)*avg*(1.2 if vov>6 else 1)
     # Production helper takes float minX/maxX, so preserve float32 conversion.
@@ -111,7 +111,7 @@ def setup_case(ROOT,bundle,manifest,c,h):
         limits=[[p['lower'],p['upper']] for p in saved['parameters']]
         xmin,xmax=saved['xmin'],saved['xmax']
     return dict(avg=avg,avg_from_text=avg_text,ped=ped,vov=vov,layers=layers,
-                previous_cell_H=rows[c['cell_id']][9],xmin=xmin,xmax=xmax,
+                pedestal_precision='saved_TF1_limit' if donor else 'rounded_previous_calibration',previous_cell_H=rows[c['cell_id']][9],xmin=xmin,xmax=xmax,
                 nominal_xmin=xmin_default,valley=valley,limits=limits,
                 starts=[ped*3,avg,float(integral),ped])
 
@@ -183,7 +183,7 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--bundle',type=Path,required=True)
     ap.add_argument('--out',type=Path,required=True)
-    ap.add_argument('--phase',choices=['baseline','scan','candidate','production_candidate'],required=True)
+    ap.add_argument('--phase',choices=['baseline','adaptive_baseline','scan','candidate','production_candidate'],required=True)
     ap.add_argument('--case',help='Optional dataset:cell:model')
     ap.add_argument('--datasets',nargs='+',help='Optional independent dataset partition')
     args=ap.parse_args();args.bundle=args.bundle.resolve();args.out.mkdir(parents=True,exist_ok=True)
@@ -199,6 +199,7 @@ def main():
                   histogram_sha256=m['histograms_root_sha256'],sources=models,fit_options='QRLMN0S',
                   improve_random_seed=12345,
                   scan_note='Original starts, parameter limits and upper edge fixed; independently fit each lower edge. No best-of selection.')
+    metadata=json.loads(json.dumps(metadata))  # Normalize tuples before resume comparison.
     env=args.out/'environment.json'
     if env.exists() and json.loads(env.read_text())!=metadata:
         raise ValueError('Existing output has different provenance/settings; use a new --out directory')
@@ -213,6 +214,8 @@ def main():
         h=file.Get(c['root_path']);setup=setup_case(ROOT,args.bundle,m,c,h)
         if args.phase=='baseline':
             variants=[('original',setup['xmin'],True,1000,c['model']),('finite_errors',setup['xmin'],False,1000,c['model'])]
+        elif args.phase=='adaptive_baseline':
+            variants=[('adaptive_original_window',setup['xmin'],False,1000,'adaptive')]
         elif args.phase=='scan':
             variants=[('baseline',setup['xmin'],False,10000,'adaptive'),
                       ('nominal_floor',setup['nominal_xmin'],False,10000,'adaptive')]
