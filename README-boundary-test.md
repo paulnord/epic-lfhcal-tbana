@@ -58,9 +58,25 @@ yall-run plan > plan.txt
 
 Preparation resolves FETCH_HEAD to a commit, retrieves all helper files from
 that same commit, and records their hashes. It verifies original sources,
-recipes, successful reference stages, transfer-file metadata, ROOT versions,
+recipes, successful reference stages, original input records, ROOT versions,
 and the EIC shell. It refuses an existing output directory. No jobs are submitted.
-The input jobs hash the original pre-MIP ROOT data on workers and open it read-only.
+If a transfer file was moved, preparation searches the work directory and
+`/gpfs01/star/pwg/pnord/eic/2026TBanalysis` for its exact pre-MIP basename, down
+to four directory levels. `--archive DIR` changes that archive location;
+repeatable `--input-root DIR` adds other locations. All unresolved sets are
+reported together before the output directory is created.
+
+Candidate files must match the original size. Each input job then hashes its
+candidates on a worker and requires an exact match to the SHA-256 recorded in
+the **original campaign's `inputs/<set>/ready.json`**. A same-size file with
+different contents is rejected; if there are multiple candidates, it tries
+them in order. Only a hash-verified file with matching event-tree counts gets
+a new `ready.json`, so neither fitting chain starts with a substituted input.
+The original input records are copied and fingerprinted with the references.
+Missing original hashes are errors, not permission to establish a new baseline.
+File metadata is checked again at worker verification and at the first MIP pass.
+Large-file hashing is deferred to the input jobs, not performed on the login node.
+The input ROOT files are opened read-only.
 No selected-event file is substituted for the initial calibration input.
 
 To create and start the prepared test, capturing the campaign path automatically:
@@ -104,5 +120,7 @@ Successful minimization, or more saved fits, is not itself scientific approval.
   retained floors, invalid input and absent-peak behavior.
 * A synthetic campaign fixture validates the actual 233-task Yallfile and
   four-way report joins; originals remain unchanged and overwrite is rejected.
+  It also verifies relocated inputs, rejection of same-size wrong contents,
+  changed metadata, missing original hashes, and aggregation of missing inputs.
 * A ROOT fixture verifies boundary diagnostics, carried-forward counts, and
   rejection of a saved-fit/logged-edge mismatch.
