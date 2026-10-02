@@ -186,6 +186,7 @@ def fmt(v):
 
 def draw(ROOT, dataset, cell, boundary, model, stages, data, axes, png, pdf):
     canvas = ROOT.TCanvas('boundary_case', 'Saved-fit history', 1800, 700)
+    canvas.SetCanvasSize(1800, 700)
     canvas.Divide(3, 1, .005, .005)
     keep = []
     left, right, maximum = axes
@@ -219,6 +220,7 @@ def draw(ROOT, dataset, cell, boundary, model, stages, data, axes, png, pdf):
             lines.append(f'{d["bad_error_bins"]} nonfinite errors omitted; counts unchanged')
         for i, text in enumerate(lines):
             keep.append(spectra.label(ROOT, text, x=.13, y=.93-i*.044, size=.031))
+    canvas.Modified(); canvas.Update()
     canvas.Print(str(png)); canvas.Print(str(pdf)); canvas.Close()
 
 
@@ -287,7 +289,11 @@ def main():
             stages = [f'refine{n}' for n in range(final-2, final+1)]
             files = {}
             pdf = a.out/f'{dataset}-cases.pdf'
-            book = ROOT.TCanvas('book', 'book', 10, 10); book.Print(str(pdf)+'[')
+            # ROOT initializes PDF geometry from this canvas, even with '['.
+            # A 10x10 window can have a zero drawable size after decorations.
+            book = ROOT.TCanvas('book', 'book', 1800, 700)
+            book.SetCanvasSize(1800, 700)
+            book.Print(str(pdf)+'[')
             try:
                 for key, path in paths.items():
                     if key[0] != dataset:
