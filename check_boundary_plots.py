@@ -43,3 +43,17 @@ with tempfile.TemporaryDirectory() as tmp:
     except ValueError: pass
     else: raise AssertionError('Unknown saved flag accepted')
 print('PASS: saved-fit gaps, fixed reference, zero denominator, incomplete B2, duplicates, flags')
+
+# Batched drawing must never connect across missing fits, including PDF output.
+import matplotlib.pyplot as plt
+from plot_boundary_convergence import draw_tracks
+fig,ax=plt.subplots()
+draw_tracks(ax,[0,1,2,3,4],[[1,2,np.nan,4,5],[np.nan]*5],[67,68],.2)
+segments=ax.collections[0].get_segments()
+assert len(segments)==2
+assert np.array_equal(segments[0],[[0,1],[1,2]])
+assert np.array_equal(segments[1],[[3,4],[4,5]])
+assert len(ax.collections[1].get_offsets())==4
+assert all(c.get_rasterized() for c in ax.collections)
+plt.close(fig)
+print('PASS: batched drawing preserves adjacent segments, gaps and isolated points')
