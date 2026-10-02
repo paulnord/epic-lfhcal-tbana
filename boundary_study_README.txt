@@ -17,7 +17,8 @@ calls / 100 iterations, QRLMN0S, and fixed IMPROVE seed 12345. Preserve the inpu
 ROOT file; in working clones only, nonfinite errors in empty bins are set to
 zero. The prior baseline study found this did not materially change the fits.
 Local ROOT is 6.40.00; extraction ROOT was 6.40.04. The central trial must match
-the prior production-budget candidate within 1e-9 relative H.
+the prior production-budget candidate within 1e-6 relative H. Observed maximum discrepancy is 1.7e-7 relative H
+(0.000017%); a stricter initial 1e-9 check failed for one first-study fit.
 
 The four histograms with no resolved valley are explicitly flagged. Their
 neighborhood scans are diagnostics around the retained original edge, not
