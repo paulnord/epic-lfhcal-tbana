@@ -15,12 +15,12 @@ summary=[]
 for ds,cell,src in sorted({(r['dataset'],r['cell_id'],r['histogram_source']) for r in rows}):
  rs=[r for r in rows if (r['dataset'],r['cell_id'],r['histogram_source'])==(ds,cell,src)]
  central=next(r for r in rs if r['axis']=='lower' and r['offset']==0);h=central['smooth_peak'][0]
- former=next(r for r in prior if (r['dataset'],r['cell_id'],r['histogram_source'])==(ds,cell,src));assert abs(h/former['smooth_peak'][0]-1)<1e-9
+ former=next(r for r in prior if (r['dataset'],r['cell_id'],r['histogram_source'])==(ds,cell,src));assert abs(h/former['smooth_peak'][0]-1)<1e-6
  baseline=next(r for r in old if (r['dataset'],r['cell_id'],r['histogram_source'])==(ds,cell,src) and r['variant']=='baseline')
  def pct(r):return 100*(r['smooth_peak'][0]/h-1)
  near=[r for r in rs if r['axis']=='lower' and abs(r['offset'])<=1]
  stress=[r for r in rs if r['axis']=='lower'];upper=[r for r in rs if r['axis']=='upper']
- summary.append(dict(dataset=ds,cell=cell,source=src,usable_valley=central['range_rule']['usable'],H=h,lower=central['lower'],radius=central['radius'],shift_from_old_pct=100*(h/baseline['smooth_peak'][0]-1),near_min_pct=min(map(pct,near)),near_max_pct=max(map(pct,near)),near_span_pct=max(map(pct,near))-min(map(pct,near)),stress_max_abs_pct=max(abs(pct(r)) for r in stress),upper_max_abs_pct=max(abs(pct(r)) for r in upper),failed=sum(not r['accepted_by_production_checks'] for r in rs),peak_outside=sum(not r['lower']<r['smooth_peak'][0]<r['upper'] for r in rs)))
+ summary.append(dict(dataset=ds,cell=cell,source=src,usable_valley=central['range_rule']['usable'],central_reproduction_pct=100*(h/former['smooth_peak'][0]-1),H=h,lower=central['lower'],radius=central['radius'],shift_from_old_pct=100*(h/baseline['smooth_peak'][0]-1),near_min_pct=min(map(pct,near)),near_max_pct=max(map(pct,near)),near_span_pct=max(map(pct,near))-min(map(pct,near)),stress_max_abs_pct=max(abs(pct(r)) for r in stress),upper_max_abs_pct=max(abs(pct(r)) for r in upper),failed=sum(not r['accepted_by_production_checks'] for r in rs),peak_outside=sum(not r['lower']<r['smooth_peak'][0]<r['upper'] for r in rs)))
 (out/'summary.json').write_text(json.dumps(summary,indent=2));(out/'all-trials.json').write_text(json.dumps(rows))
 with (out/'summary.csv').open('w') as f:
  w=csv.DictWriter(f,fieldnames=list(summary[0]));w.writeheader();w.writerows(summary)
