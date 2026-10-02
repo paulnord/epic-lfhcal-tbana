@@ -1,0 +1,20 @@
+--- a/NewStructure/Analyses.cc
++++ b/NewStructure/Analyses.cc
+@@ -1,5 +1,6 @@
+ #include "Analyses.h"
+ #include <vector>
++#include <cmath>
+ #include "TROOT.h"
+ #include <bitset>
+ #ifdef __APPLE__
+@@ -4223,8 +4224,8 @@
+       // ithSpectra->second.GetHG()->Rebin(2);
+       // ithSpectraTrigg->second.GetHG()->Rebin(2);
+       for (Int_t b = 1; b < ithSpectraTrigg->second.GetHG()->GetNbinsX()+1; b++){
+-        double errWithSys= TMath::Sqrt(relSysF*relSysF+TMath::Power(ithSpectra->second.GetHG()->GetBinError(b)/ithSpectra->second.GetHG()->GetBinContent(b),2))*ithSpectra->second.GetHG()->GetBinContent(b);
+-        double errWithSysT= TMath::Sqrt(relSysF*relSysF+TMath::Power(ithSpectraTrigg->second.GetHG()->GetBinError(b)/ithSpectraTrigg->second.GetHG()->GetBinContent(b),2))*ithSpectraTrigg->second.GetHG()->GetBinContent(b);
++        double errWithSys= std::hypot(ithSpectra->second.GetHG()->GetBinError(b), relSysF*ithSpectra->second.GetHG()->GetBinContent(b));
++        double errWithSysT= std::hypot(ithSpectraTrigg->second.GetHG()->GetBinError(b), relSysF*ithSpectraTrigg->second.GetHG()->GetBinContent(b));
+         ithSpectra->second.GetHG()->SetBinError(b,errWithSys);        
+         ithSpectraTrigg->second.GetHG()->SetBinError(b,errWithSysT);
+       }
