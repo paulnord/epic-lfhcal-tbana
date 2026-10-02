@@ -49,3 +49,36 @@ with tempfile.TemporaryDirectory() as tmp:
     assert len(ax.collections[1].get_offsets())==3
     plt.close(fig)
 print('PASS: new campaign report filtering, exact adjacent-step differences, saved-fit gaps, original labels, two-figure CLI, batched lines')
+
+with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp);(root/'reports').mkdir()
+    rows=[]
+    for m in p.MODELS:
+        for n in range(9):
+            row=dict(dataset='b2',stage='mip' if n==0 else 'refine%d'%n,
+                     model=m,cell_id=67,original_saved=n!=3,valley_saved=n==3)
+            for param,_ in p.PARAMETERS:
+                row['original_'+param]=50+n
+                row['valley_'+param]=500+10*n
+            rows.append(row)
+    report=root/'reports'/'b2-boundary-comparison.csv'
+    with report.open('w',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+    # A corrupt ordinary report must not be used in original-boundary mode.
+    (root/'reports'/'b2-comparison.csv').write_text('unused ordinary report')
+    data,sources=p.load([root],[],True)
+    assert data['b2']['legacy',67,8]['scale_h']==58
+    assert data['b2']['legacy',67,3]['scale_h'] is None
+    changes=p.measures(data,['b2'],8,1e-4,4,('step',))
+    assert np.isclose(next(r['fractional_change'] for r in changes
+                          if r['model']=='adaptive' and r['parameter']=='scale_h'
+                          and r['stage_index']==8),1/57)
+    calls=[]
+    argv=['plot_fit_parameter_convergence.py','--root',str(root),'--datasets','b2',
+          '--out',str(root/'old'),'--steps-only','--original-boundary']
+    with patch.object(sys,'argv',argv),patch.object(p,'save',save):p.main()
+    assert [v[0] for v in calls]==['old-step-legacy','old-step-adaptive']
+    assert all('original boundary' in title for _,title in calls)
+    provenance=json.loads((root/'old-sources.json').read_text())
+    assert provenance['boundary_source']=='frozen original fits'
+print('PASS: frozen original values and saved-fit masks, B2 R8, automatic label and provenance')
