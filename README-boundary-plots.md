@@ -45,3 +45,12 @@ missing campaign summary stops the script. To intentionally plot fewer complete
 sets, add `--datasets b1 e1 e2 e3`. Use a distinct output directory for subsets.
 The input report fingerprints and all unclipped values are recorded. The code's
 regression checks are synthetic and do not constitute scientific fit validation.
+
+## Rendering performance
+
+The renderer batches channel traces and markers, omits empty clipping markers,
+and writes the numerical export one figure at a time. Dense channel layers are
+rasterized inside PDFs; text and axes remain vector graphics. Fit values, gaps,
+colors, display clipping and statistical summaries are unchanged. Progress is
+printed during report loading, before drawing, before each PNG/PDF save, and
+before ZIP packaging.
