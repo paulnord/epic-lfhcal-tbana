@@ -83,3 +83,22 @@ The first transition remains MIP→R1 as in the original plotting script.
 Saved fits at both endpoints are required. Missing fits stay gaps.
 Only B2 has R6–R8. Dense drawing is batched and rasterized inside PDFs to
 avoid the earlier rendering overhead.
+
+### Matching original-boundary step plots
+
+Use the same boundary-campaign root and add `--original-boundary`. This reads
+the frozen `original_*` values and `original_saved` flags in the paired reports,
+including the original B2 R6-R8 extension. It does not use the new valley fits
+or require the older campaign paths. The renderer and scales are the same.
+
+```tcsh
+python3 /tmp/plot_fit_parameter_convergence.py --root "$RANGEWORK" \
+  --datasets b1 b2 c1 c2 c3 d1 d2 e1 e2 e3 f1 f2 g1 g2 \
+  --steps-only --original-boundary --pdf \
+  --out "$RANGEWORK/step-plots/lfhcal-old-boundary"
+```
+
+Fetch the updated plotting script before using this new option. Outputs are
+`lfhcal-old-boundary-step-legacy.png` and
+`lfhcal-old-boundary-step-adaptive.png`, plus matching PDFs and numerical
+CSV/provenance files. Existing new-boundary outputs are preserved.
