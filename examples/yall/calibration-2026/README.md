@@ -11,34 +11,47 @@ notes; it is not read when running a Yallfile.
 
 ## Use at BNL (tcsh)
 
-Choose a source checkout, a product directory, the downloaded raw directory,
-and the EIC shell. The following makes a separate checkout of the fetched
-branch, including its decoder, so the existing checkout can stay as it is.
+Use the existing LFHCal source/configuration checkout and compiled executables.
+After downloading this folder to `~/ps-sps-yallfiles-20261006`:
 
 ```tcsh
-set REPO = ~/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark
-setenv LFHCAL_SOURCE /gpfs01/star/scratch/pnord/lfhcal/ps-sps-code-20261006
+setenv LFHCAL_SOURCE "$HOME/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark"
 setenv CALWORK /gpfs01/star/scratch/pnord/lfhcal/ps-sps-calibration-20261006
 setenv LFHCAL_RAW /gpfs01/star/pwg/pnord/eic/2026TBanalysis/calibration-raw
 setenv EIC_SHELL "$HOME/my_eic_work_with_LFHCAL/eic-shell"
 
-git -C "$REPO" fetch origin codex/adaptive-langau-minimal && \
-git -C "$REPO" worktree add --detach "$LFHCAL_SOURCE" FETCH_HEAD && \
-git -C "$LFHCAL_SOURCE" submodule update --init --recursive && \
-cd "$LFHCAL_SOURCE/examples/yall/calibration-2026/recipes/ps-c1" && \
+cd ~/ps-sps-yallfiles-20261006/recipes/ps-c1
 yall-run validate && yall-run plan
 ```
 
-Use an existing appropriate source checkout by setting `LFHCAL_SOURCE` to
-it instead. Its decoder must be initialized. Run from any desired set's
-recipe directory; each Yallfile has its own build and output directory under
-`CALWORK`. The build task compiles `Convert` and `DataPrep` from that source.
-The small shell wrappers enter the EIC container and select the campaign's
-build directory/library; they contain no calibration commands or run lists.
+Each Yallfile has `@set BUILD {SOURCE}/NewStructure/build`. Edit that line if
+using a different existing build. There are no CMake, make, compilation, or
+source-checkout tasks in these calibration campaigns. Select the existing
+build for the intended fitter; the current recipe labels describe Legacy
+with the original boundary.
 
-These commands do not submit jobs. Wait for the required raw downloads to
-finish successfully before starting a calibration campaign. Keep the source
-checkout fixed during the campaign. Use a new `CALWORK` for another variant.
+The `%preflight` commands perform lightweight host setup during
+`yall-run create`:
+
+* Check that `Convert`, `DataPrep`, the analysis library and EIC shell exist
+  with the needed permissions.
+* Create stage and plot parent directories under `CALWORK`.
+* Copy the small build-directory/library wrapper into the set's work directory.
+
+`validate` checks declarations and `plan` displays the preflight commands;
+only `create` executes them. A failed preflight prevents creation of a
+launchable campaign. It adds no scheduler jobs. The preflight uses file
+checks only; it does not compile or run the ROOT programs on the login host.
+
+The EIC wrapper is loaded relative to the recipe folder, so the downloaded
+folder works without adding wrapper files to the analysis source checkout.
+The runtime wrapper selects the existing build directory and library; it
+contains no calibration commands or run lists. All scientific processing
+stays in normal batch tasks, beginning with raw conversion.
+
+Wait for the required raw downloads to finish successfully before starting
+a calibration campaign. Keep the selected source/build fixed while it runs,
+and use a new `CALWORK` for another calibration variant.
 
 ## Recipes and unresolved choices
 
@@ -91,8 +104,8 @@ now the editable execution recipes; the JSON records the inventory and associati
 | Refine 2–5 | Same selected events, plus `-k` with the preceding calibration text |
 | Final | Copy R5 calibration ROOT and text files to `final/` |
 
-The checked-in source uses **Legacy with the original boundary**. These
-Yallfiles run five refinements, as in F1, and preserve per-stage histograms,
+These Yallfiles are labelled for **Legacy with the original boundary** and
+run five refinements, as in F1, and preserve per-stage histograms,
 calibration text and PNG plots. Five passes are our workflow choice, not a
 claim that every PS set has a published R5 calibration. `-x` avoids repeated
 large event-tree outputs. Fresh conversion uses the selected mapping, so
@@ -104,6 +117,6 @@ waveform studies are outside this calibration chain.
 `python3 -m unittest -v test_calibration_yallfiles.py` reads the checked-in
 Yallfiles using the actual yall-run parser. It checks all twenty task graphs,
 PS merge membership, exact SPS pairing, input dependencies, previous-pass
-constants and the shell wrapper's first use in a fresh build directory.
+constants and the preflight checks/directory setup using fixture executables.
 The tests require yall-run, but not ROOT or raw data. Actual ROOT execution
 and fit quality still need the first BNL run.

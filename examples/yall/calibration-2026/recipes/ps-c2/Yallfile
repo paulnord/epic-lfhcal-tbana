@@ -17,10 +17,10 @@ backend condor
 %getenv true
 @set WORK {CALWORK}/ps-c2
 @set SOURCE {LFHCAL_SOURCE}
-@set BUILD {CALWORK}/ps-c2/build
+@set BUILD {SOURCE}/NewStructure/build
 @set CFG {SOURCE}/configs/TB2026
 @set RAW {LFHCAL_RAW}/ps-2026/raw
-%wrapper {SOURCE}/examples/yall/calibration-2026/run-in-eic-shell.sh {EIC_SHELL} {SOURCE}/examples/yall/calibration-2026/in-calibration-build.sh {BUILD}
+%wrapper ../../run-in-eic-shell.sh {EIC_SHELL} {WORK}/in-calibration-build.sh {BUILD}
 
 # File role and run number drive conversion. Leading zeros are filenames.
 @table runs type run:
@@ -38,20 +38,16 @@ backend condor
 @table pairs ped sample:
     171 Muon_FullSetC_2
 
-build:
-    %cpus 4
-    %time 2h
-    @input cmake {SOURCE}/NewStructure/CMakeLists.txt
-    @input decoder {SOURCE}/NewStructure/h2g_decode/CMakeLists.txt
-    @output convert {BUILD}/Convert
-    @output dataprep {BUILD}/DataPrep
-    @output library {BUILD}/libLFHCAL.so
-    ! cmake -S {SOURCE}/NewStructure -B {BUILD} -DCMAKE_BUILD_TYPE=Release && cmake --build {BUILD} --target Convert DataPrep -j 4
+# Lightweight host setup runs during yall-run create, before submission.
+# Use the existing build; compilation is outside this calibration campaign.
+%preflight /usr/bin/test -x "{BUILD}/Convert"
+%preflight /usr/bin/test -x "{BUILD}/DataPrep"
+%preflight /usr/bin/test -r "{BUILD}/libLFHCAL.so"
+%preflight /usr/bin/test -x "{EIC_SHELL}"
+%preflight /bin/mkdir -p {WORK}/converted {WORK}/pedestal {WORK}/transfer {WORK}/mip {WORK}/select {WORK}/final {WORK}/refine1 {WORK}/refine2 {WORK}/refine3 {WORK}/refine4 {WORK}/refine5 {WORK}/plots/pedestal {WORK}/plots/transfer {WORK}/plots/mip {WORK}/plots/refine1 {WORK}/plots/refine2 {WORK}/plots/refine3 {WORK}/plots/refine4 {WORK}/plots/refine5
+%preflight /bin/cp ../../in-calibration-build.sh "{WORK}/in-calibration-build.sh"
 
-prepare: build
-    /bin/mkdir -p {WORK}/converted {WORK}/pedestal {WORK}/transfer {WORK}/mip {WORK}/select {WORK}/final {WORK}/refine1 {WORK}/refine2 {WORK}/refine3 {WORK}/refine4 {WORK}/refine5 {WORK}/plots/pedestal {WORK}/plots/transfer {WORK}/plots/mip {WORK}/plots/refine1 {WORK}/plots/refine2 {WORK}/plots/refine3 {WORK}/plots/refine4 {WORK}/plots/refine5
-
-convert-{type}-{run}: prepare
+convert-{type}-{run}:
     @each type run in runs
     %memory 4GB
     %time 24h

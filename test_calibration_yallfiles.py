@@ -37,8 +37,8 @@ class Recipes(unittest.TestCase):
     def parse(self, name):
         directory = CATALOG.parent/'recipes'/name
         file = directory/('Yallfile.draft' if self.recipes[name]['review_needed'] else 'Yallfile')
-        with patch.dict(os.environ, {'CALWORK': str(self.root), 'LFHCAL_SOURCE': '/source',
-                                     'LFHCAL_RAW': '/raw', 'EIC_SHELL': '/eic-shell'}):
+        with patch.dict(os.environ, {'CALWORK': str(self.root), 'LFHCAL_SOURCE': str(self.root/'source'),
+                                     'LFHCAL_RAW': '/raw', 'EIC_SHELL': '/bin/true'}):
             return load_spec(file)
 
     def test_all_sets_expansion_and_inputs_have_upstream_producers(self):
@@ -54,7 +54,7 @@ class Recipes(unittest.TestCase):
                     return result
                 for t in spec.tasks:
                     for f in t.inputs:
-                        if f.path.startswith(str(self.root)):
+                        if f.path.startswith(str(self.root/name)+'/'):
                             self.assertIn(f.path, owners)
                             self.assertIn(owners[f.path], ancestors(t), (t.name, f.path))
                 self.assertEqual(len([t for t in spec.tasks if t.name.startswith('final-')]),
@@ -106,12 +106,30 @@ class Recipes(unittest.TestCase):
         self.assertEqual(self.recipes['ps-d1']['pedestal_runs'], [238])
         self.assertEqual(self.recipes['ps-g1']['pedestal_runs'], [379])
 
-    def test_build_wrapper_starts_without_precreated_directory(self):
-        wrapper = CATALOG.parent/'in-calibration-build.sh'
-        build = self.root/'new-build'
+    def test_preflight_creates_output_parents_and_uses_existing_build(self):
+        build = self.root/'source/NewStructure/build'
+        build.mkdir(parents=True)
+        for name in ('Convert','DataPrep'):
+            file = build/name
+            file.write_text('#!/bin/sh\nexit 0\n')
+            file.chmod(0o755)
+        (build/'libLFHCAL.so').touch()
+        spec = self.parse('ps-c1')
+        self.assertEqual(len(spec.preflight), 6)
+        self.assertFalse(any(t.name in ('build','prepare') for t in spec.tasks))
+        self.assertFalse(any('cmake' in str(c) for c in [*spec.preflight,*[t.command for t in spec.tasks]]))
+        for command in spec.preflight:
+            subprocess.run(command, cwd=spec.source.parent, check=True)
+        work = self.root/'ps-c1'
+        self.assertTrue((work/'refine5').is_dir())
+        self.assertTrue((work/'plots/pedestal').is_dir())
+        self.assertTrue((work/'in-calibration-build.sh').is_file())
+        self.assertFalse((work/'build').exists())
+        wrapper = work/'in-calibration-build.sh'
         result = subprocess.check_output(['bash',str(wrapper),str(build),'/bin/pwd'],text=True).strip()
         self.assertEqual(Path(result),build)
-        self.assertTrue(build.is_dir())
+        (build/'Convert').unlink()
+        self.assertNotEqual(subprocess.run(spec.preflight[0],cwd=spec.source.parent).returncode,0)
 
     def test_toa_is_only_an_input_when_an_offset_file_is_assigned(self):
         for name, r in self.recipes.items():
