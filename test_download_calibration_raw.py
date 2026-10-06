@@ -16,7 +16,7 @@ downloader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(downloader)
 
 FAKE_CLIENT = r'''#!/usr/bin/env python3
-import json, os, sys, zlib
+import json, os, sys, time, zlib
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -24,6 +24,11 @@ args = sys.argv[1:]
 root = Path(os.environ['FAKE_REMOTE'])
 if Path(sys.argv[0]).name == 'xrdfs':
     path = args[-1]
+    with open(os.environ['FAKE_META_LOG'], 'a') as log:
+        log.write(json.dumps(args) + '\n')
+    if os.environ.get('FAKE_STALL') == Path(path).name:
+        print('Simulated unresponsive server', file=sys.stderr, flush=True)
+        time.sleep(5)
 else:
     path = urlsplit(args[-2]).path
 campaign = 'ps' if '2026_PST10' in path else 'sps'
@@ -64,13 +69,14 @@ class DownloaderTests(unittest.TestCase):
         self.out = self.root / 'downloads'
         self.remote = self.root / 'remote'
         self.log = self.root / 'copies.jsonl'
+        self.meta_log = self.root / 'queries.jsonl'
         bin_dir = self.root / 'bin'; bin_dir.mkdir()
         for command in ('xrdfs', 'xrdcp'):
             client = bin_dir / command
             client.write_text(FAKE_CLIENT)
             client.chmod(0o755)
         self.env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
-                        FAKE_REMOTE=str(self.remote), FAKE_COPY_LOG=str(self.log))
+                        FAKE_REMOTE=str(self.remote), FAKE_COPY_LOG=str(self.log), FAKE_META_LOG=str(self.meta_log))
         self.entries = downloader.make_plan(['ps-i2'], self.out, downloader.REMOTE_ROOTS)
         self.populate(self.entries)
 
@@ -119,6 +125,38 @@ class DownloaderTests(unittest.TestCase):
     def test_missing_remote_stops_all_transfers(self):
         (self.remote / 'ps' / 'Run463.h2g').unlink()
         self.assertIn('No raw transfers started', self.run_cli('--download', expected=1))
+        self.assertEqual(self.copies(), [])
+
+    def test_timeout_probes_only_one_file_and_preserves_diagnostics(self):
+        self.env['FAKE_STALL'] = 'Run085.h2g'
+        output = self.run_cli('--download', '--query-timeout', '1', expected=1, sets='all')
+        self.assertIn('timed out after 1 seconds: Simulated unresponsive server', output)
+        self.assertIn('No raw transfers started', output)
+        queries = [json.loads(line) for line in self.meta_log.read_text().splitlines()]
+        self.assertEqual(len(queries), 1)
+        report = json.loads(next((self.out / 'manifests').glob('*/remote-manifest.json')).read_text())
+        self.assertEqual(len(report['unchecked']), 150)
+        self.assertEqual(self.copies(), [])
+
+    def test_probe_checks_one_file_per_campaign_without_transferring(self):
+        entries = downloader.make_plan(['ps-f1', 'sps-param3'], self.out, downloader.REMOTE_ROOTS)
+        self.populate(entries)
+        output = self.run_cli('--probe', sets='ps-f1,sps-param3')
+        self.assertIn('Probe complete: 2 file(s) checked', output)
+        self.assertEqual(len(self.meta_log.read_text().splitlines()), 4)
+        report = json.loads(next((self.out / 'manifests').glob('*/remote-manifest.json')).read_text())
+        self.assertTrue(report['probe_only'])
+        self.assertEqual(len(report['unchecked']), len(entries) - 2)
+        self.assertEqual(self.copies(), [])
+
+    def test_failure_after_probe_stops_later_queries(self):
+        entries = downloader.make_plan(['ps-a1'], self.out, downloader.REMOTE_ROOTS)
+        self.populate(entries)
+        (self.remote / 'ps' / 'Run086.h2g').unlink()
+        output = self.run_cli('--download', '--jobs', '2', expected=1, sets='ps-a1')
+        self.assertIn('No raw transfers started', output)
+        queried = {Path(json.loads(line)[-1]).name for line in self.meta_log.read_text().splitlines()}
+        self.assertLessEqual(queried, {'Run085.h2g', 'Run086.h2g', 'Run087.h2g'})
         self.assertEqual(self.copies(), [])
 
     def test_download_resume_verify_then_skip(self):

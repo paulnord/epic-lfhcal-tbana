@@ -2,7 +2,8 @@
 """Fetch PS-2026 calibration and SPS parameter-scan raw inputs (Python 3.8+).
 
 One shared file per campaign/run; no fitting or batch submission. The default
-operation writes an offline plan. Use --check for sizes or --download to fetch.
+operation writes an offline plan. Use --probe to test access, --check for sizes,
+or --download to fetch.
 """
 import argparse
 import concurrent.futures
@@ -168,7 +169,14 @@ def remote_parts(url):
 def command_output(command, timeout):
     if STOP.is_set():
         raise RuntimeError('Interrupted')
-    proc = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    try:
+        proc = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        details = exc.stderr or exc.stdout or ''
+        if isinstance(details, bytes):
+            details = details.decode('utf-8', errors='replace')
+        raise RuntimeError('%s timed out after %s seconds%s' %
+                           (' '.join(command), timeout, ': ' + details.strip()[-2000:] if details.strip() else '')) from exc
     if proc.returncode:
         raise RuntimeError('%s failed: %s' % (' '.join(command), proc.stderr.strip() or proc.stdout.strip()))
     return proc.stdout
@@ -185,6 +193,59 @@ def inspect_remote(entry, timeout):
     if not match_sum:
         raise RuntimeError('Expected server Adler-32 checksum for %s; got %r' % (entry['url'], checksum))
     return dict(entry, size=int(match.group(1)), adler32=match_sum.group(1).lower().zfill(8))
+
+
+def preflight(entries, args):
+    """Probe one file per campaign first; stop scheduling at the first failure."""
+    checked, failures = [], []
+    probes, remaining, seen = [], [], set()
+    for entry in entries:
+        if entry['campaign'] in seen:
+            remaining.append(entry)
+        else:
+            probes.append(entry)
+            seen.add(entry['campaign'])
+
+    def record(entry, operation):
+        try:
+            result = operation()
+            checked.append(result)
+            say('CHECK %s/%s %d bytes' % (result['campaign'], result['filename'], result['size']))
+            return True
+        except Exception as exc:
+            failures.append({'url': entry['url'], 'error': str(exc)})
+            say('ERROR ' + str(exc))
+            return False
+
+    for entry in probes:
+        say('PROBE ' + entry['url'])
+        if not record(entry, lambda: inspect_remote(entry, args.query_timeout)):
+            return checked, failures
+    if args.probe:
+        return checked, failures
+
+    # Bound the number of in-flight operations instead of queuing every file.
+    # Running queries may finish, but a failure cannot launch another wave.
+    todo = iter(remaining)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        active = {}
+
+        def fill():
+            while len(active) < args.jobs:
+                entry = next(todo, None)
+                if entry is None:
+                    break
+                active[pool.submit(inspect_remote, entry, args.query_timeout)] = entry
+
+        fill()
+        while active:
+            done, _ = concurrent.futures.wait(active, return_when=concurrent.futures.FIRST_COMPLETED)
+            for future in done:
+                entry = active.pop(future)
+                record(entry, future.result)
+            if not failures:
+                fill()
+    return checked, failures
 
 
 def adler32(path):
@@ -320,6 +381,7 @@ def main(argv=None):
     parser.add_argument('--list', action='store_true', help='List available sets without writing files')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--plan', action='store_true', help='Write offline manifests; no network or downloads (default)')
+    mode.add_argument('--probe', action='store_true', help='Test metadata access to one raw file per selected campaign; no downloads')
     mode.add_argument('--check', action='store_true', help='Check all remote files/checksums and report bytes; no downloads')
     mode.add_argument('--download', action='store_true', help='Check, download/resume, and verify selected raw files')
     parser.add_argument('--jobs', type=positive, default=2, help='Concurrent checks/downloads (default 2)')
@@ -363,28 +425,30 @@ def main(argv=None):
     say('Manifests: ' + str(request_dir))
     for name in names:
         for note in CATALOG[name]['notes']: say('NOTE %s: %s' % (name, note))
-    if not (args.check or args.download):
+    if not (args.probe or args.check or args.download):
         for e in entries: say('%s -> %s' % (e['url'], e['local_path']))
-        say('Offline plan only. Use --check for sizes or --download to transfer.')
+        say('Offline plan only. Use --probe to test access, --check for sizes, or --download to transfer.')
         return 0
     for command in (['xrdfs', 'xrdcp'] if args.download else ['xrdfs']):
         if shutil.which(command) is None:
             raise RuntimeError('%s is unavailable. Run this inside eic-shell (or an XRootD client environment).' % command)
-    checked, failures = [], []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        tasks = {pool.submit(inspect_remote, e, args.query_timeout): e for e in entries}
-        for future in concurrent.futures.as_completed(tasks):
-            entry = tasks[future]
-            try:
-                result = future.result(); checked.append(result)
-                say('CHECK %s/%s %d bytes' % (result['campaign'], result['filename'], result['size']))
-            except Exception as exc:
-                failures.append({'url': entry['url'], 'error': str(exc)})
-                say('ERROR ' + str(exc))
+    say('XRootD client: ' + shutil.which('xrdfs'))
+    checked, failures = preflight(entries, args)
     checked.sort(key=lambda e: (e['campaign'], e['run']))
-    atomic_json(request_dir / 'remote-manifest.json', {'files': checked, 'failures': failures})
+    accounted = {e['url'] for e in checked + failures}
+    atomic_json(request_dir / 'remote-manifest.json', {
+        'files': checked, 'failures': failures, 'probe_only': args.probe,
+        'unchecked': [e['url'] for e in entries if e['url'] not in accounted],
+    })
     if failures:
-        say('Preflight failed for %d files. No raw transfers started.' % len(failures))
+        say('Preflight stopped after a failed query. No raw transfers started.')
+        say('A timeout does not establish that a file is missing. Retry --probe inside your EIC shell to compare clients/access.')
+        return 1
+    if args.probe:
+        say('Probe complete: %d file(s) checked. Remaining files have not been checked; use --check for the full list.' % len(checked))
+        return 0
+    if len(checked) != len(entries):
+        say('Incomplete preflight. No raw transfers started.')
         return 1
     needed = 0
     for e in checked:

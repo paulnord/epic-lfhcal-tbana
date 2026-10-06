@@ -56,6 +56,37 @@ lists all 20 selections without writing anything. Scan selectors are
 Run the same download command again after an interruption. The default is two
 concurrent transfers and three attempts per file; adjust with `--jobs` and `--tries`.
 
+## If metadata queries time out
+
+Stop an older check with Ctrl-C. A timeout does not establish that an input is
+missing. The script now probes one file per selected campaign before the full
+preflight and stops scheduling queries after any failure. In-flight queries can
+still take up to the configured timeout. Captured client diagnostics are retained
+in the error, and the selected `xrdfs` executable is printed.
+
+Use the small probe to compare the host's client with the EIC shell client:
+
+```tcsh
+python3 /tmp/download_calibration_raw.py --out "$RAW" --probe --query-timeout 20
+~/my_eic_work_with_LFHCAL/eic-shell
+```
+
+After the EIC shell prompt appears, use the full path because the outer tcsh
+variable is not exported to the inner shell:
+
+```sh
+python3 /tmp/download_calibration_raw.py \
+  --out /gpfs01/star/pwg/pnord/eic/2026TBanalysis/calibration-raw \
+  --probe --query-timeout 20
+```
+
+`--probe` reads size/checksum metadata for just the first file in each selected
+campaign. It neither downloads data nor checks the rest of the list. Once it
+succeeds, replace `--probe --query-timeout 20` with `--check` or `--download`.
+If it also times out inside the EIC shell, retain its output for diagnosis of
+network/server access. The script does not assume a server outage or silently
+substitute another host or dataset.
+
 ## Files and verification
 
 - PS files go under `ps-2026/raw/`; SPS files under `sps-2026/raw/`. Overlapping run
@@ -63,7 +94,8 @@ concurrent transfers and three attempts per file; adjust with `--jobs` and `--tr
 - `manifests/<timestamp>/` contains the complete plan, individual set JSON files,
   server sizes/checksums, transfer logs, and the final success/failure report.
 - Every selected remote file must pass the size/checksum preflight before any
-  raw transfer starts. `--check` does not verify existing local data.
+  raw transfer starts. Failed preflights record which inputs remain unchecked.
+  `--check` does not verify existing local data.
 - Downloads use `.part` files and resume with `xrdcp --continue`. A sidecar records
   which source and checksum the partial belongs to.
 - A completed file is published only after whole-file size and Adler-32 checks
