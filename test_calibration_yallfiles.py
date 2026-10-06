@@ -3,14 +3,20 @@
 Run from the repository root: python3 -m unittest -v test_calibration_yallfiles.py
 Requires yall-run on the Python path; does not need ROOT or raw data.
 """
-import copy
 import json
+import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
 
-import prepare_calibration_yallfiles as setup
-from yall_run.model import load_spec
+from unittest.mock import patch
+try:
+    from yall_run.model import load_spec
+except ModuleNotFoundError as error:
+    if error.name != 'yall_run':
+        raise
+    raise unittest.SkipTest('Install yall-run to validate the native Yallfiles')
 
 CATALOG = Path(__file__).parent/'examples/yall/calibration-2026/calibration_2026_sets.json'
 if not CATALOG.exists():
@@ -28,12 +34,12 @@ class Recipes(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
 
-    def parse(self, name, n=5):
-        path = self.root/name
-        path.mkdir(exist_ok=True)
-        file = path/'Yallfile'
-        file.write_text(setup.render(name, self.recipes[name], self.root, Path('/raw'), Path('/source'), Path('/eic-shell'), refinements=n))
-        return load_spec(file)
+    def parse(self, name):
+        directory = CATALOG.parent/'recipes'/name
+        file = directory/('Yallfile.draft' if self.recipes[name]['review_needed'] else 'Yallfile')
+        with patch.dict(os.environ, {'CALWORK': str(self.root), 'LFHCAL_SOURCE': '/source',
+                                     'LFHCAL_RAW': '/raw', 'EIC_SHELL': '/eic-shell'}):
+            return load_spec(file)
 
     def test_all_sets_expansion_and_inputs_have_upstream_producers(self):
         for name, r in self.recipes.items():
@@ -88,28 +94,24 @@ class Recipes(unittest.TestCase):
             for run in self.recipes[name].get('extra_raw_runs', []):
                 self.assertFalse(any(t.name.startswith('transfer-') and t.name.endswith('-%03d' % run) for t in spec.tasks))
 
-    def test_uncertain_associations_remain_drafts_until_explicitly_supplied(self):
+    def test_drafts_are_separate_from_complete_yallfiles(self):
         self.assertEqual(sum(not r['review_needed'] for r in self.recipes.values()), 9)
-        setup.apply_overrides(self.recipes, {'ps-a2': {'pedestal': 120}})
-        self.assertTrue(self.recipes['ps-a2']['review_needed'])
-        setup.apply_overrides(self.recipes, {'ps-a2': {'toa': 'none'}})
-        self.assertFalse(self.recipes['ps-a2']['review_needed'])
-        t = next(t for t in self.parse('ps-a2').tasks if t.name.startswith('transfer-'))
-        self.assertNotIn('-G', t.command)
-        self.assertIn('rawHGCROC_wPed_120.root', flag(t.command, '-P'))
+        for name,r in self.recipes.items():
+            directory = CATALOG.parent/'recipes'/name
+            if r['review_needed']:
+                self.assertFalse((directory/'Yallfile').exists())
+                self.assertTrue((directory/'Yallfile.draft').exists())
+            spec = self.parse(name)
+            self.assertFalse(any('prepare_calibration_yallfiles' in str(t.command) for t in spec.tasks))
         self.assertEqual(self.recipes['ps-d1']['pedestal_runs'], [238])
         self.assertEqual(self.recipes['ps-g1']['pedestal_runs'], [379])
 
-    def test_refinement_count_and_input_path_injection(self):
-        for n in (1, 4, 8):
-            spec = self.parse('ps-c1', n)
-            t = next(t for t in spec.tasks if t.name.startswith('final-'))
-            self.assertTrue(t.parents[0].startswith('refine%d-' % n))
-        for path in ('/data/with space', '/data/$(bad)', '/data/{unknown}', '/data/quote\"'):
-            with self.assertRaises(ValueError):
-                setup.safe_path(path)
-        with self.assertRaises(ValueError):
-            setup.apply_overrides(self.recipes, {'ps-a1': {'pedestal': 86}})
+    def test_build_wrapper_starts_without_precreated_directory(self):
+        wrapper = CATALOG.parent/'in-calibration-build.sh'
+        build = self.root/'new-build'
+        result = subprocess.check_output(['bash',str(wrapper),str(build),'/bin/pwd'],text=True).strip()
+        self.assertEqual(Path(result),build)
+        self.assertTrue(build.is_dir())
 
 
 if __name__ == '__main__':

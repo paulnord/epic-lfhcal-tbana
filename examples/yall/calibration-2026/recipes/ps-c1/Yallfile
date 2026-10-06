@@ -1,5 +1,6 @@
-# Review copy; use prepare_calibration_yallfiles.py to create the source/build directories.
+# Standalone Yallfile: edit the tables and run with yall-run.
 @env CALWORK
+@env LFHCAL_SOURCE
 @env LFHCAL_RAW
 @env EIC_SHELL
 # ps-c1: legacy fitter, original boundary; 5 refinements.
@@ -15,11 +16,11 @@ backend condor
 %time 10h
 %getenv true
 @set WORK {CALWORK}/ps-c1
-@set SOURCE {CALWORK}/source
+@set SOURCE {LFHCAL_SOURCE}
 @set BUILD {CALWORK}/ps-c1/build
-@set CFG {CALWORK}/source/configs/TB2026
+@set CFG {SOURCE}/configs/TB2026
 @set RAW {LFHCAL_RAW}/ps-2026/raw
-%wrapper {CALWORK}/run-in-eic-shell.sh {EIC_SHELL} {CALWORK}/in-calibration-build.sh {BUILD}
+%wrapper {SOURCE}/examples/yall/calibration-2026/run-in-eic-shell.sh {EIC_SHELL} {SOURCE}/examples/yall/calibration-2026/in-calibration-build.sh {BUILD}
 
 # File role and run number drive conversion. Leading zeros are filenames.
 @table runs type run:
