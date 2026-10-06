@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply a small HGCROC-only patch to the original 100-step fitter.
 
-Default is a dry run (unified diff). --apply checks the exact original blob,
+Default is a dry run (unified diff). --apply checks an exact supported base blob,
 then writes only NewStructure/TileSpectra.cc. It never switches branches,
 commits, pushes, changes calibration data, or patches a different source version.
 """
@@ -12,6 +12,9 @@ from pathlib import Path
 
 BASE_COMMIT = '924ad82de6d150534b4d7684b5638df92c0a2016'
 BASE_BLOB = '80fdbaca75d727e9d7451c3d5e3d0626d1d13808'
+# Same original fitter after replacing its temporary heap arrays with stack arrays.
+STACK_ARRAYS_BLOB = '594403ddae0b318c013e7ea7145087b4fdcf7188'
+SUPPORTED_BASE_BLOBS = (BASE_BLOB, STACK_ARRAYS_BLOB)
 RELATIVE_SOURCE = Path('NewStructure/TileSpectra.cc')
 
 
@@ -33,10 +36,19 @@ def transform(source):
                        '// fitting for minimum ionizing peak for LG CAEN readout', begin)
     before, body, after = source[:begin], source[begin:end], source[end:]
     body = once(body, 'double avmip = -1000){', 'double avmip = -1000) try {')
-    body = once(body, 'double* fitrange    = new double[2];', 'double fitrange[2];')
-    body = once(body, 'double* startvalues    = new double[4];', 'double startvalues[4];')
-    body = once(body, 'double* parlimitslo    = new double[4];', 'double parlimitslo[4];')
-    body = once(body, 'double* parlimitshi    = new double[4];', 'double parlimitshi[4];')
+    for name, size in (('fitrange', 2), ('startvalues', 4),
+                       ('parlimitslo', 4), ('parlimitshi', 4)):
+        heap = f'double* {name}    = new double[{size}];'
+        stack = f'double {name}[{size}];'
+        cleanup = '  delete '+name+';\n'
+        if heap in body:
+            body = once(body, heap, stack)
+            body = once(body, cleanup, '')
+        else:
+            # The warning-clean base already owns these arrays on the stack.
+            body = once(body, stack, stack)
+            if cleanup in body:
+                raise ValueError('Unexpected cleanup of stack array: '+name)
     body = once(body,
         '  SignalHG = TF1(funcName.Data(),langaufun,fitrange[0],fitrange[1],4);',
         '''  // Only HGCROC switches evaluator; the existing fitter is retained.
@@ -66,8 +78,6 @@ def transform(source):
     }
     SignalHG.GetParameters(out);    // obtain fit parameters''')
     body = once(body, '    double SNRPeak, SNRFWHM;\n    langaupro(out,SNRPeak,SNRFWHM);\n', '')
-    for name in ('fitrange','startvalues','parlimitslo','parlimitshi'):
-        body = once(body, '  delete '+name+';\n', '')
     body = once(body, '  return bmipHG;\n}', '''  return bmipHG;
 } catch (const std::exception& error) {
   bmipHG = false;
@@ -87,9 +97,10 @@ def main():
     helper = args.repo/'NewStructure/AdaptiveLangau.h'
     data = path.read_bytes()
     actual = git_blob_sha(data)
-    if actual != BASE_BLOB:
+    if actual not in SUPPORTED_BASE_BLOBS:
         ap.error(f'Refusing to change {path}: blob {actual} differs from '
-                 f'{BASE_BLOB} at {BASE_COMMIT}. Use a clean worktree of that base.')
+                 f'the supported base blobs {SUPPORTED_BASE_BLOBS}. '
+                 f'Use the original source at {BASE_COMMIT} or its stack-array cleanup.')
     if not helper.is_file():
         ap.error('AdaptiveLangau.h must be present before applying the core patch')
     source = data.decode('utf-8')

@@ -1,4 +1,5 @@
 #include "Analyses.h"
+#include <array>
 #include <vector>
 #include "TROOT.h"
 #include <bitset>
@@ -1440,14 +1441,14 @@ bool Analyses::EvaluateHGCROCToAPhases(void){
                                               8,-0.5,7.5);
   hSampleDiffMin->SetDirectory(0);
   
-  TH2D* h2DToAvsADC[setup->GetNMaxROUnit()+1][2][5];
-  TProfile* hToAvsADC[setup->GetNMaxROUnit()+1][2][5];
-  TH2D* h2DWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2][5];
-  TProfile* hWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2][5];
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<std::array<TH2D*, 5>, 2>> h2DToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TProfile*, 5>, 2>> hToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TH2D*, 5>, 2>> h2DWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TProfile*, 5>, 2>> hWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);
 
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
   
   for (Int_t ro = 0; ro < setup->GetNMaxROUnit()+1; ro++){
     for (int h = 0; h< 2; h++){
@@ -1790,9 +1791,9 @@ bool Analyses::TransferCalib(void){
   TH2D* hNCellsWTOAVsTotADC   =nullptr;
   TH2D* hNCellsWmADCVsTotADC  =nullptr;        
   // plot setup per half asic for ToA 
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
   
   // only create these if we have an HGCROC data type as input
   if (typeRO == ReadOut::Type::Hgcroc){
@@ -5164,9 +5165,9 @@ bool Analyses::Calibrate(void){
   TH1D* hSampleTOA            =nullptr;   
   TH2D* hTOANsVsCellID        =nullptr;   
   TH2D* hTOACorrNsVsCellID    =nullptr;   
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];  
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
   
   // create HG and LG histo's per channel
   if (typeRO == ReadOut::Type::Caen) {

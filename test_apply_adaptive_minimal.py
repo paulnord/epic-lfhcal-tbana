@@ -1,7 +1,11 @@
 """Source-patch tests. Numerical tests exercise the actual C++ helper separately."""
 import hashlib
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
-from apply_adaptive_minimal import git_blob_sha, once, transform
+from apply_adaptive_minimal import SUPPORTED_BASE_BLOBS, git_blob_sha, once, transform
 
 
 # Only patch anchors are modeled here. These tests do not compile TileSpectra.
@@ -62,6 +66,36 @@ class PatchTests(unittest.TestCase):
 
     def test_reapply_refused(self):
         with self.assertRaises(ValueError): transform(transform(FIXTURE))
+
+    def test_stack_array_base_produces_same_adaptive_fitter(self):
+        source = FIXTURE
+        for name, size in (('fitrange', 2), ('startvalues', 4),
+                           ('parlimitslo', 4), ('parlimitshi', 4)):
+            source = source.replace(f'double* {name}    = new double[{size}];',
+                                    f'double {name}[{size}];')
+            source = source.replace('  delete '+name+';\n', '')
+        self.assertEqual(transform(source), transform(FIXTURE))
+
+    def test_current_source_is_supported_and_lg_is_preserved(self):
+        source = Path(__file__).with_name('NewStructure').joinpath('TileSpectra.cc').read_bytes()
+        self.assertIn(git_blob_sha(source), SUPPORTED_BASE_BLOBS)
+        text = source.decode('utf-8')
+        start = text.index('bool TileSpectra::FitMipLG(')
+        self.assertTrue(transform(text).endswith(text[start:]))
+
+    def test_cli_rejects_unrecognized_source_without_writing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            (repo/'NewStructure').mkdir()
+            source = repo/'NewStructure/TileSpectra.cc'
+            source.write_text(FIXTURE)
+            (repo/'NewStructure/AdaptiveLangau.h').write_text('// test helper\n')
+            result = subprocess.run([sys.executable, str(Path(__file__).with_name('apply_adaptive_minimal.py')),
+                                     '--repo', str(repo), '--apply'],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Refusing to change', result.stderr)
+            self.assertEqual(source.read_text(), FIXTURE)
 
     def test_missing_and_duplicate_anchor_refused(self):
         for text in ('no anchor','xx xx'):

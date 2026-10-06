@@ -8,15 +8,33 @@ No production branch, running checkout, calibration input, or ROOT installation
 is modified by downloading the kit.
 
 Base: original `main`, commit `924ad82de6d150534b4d7684b5638df92c0a2016`.
-The installer verifies the exact original TileSpectra.cc blob
-`80fdbaca75d727e9d7451c3d5e3d0626d1d13808`. It will not silently patch the FFT,
+The installer accepts exactly two TileSpectra.cc base blobs: the original
+`80fdbaca75d727e9d7451c3d5e3d0626d1d13808` and its stack-array cleanup
+`594403ddae0b318c013e7ea7145087b4fdcf7188`. It will not silently patch the FFT,
 sigma-floor, or older adaptive implementation instead.
+
+## Compiler warning cleanup (2026-10-06)
+
+The base source now uses stack arrays for temporary fit ranges, initial values
+and limits in the HG/LG fitters. This removes mismatched scalar deletes and
+early-return leaks without changing fit windows, parameters, or acceptance.
+The histogram pointer tables in Analyses.cc and HGCROC_Convert.cc now use
+standard vectors/arrays in place of 14 variable-length arrays; histogram
+ownership and indexing are unchanged.
+
+Validation: all three changed C++ translation units, plus the generated
+adaptive TileSpectra.cc, compile to objects with GCC 13 and ROOT 6.40.00,
+with `-Werror=vla -Werror=mismatched-new-delete`. Nine installer tests pass.
+The updated installer produces byte-identical adaptive output from the original
+base; output from the cleaned base differs only in the LG temporary-array
+cleanup. These checks do not replace a full BNL build or real-data replay.
+Keep the shared BNL build fixed while campaigns are running; apply and rebuild
+this cleanup after those campaigns finish.
 
 ## Production scope
 
-One new 191-line header, `AdaptiveLangau.h`, and a patch to ONE existing file,
-`TileSpectra.cc` (35 added lines and 12 removed lines, including comments and
-memory cleanup). There is no second implementation of `FitMipHG`, no new
+One new 191-line header, `AdaptiveLangau.h`, and a small patch to ONE existing
+file, `TileSpectra.cc`. There is no second implementation of `FitMipHG`, no new
 persistent member, no TileSpectra.h change, and no CMake/library dependency change.
 
 The core patch:
@@ -26,11 +44,12 @@ The core patch:
    the earlier bounded maximum/half-height procedure. It does not fit a second
    function, use a sampled graph maximum, or call the old 100-step evaluator
    after completing an adaptive fit. CAEN retains its original peak routine.
-3. Uses stack arrays in FitMipHG and catches numerical exceptions. A numerical
+3. Uses stack arrays in FitMipHG (already present in the cleaned base) and catches numerical exceptions. A numerical
    failure clears the saved-fit flag, reports the cell and reason, and leaves
    the previous calibration and caller outputs unchanged. Stack arrays also
    remove the original scalar-delete-on-array problem and early-return leaks
-   in this function; unrelated allocation cleanup is intentionally not included.
+   in this function. The installer leaves FitMipLG unchanged, including its
+   stack-array cleanup when starting from the cleaned base.
 
 The four parameters remain `[Landau width, Landau MPV, area, Gaussian sigma]`.
 The Landau location is `MPV + 0.22278298*width`. Normalization and integration
@@ -63,13 +82,14 @@ of bit-for-bit identity with every acceptance check in `adaptive-fit-clean`.
 Peak/FWHM extraction is explicitly part of the correction, not concealed as
 an integrator-only one-line change.
 
-Local validation: 515 checks of the actual C++ helper against closed-form
+Initial patch-kit validation: 515 checks of the actual C++ helper against closed-form
 finite-span Gaussian convolution, area/translation behavior, tighter quadrature,
 peak/FWHM and failure cases. These passed both optimized and AddressSanitizer +
 UndefinedBehaviorSanitizer builds. Six Python source-patch tests passed; those
-test transformation scope, not ROOT behavior. ROOT is unavailable in the authoring
-environment: the ROOT macro, patched production build, real-data replay, runtime
-comparison and full calibration-chain regression remain to be run on BNL.
+test transformation scope, not ROOT behavior. ROOT was unavailable in the authoring
+environment at that stage; the ROOT macro, patched production build, real-data
+replay, runtime comparison and full calibration-chain regression were deferred
+to BNL. The compiler-cleanup validation above is a separate, later check.
 
 The ROOT macro uses real TMath::Landau, ordinary/narrow/broad-sigma cases,
 `1e-10` versus `1e-12` evaluations, the E1 896/903 returned-parameter controls,
