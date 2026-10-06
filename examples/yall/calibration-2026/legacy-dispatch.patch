@@ -1,0 +1,15 @@
+diff --git a/NewStructure/TileSpectra.cc b/NewStructure/TileSpectra.cc
+--- a/NewStructure/TileSpectra.cc
++++ b/NewStructure/TileSpectra.cc
+@@ -602,10 +602,7 @@ bool TileSpectra::FitMipHG( double* out, double* outErr,
+                 << " channel dead" << std::endl;
+     return false;
+   }
+-  if (ROType == ReadOut::Type::Hgcroc) {
+-    return lfhcal::adaptive::fitMipHG(*this, out, outErr, verbosity, year,
+-                                      impE, vov, avmip);
+-  }
++  // This isolated comparison build uses Legacy for HGCROC as well.
+   return fitMipHGLegacy(out, outErr, verbosity, year, impE, vov, avmip);
+ }
+ 
