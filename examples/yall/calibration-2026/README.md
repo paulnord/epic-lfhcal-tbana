@@ -61,11 +61,11 @@ and use a new `CALWORK` for another calibration variant.
 |---|---|
 | PS C1, C2, D1, D2, E1, E2 | `Yallfile`: pedestal and ToA assignments present in Fredi's recipe |
 | SPS Param1, Param2, Param3 | `Yallfile`: complete pedestal–muon pairs and ToA choices |
-| PS A1, A2, B1, B2, F1, F2, G1, G2, H1, I1, I2 | `Yallfile.draft`: inferred pedestal associations; H/I also have mapping/merge questions |
+| PS A1, A2, B1, B2, F1, F2, G1, G2, H1, I1, I2 | `Yallfile`: inferred pedestal associations; H/I also have mapping/merge questions |
 
-Edit unresolved pedestal/mapping choices directly in the draft. Rename it
-to `Yallfile` when those choices are settled. There is no override JSON or
-approval mechanism.
+All twenty examples use the filename `Yallfile`. Association uncertainties
+remain in their header comments and in the inventory notes. Edit any changed
+pedestal/mapping choices directly in the Yallfile.
 
 External ToA offsets are optional for this ADC/MIP calibration. The code
 loads them only when `-G` is supplied; Fredi's helper supports both `BC`
@@ -77,11 +77,11 @@ those outputs must not be treated as phase-calibrated. Missing ToA is not a
 reason to hold up the MIP calibration.
 
 D1 preserves pedestal 238 from the script despite its recorded CC mismatch;
-G1's draft preserves 379. Neither is silently replaced by 265 or 404.
+G1 preserves 379. Neither is silently replaced by 265 or 404.
 Dead-time mismatches and other source notes remain in each file's header.
 H1 and I1 currently contain the same muon runs. I2 is based on recipe
 comments without an active merge. Their active V2 inverse mapping conflicts
-with V1 comments in the original script; these cases remain drafts.
+with V1 comments in the original script; these caveats remain documented.
 
 PS muons are merged within their named set. SPS scan runs are **never merged
 across settings**: Param1 has 6 pairs, Param2 has 2, and Param3 has 20. Those

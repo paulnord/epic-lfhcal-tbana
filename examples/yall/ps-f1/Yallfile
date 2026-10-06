@@ -3,13 +3,12 @@
 @env LFHCAL_SOURCE
 @env LFHCAL_RAW
 @env EIC_SHELL
-# ps-i1: legacy fitter, original boundary; 5 refinements.
+# ps-f1: legacy fitter, original boundary; 5 refinements.
 # Native tasks: no Python calibration runner and no automatic submission.
-# Pedestal evidence: inferred; same muons as H1
-# NOTE: The PartSetI branch repeats its first merge twice. Its board comment says V1 while its conversion uses V2.
-# DRAFT: pedestal association inferred
+# Pedestal evidence: inferred
+# NOTE: pedestal association inferred
 # ToA: external offsets omitted (optional for ADC/MIP); timing diagnostics are not phase-calibrated.
-campaign lfhcal-2026-ps-i1-legacy-original
+campaign lfhcal-2026-ps-f1-legacy-original
 backend condor
 %account-provenance off
 %cpus 1
@@ -17,7 +16,7 @@ backend condor
 %disk 16GB
 %time 10h
 %getenv true
-@set WORK {CALWORK}/ps-i1
+@set WORK {CALWORK}/ps-f1
 @set SOURCE {LFHCAL_SOURCE}
 @set BUILD {SOURCE}/NewStructure/build
 @set CFG {SOURCE}/configs/TB2026
@@ -26,15 +25,17 @@ backend condor
 
 # File role and run number drive conversion. Leading zeros are filenames.
 @table runs type run:
-    pedestal  425
-    muon      427
-    muon      428
-    muon      429
-    muon      430
+    pedestal  338
+    muon      339
+    muon      340
+    muon      341
+    muon      342
+    muon      343
+    muon      344
 
 # Each sample has exactly one pedestal. Scan samples remain separate.
 @table pairs ped sample:
-    425 Muon_FullSetI_1
+    338 Muon_FullSetF_1
 
 # Lightweight host setup runs during yall-run create, before submission.
 # Use the existing build; compilation is outside this calibration campaign.
@@ -68,7 +69,7 @@ pedestal-{ped}: convert-pedestal-{ped}
 merge-{type}: convert-{type}-{run}
     @each type muon
     @input parts {WORK}/converted/rawHGCROC_{run}.root
-    @output root {WORK}/converted/rawHGCROC_Muon_FullSetI_1.root
+    @output root {WORK}/converted/rawHGCROC_Muon_FullSetF_1.root
     hadd -f @output.root @input.parts
 
 # -P transfers pedestal constants; -B loads the bad-channel map; -G loads ToA offsets.

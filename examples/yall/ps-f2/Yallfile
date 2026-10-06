@@ -3,13 +3,13 @@
 @env LFHCAL_SOURCE
 @env LFHCAL_RAW
 @env EIC_SHELL
-# ps-g1: legacy fitter, original boundary; 5 refinements.
+# ps-f2: legacy fitter, original boundary; 5 refinements.
 # Native tasks: no Python calibration runner and no automatic submission.
-# Pedestal evidence: inferred; CC mismatch
-# NOTE: Pedestal 379 records CC=15; muons record CC=9. Also fetch 404 (CC=9) for review; no replacement is selected.
-# DRAFT: pedestal association inferred
+# Pedestal evidence: inferred
+# NOTE: Muon runs 367-370 are labelled Muon- beam shutter open.
+# NOTE: pedestal association inferred
 # ToA: external offsets omitted (optional for ADC/MIP); timing diagnostics are not phase-calibrated.
-campaign lfhcal-2026-ps-g1-legacy-original
+campaign lfhcal-2026-ps-f2-legacy-original
 backend condor
 %account-provenance off
 %cpus 1
@@ -17,7 +17,7 @@ backend condor
 %disk 16GB
 %time 10h
 %getenv true
-@set WORK {CALWORK}/ps-g1
+@set WORK {CALWORK}/ps-f2
 @set SOURCE {LFHCAL_SOURCE}
 @set BUILD {SOURCE}/NewStructure/build
 @set CFG {SOURCE}/configs/TB2026
@@ -26,15 +26,15 @@ backend condor
 
 # File role and run number drive conversion. Leading zeros are filenames.
 @table runs type run:
-    pedestal  379
-    muon      380
-    muon      381
-    muon      382
-    muon      383
+    pedestal  366
+    muon      367
+    muon      368
+    muon      369
+    muon      370
 
 # Each sample has exactly one pedestal. Scan samples remain separate.
 @table pairs ped sample:
-    379 Muon_FullSetG_1
+    366 Muon_FullSetF_2
 
 # Lightweight host setup runs during yall-run create, before submission.
 # Use the existing build; compilation is outside this calibration campaign.
@@ -68,7 +68,7 @@ pedestal-{ped}: convert-pedestal-{ped}
 merge-{type}: convert-{type}-{run}
     @each type muon
     @input parts {WORK}/converted/rawHGCROC_{run}.root
-    @output root {WORK}/converted/rawHGCROC_Muon_FullSetG_1.root
+    @output root {WORK}/converted/rawHGCROC_Muon_FullSetF_2.root
     hadd -f @output.root @input.parts
 
 # -P transfers pedestal constants; -B loads the bad-channel map; -G loads ToA offsets.

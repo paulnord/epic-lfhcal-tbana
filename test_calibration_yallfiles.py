@@ -34,7 +34,7 @@ class Recipes(unittest.TestCase):
 
     def parse(self, name):
         directory = CATALOG.parent.parent/name
-        file = directory/('Yallfile.draft' if self.recipes[name]['review_needed'] else 'Yallfile')
+        file = directory/'Yallfile'
         with patch.dict(os.environ, {'CALWORK': str(self.root), 'LFHCAL_SOURCE': str(self.root/'source'),
                                      'LFHCAL_RAW': '/raw', 'EIC_SHELL': '/bin/true'}):
             return load_spec(file)
@@ -92,13 +92,13 @@ class Recipes(unittest.TestCase):
             for run in self.recipes[name].get('extra_raw_runs', []):
                 self.assertFalse(any(t.name.startswith('transfer-') and t.name.endswith('-%03d' % run) for t in spec.tasks))
 
-    def test_drafts_are_separate_from_complete_yallfiles(self):
-        self.assertEqual(sum(not r['review_needed'] for r in self.recipes.values()), 9)
+    def test_all_sets_have_yallfiles_with_association_notes(self):
         for name,r in self.recipes.items():
             directory = CATALOG.parent.parent/name
+            self.assertTrue((directory/'Yallfile').exists())
+            self.assertFalse((directory/'Yallfile.draft').exists())
             if r['review_needed']:
-                self.assertFalse((directory/'Yallfile').exists())
-                self.assertTrue((directory/'Yallfile.draft').exists())
+                self.assertIn('# NOTE: pedestal association inferred', (directory/'Yallfile').read_text())
             spec = self.parse(name)
             self.assertFalse(any('prepare_calibration_yallfiles' in str(t.command) for t in spec.tasks))
         self.assertEqual(self.recipes['ps-d1']['pedestal_runs'], [238])
