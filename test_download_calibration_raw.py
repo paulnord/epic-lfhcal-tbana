@@ -124,7 +124,7 @@ class DownloaderTests(unittest.TestCase):
         self.assertEqual(len(self.copies()), 3)
         for call in self.copies():
             self.assertEqual(len(call), 2)
-            self.assertTrue(call[0].startswith('root://dtn-eic.jlab.org:1094//'))
+            self.assertTrue(call[0].startswith('root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/work/'))
         report = json.loads(next((self.out / 'manifests').glob('*/result.json')).read_text())
         self.assertFalse(report['remote_checksum_verified'])
         self.assertTrue(all(e['status'] == 'copied' for e in report['completed']))

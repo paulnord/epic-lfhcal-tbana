@@ -67,9 +67,8 @@ lists, add `--direct`:
 python3 /tmp/download_calibration_raw.py --out "$RAW" --download --direct --tries 1
 ```
 
-This calls plain `xrdcp` sequentially, shows its output/progress, uses the explicit
-`:1094` address from the old script, and stops at a failed file. The port is made
-explicit for consistency; it has not been established as the cause of the timeout.
+This calls plain `xrdcp` sequentially, shows its output/progress, uses the configured
+source URLs (now `dtn2304.jlab.org:8443` by default), and stops at a failed file.
 Set selection still works, e.g. `--sets ps-a1`. There is no required container
 change if the current shell's `xrdcp` works.
 
@@ -189,12 +188,29 @@ The catalog is pinned to source commit
 - `NewStructure/runHGCROCCalibration_TBSPSH2_2026.sh`
 - The corresponding PS and SPS data-taking CSV databases.
 
-Raw URLs follow [Fredi's data-access documentation](https://friederikebock.gitbook.io/epiclfhcaltb-ana/tb-analysis-basics/getting-the-data):
+The logical raw-data locations come from
+[Fredi's data-access documentation](https://friederikebock.gitbook.io/epiclfhcaltb-ana/tb-analysis-basics/getting-the-data).
+The default access route now uses JLab's `dtn2304.jlab.org:8443` work export:
 
 ```text
-root://dtn-eic.jlab.org//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw/Run085.h2g
-root://dtn-eic.jlab.org//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw/Run294.h2g
+root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/work/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw/Run085.h2g
+root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/work/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw/Run294.h2g
 ```
+
+On 2026-10-06, Paul confirmed readable `xrdfs stat` responses from BNL for PS
+Run085 (90,661,002 bytes) and SPS Run126 (353,078,209 bytes) under these roots.
+The earlier `dtn-eic.jlab.org:1094` route timed out from BNL and his Mac.
+This confirms sample metadata access, not availability of every requested file
+or successful transfers/checksums. The new route was discovered by listing the
+export; it is not a change to the run catalog or the local destination layout.
+The separate `volatile/TestBeam/LFHCal` export is not used: PS Run085 existed
+there, but SPS Run126 was absent.
+
+Use normal `--download --query-timeout 20 --tries 1` to preflight and verify the
+requested files on the new route. It leaves any old `.direct.part` files alone.
+Direct mode deliberately refuses to overwrite a partial belonging to a different
+source URL; preserve/move that partial and its JSON marker if choosing direct mode
+after changing sources.
 
 Directory overrides are available with `--ps-source` and `--sps-source`.
 

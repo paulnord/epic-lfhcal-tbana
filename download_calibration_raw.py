@@ -26,8 +26,9 @@ SOURCE_COMMIT = '5227c3e714e3be16b21a24bb76a99ecb8e85a2a5'
 SOURCE_REPO = 'https://github.com/paulnord/epic-lfhcal-tbana'
 DATA_DOCUMENTATION = 'https://friederikebock.gitbook.io/epiclfhcaltb-ana/tb-analysis-basics/getting-the-data'
 REMOTE_ROOTS = {
-    'ps': 'root://dtn-eic.jlab.org:1094//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw',
-    'sps': 'root://dtn-eic.jlab.org:1094//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw',
+    # Readable sample files confirmed from BNL on 2026-10-06 via this work export.
+    'ps': 'root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/work/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw',
+    'sps': 'root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/work/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw',
 }
 LOCAL_DIRS = {'ps': 'ps-2026/raw', 'sps': 'sps-2026/raw'}
 STOP = threading.Event()
