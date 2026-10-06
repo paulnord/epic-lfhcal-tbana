@@ -1,0 +1,669 @@
+{
+  "recipe_commit": "5227c3e714e3be16b21a24bb76a99ecb8e85a2a5",
+  "sets": {
+    "ps-a1": {
+      "campaign": "ps",
+      "muon_runs": [
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92
+      ],
+      "pedestal_runs": [
+        85
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetA_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-a2": {
+      "campaign": "ps",
+      "muon_runs": [
+        121,
+        122,
+        123,
+        124,
+        125,
+        126
+      ],
+      "pedestal_runs": [
+        120
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetA_2",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-b1": {
+      "campaign": "ps",
+      "muon_runs": [
+        189,
+        190,
+        191,
+        192,
+        193
+      ],
+      "pedestal_runs": [
+        215
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "Run 191 is present in the merge list but absent from the active conversion list.",
+        "Pedestal dead time is 2000; muons include 1700, 1800 and 2000."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetB_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-b2": {
+      "campaign": "ps",
+      "muon_runs": [
+        217,
+        218,
+        219,
+        220
+      ],
+      "pedestal_runs": [
+        215
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetB_2",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-c1": {
+      "campaign": "ps",
+      "muon_runs": [
+        131,
+        132,
+        133,
+        134,
+        135,
+        136
+      ],
+      "pedestal_runs": [
+        130
+      ],
+      "pedestal_evidence": "script-assigned",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "Pedestal dead time is 4000; muons include 4000 and 2000."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetC.csv",
+      "sample": "Muon_FullSetC_1",
+      "review_needed": []
+    },
+    "ps-c2": {
+      "campaign": "ps",
+      "muon_runs": [
+        177,
+        179,
+        178,
+        181,
+        182,
+        180,
+        183,
+        184
+      ],
+      "pedestal_runs": [
+        171
+      ],
+      "pedestal_evidence": "script-assigned",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "Pedestal dead time is 2000; muons use 1500."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetC.csv",
+      "sample": "Muon_FullSetC_2",
+      "review_needed": []
+    },
+    "ps-d1": {
+      "campaign": "ps",
+      "muon_runs": [
+        242,
+        241,
+        240,
+        244
+      ],
+      "pedestal_runs": [
+        238
+      ],
+      "pedestal_evidence": "script-assigned; CC mismatch",
+      "additional_pedestals_for_review": [
+        265
+      ],
+      "notes": [
+        "Pedestal 238 records CC=3; muons record CC=5. Also fetch 265 (CC=5) for review; no replacement is selected."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetD.csv",
+      "sample": "Muon_FullSetD_1",
+      "review_needed": []
+    },
+    "ps-d2": {
+      "campaign": "ps",
+      "muon_runs": [
+        266,
+        267,
+        268,
+        269
+      ],
+      "pedestal_runs": [
+        265
+      ],
+      "pedestal_evidence": "script-assigned",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetD.csv",
+      "sample": "Muon_FullSetD_2",
+      "review_needed": []
+    },
+    "ps-e1": {
+      "campaign": "ps",
+      "muon_runs": [
+        288,
+        289,
+        290,
+        291
+      ],
+      "pedestal_runs": [
+        287
+      ],
+      "pedestal_evidence": "script-assigned",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetE.csv",
+      "sample": "Muon_FullSetE_1",
+      "review_needed": []
+    },
+    "ps-e2": {
+      "campaign": "ps",
+      "muon_runs": [
+        316,
+        317,
+        318,
+        319,
+        320
+      ],
+      "pedestal_runs": [
+        315
+      ],
+      "pedestal_evidence": "script-assigned",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": "ToAOffsets_TB2026_FullSetE.csv",
+      "sample": "Muon_FullSetE_2",
+      "review_needed": []
+    },
+    "ps-f1": {
+      "campaign": "ps",
+      "muon_runs": [
+        339,
+        340,
+        341,
+        342,
+        343,
+        344
+      ],
+      "pedestal_runs": [
+        338
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetF_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-f2": {
+      "campaign": "ps",
+      "muon_runs": [
+        367,
+        368,
+        369,
+        370
+      ],
+      "pedestal_runs": [
+        366
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "Muon runs 367-370 are labelled Muon- beam shutter open."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetF_2",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-g1": {
+      "campaign": "ps",
+      "muon_runs": [
+        380,
+        381,
+        382,
+        383
+      ],
+      "pedestal_runs": [
+        379
+      ],
+      "pedestal_evidence": "inferred; CC mismatch",
+      "additional_pedestals_for_review": [
+        404
+      ],
+      "notes": [
+        "Pedestal 379 records CC=15; muons record CC=9. Also fetch 404 (CC=9) for review; no replacement is selected."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetG_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-g2": {
+      "campaign": "ps",
+      "muon_runs": [
+        405,
+        406,
+        407,
+        408
+      ],
+      "pedestal_runs": [
+        404
+      ],
+      "pedestal_evidence": "inferred",
+      "additional_pedestals_for_review": [],
+      "notes": [],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetG_2",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-h1": {
+      "campaign": "ps",
+      "muon_runs": [
+        427,
+        428,
+        429,
+        430
+      ],
+      "pedestal_runs": [
+        425
+      ],
+      "pedestal_evidence": "inferred; merge name needs correction",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "The FullSetH branch emits a G1 filename. Its board comment says V1 while its conversion uses V2."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetH_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-i1": {
+      "campaign": "ps",
+      "muon_runs": [
+        427,
+        428,
+        429,
+        430
+      ],
+      "pedestal_runs": [
+        425
+      ],
+      "pedestal_evidence": "inferred; same muons as H1",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "The PartSetI branch repeats its first merge twice. Its board comment says V1 while its conversion uses V2."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetI_1",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "ps-i2": {
+      "campaign": "ps",
+      "muon_runs": [
+        464,
+        463
+      ],
+      "pedestal_runs": [
+        462
+      ],
+      "pedestal_evidence": "inferred; only listed in recipe comments",
+      "additional_pedestals_for_review": [],
+      "notes": [
+        "Runs 463/464 are listed as the second muon set in comments; an active I2 merge is missing.",
+        "The board comment says V1 while the conversion uses V2."
+      ],
+      "mapping": "mapping_HGCROC_PST10TB_sumV2_default_inv.csv",
+      "rundb": "DataTakingDB_TBPST10_202604_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_PSTB2026_dummy.txt",
+      "toa": null,
+      "sample": "Muon_FullSetI_2",
+      "review_needed": [
+        "pedestal association inferred",
+        "ToA choice not supplied for this named set"
+      ]
+    },
+    "sps-param1": {
+      "campaign": "sps",
+      "muon_runs": [
+        295,
+        298,
+        300,
+        302,
+        304,
+        306
+      ],
+      "pedestal_runs": [
+        294,
+        296,
+        299,
+        301,
+        303,
+        305
+      ],
+      "pedestal_evidence": "script-assigned per run; never merge different scan settings",
+      "pedestal_muon_pairs": [
+        {
+          "pedestal": 294,
+          "muon": 295
+        },
+        {
+          "pedestal": 296,
+          "muon": 298
+        },
+        {
+          "pedestal": 299,
+          "muon": 300
+        },
+        {
+          "pedestal": 301,
+          "muon": 302
+        },
+        {
+          "pedestal": 303,
+          "muon": 304
+        },
+        {
+          "pedestal": 305,
+          "muon": 306
+        }
+      ],
+      "extra_raw_runs": [
+        297
+      ],
+      "notes": [
+        "Group numbers follow calibMuonParScan Set1/Set2/Set3, not the smaller example Yallfile selections.",
+        "Extra raw runs are in the conversion recipe but not its calibration pairs."
+      ],
+      "mapping": "mapping_HGCROC_SPSH2TB_sumV2_default.csv",
+      "rundb": "DataTakingDB_TBSPSH2_202605_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt",
+      "toa": "ToAOffsets_TBSPS2026_ParamScan_1.csv",
+      "sample": null,
+      "review_needed": []
+    },
+    "sps-param2": {
+      "campaign": "sps",
+      "muon_runs": [
+        308,
+        310
+      ],
+      "pedestal_runs": [
+        307,
+        309
+      ],
+      "pedestal_evidence": "script-assigned per run; never merge different scan settings",
+      "pedestal_muon_pairs": [
+        {
+          "pedestal": 307,
+          "muon": 308
+        },
+        {
+          "pedestal": 309,
+          "muon": 310
+        }
+      ],
+      "extra_raw_runs": [],
+      "notes": [
+        "Group numbers follow calibMuonParScan Set1/Set2/Set3, not the smaller example Yallfile selections.",
+        "Extra raw runs are in the conversion recipe but not its calibration pairs."
+      ],
+      "mapping": "mapping_HGCROC_SPSH2TB_sumV2_default.csv",
+      "rundb": "DataTakingDB_TBSPSH2_202605_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt",
+      "toa": "ToAOffsets_TBSPS2026_ParamScan_1.csv",
+      "sample": null,
+      "review_needed": []
+    },
+    "sps-param3": {
+      "campaign": "sps",
+      "muon_runs": [
+        329,
+        331,
+        333,
+        335,
+        337,
+        339,
+        341,
+        343,
+        345,
+        347,
+        349,
+        351,
+        353,
+        355,
+        357,
+        359,
+        361,
+        363,
+        366,
+        369
+      ],
+      "pedestal_runs": [
+        328,
+        330,
+        332,
+        334,
+        336,
+        338,
+        340,
+        342,
+        344,
+        346,
+        348,
+        350,
+        352,
+        354,
+        356,
+        358,
+        360,
+        362,
+        364,
+        367
+      ],
+      "pedestal_evidence": "script-assigned per run; never merge different scan settings",
+      "pedestal_muon_pairs": [
+        {
+          "pedestal": 328,
+          "muon": 329
+        },
+        {
+          "pedestal": 330,
+          "muon": 331
+        },
+        {
+          "pedestal": 332,
+          "muon": 333
+        },
+        {
+          "pedestal": 334,
+          "muon": 335
+        },
+        {
+          "pedestal": 336,
+          "muon": 337
+        },
+        {
+          "pedestal": 338,
+          "muon": 339
+        },
+        {
+          "pedestal": 340,
+          "muon": 341
+        },
+        {
+          "pedestal": 342,
+          "muon": 343
+        },
+        {
+          "pedestal": 344,
+          "muon": 345
+        },
+        {
+          "pedestal": 346,
+          "muon": 347
+        },
+        {
+          "pedestal": 348,
+          "muon": 349
+        },
+        {
+          "pedestal": 350,
+          "muon": 351
+        },
+        {
+          "pedestal": 352,
+          "muon": 353
+        },
+        {
+          "pedestal": 354,
+          "muon": 355
+        },
+        {
+          "pedestal": 356,
+          "muon": 357
+        },
+        {
+          "pedestal": 358,
+          "muon": 359
+        },
+        {
+          "pedestal": 360,
+          "muon": 361
+        },
+        {
+          "pedestal": 362,
+          "muon": 363
+        },
+        {
+          "pedestal": 364,
+          "muon": 366
+        },
+        {
+          "pedestal": 367,
+          "muon": 369
+        }
+      ],
+      "extra_raw_runs": [
+        365,
+        368
+      ],
+      "notes": [
+        "Group numbers follow calibMuonParScan Set1/Set2/Set3, not the smaller example Yallfile selections.",
+        "Extra raw runs are in the conversion recipe but not its calibration pairs.",
+        "Run 368 records CC=4; pedestal 367 records CC=3. No pair is assigned to extra run 368."
+      ],
+      "mapping": "mapping_HGCROC_SPSH2TB_sumV2_default.csv",
+      "rundb": "DataTakingDB_TBSPSH2_202605_HGCROC.csv",
+      "badmap": "badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt",
+      "toa": "ToAOffsets_TBSPS2026_ParamScan_2.csv",
+      "sample": null,
+      "review_needed": []
+    }
+  }
+}
