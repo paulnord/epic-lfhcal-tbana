@@ -24,9 +24,9 @@
       "toa": null,
       "sample": "Muon_FullSetA_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-a2": {
       "campaign": "ps",
@@ -50,9 +50,9 @@
       "toa": null,
       "sample": "Muon_FullSetA_2",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-b1": {
       "campaign": "ps",
@@ -78,9 +78,9 @@
       "toa": null,
       "sample": "Muon_FullSetB_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-b2": {
       "campaign": "ps",
@@ -102,9 +102,9 @@
       "toa": null,
       "sample": "Muon_FullSetB_2",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-c1": {
       "campaign": "ps",
@@ -269,9 +269,9 @@
       "toa": null,
       "sample": "Muon_FullSetF_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-f2": {
       "campaign": "ps",
@@ -295,9 +295,9 @@
       "toa": null,
       "sample": "Muon_FullSetF_2",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-g1": {
       "campaign": "ps",
@@ -323,9 +323,9 @@
       "toa": null,
       "sample": "Muon_FullSetG_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-g2": {
       "campaign": "ps",
@@ -347,9 +347,9 @@
       "toa": null,
       "sample": "Muon_FullSetG_2",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-h1": {
       "campaign": "ps",
@@ -373,9 +373,9 @@
       "toa": null,
       "sample": "Muon_FullSetH_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-i1": {
       "campaign": "ps",
@@ -399,9 +399,9 @@
       "toa": null,
       "sample": "Muon_FullSetI_1",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "ps-i2": {
       "campaign": "ps",
@@ -424,9 +424,9 @@
       "toa": null,
       "sample": "Muon_FullSetI_2",
       "review_needed": [
-        "pedestal association inferred",
-        "ToA choice not supplied for this named set"
-      ]
+        "pedestal association inferred"
+      ],
+      "toa_note": "No external ToA correction assigned; optional for the current ADC/MIP calibration. Timing diagnostics are not phase-calibrated."
     },
     "sps-param1": {
       "campaign": "sps",

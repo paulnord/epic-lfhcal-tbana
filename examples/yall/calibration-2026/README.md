@@ -46,12 +46,20 @@ checkout fixed during the campaign. Use a new `CALWORK` for another variant.
 |---|---|
 | PS C1, C2, D1, D2, E1, E2 | `Yallfile`: pedestal and ToA assignments present in Fredi's recipe |
 | SPS Param1, Param2, Param3 | `Yallfile`: complete pedestal–muon pairs and ToA choices |
-| PS A1, A2, B1, B2, F1, F2, G1, G2, H1, I1, I2 | `Yallfile.draft`: inferred pedestal associations and missing named-set ToA choices |
+| PS A1, A2, B1, B2, F1, F2, G1, G2, H1, I1, I2 | `Yallfile.draft`: inferred pedestal associations; H/I also have mapping/merge questions |
 
-Edit unresolved choices directly in the draft's tables and `@input toa`
-line. If a decision is explicitly to omit ToA offsets, remove that input and
-its `-G @input.toa` switch. Rename the file to `Yallfile` when its choices
-are settled. There is no override JSON or approval mechanism.
+Edit unresolved pedestal/mapping choices directly in the draft. Rename it
+to `Yallfile` when those choices are settled. There is no override JSON or
+approval mechanism.
+
+External ToA offsets are optional for this ADC/MIP calibration. The code
+loads them only when `-G` is supplied; Fredi's helper supports both `BC`
+(without offsets) and `BCTOA` (with offsets). ADC integration, the local muon
+selection and the MIP fit do not use the corrected ToA in this workflow.
+Known recipe offsets remain included. Where none is assigned, the Yallfile
+omits `-G` and the ToA-file input. Timing/waveform-alignment diagnostics in
+those outputs must not be treated as phase-calibrated. Missing ToA is not a
+reason to hold up the MIP calibration.
 
 D1 preserves pedestal 238 from the script despite its recorded CC mismatch;
 G1's draft preserves 379. Neither is silently replaced by 265 or 404.
@@ -67,7 +75,7 @@ are converted, but do not enter calibration chains.
 
 The inventory was transcribed from conversion/calibration recipes and run
 databases at `5227c3e714e3be16b21a24bb76a99ecb8e85a2a5`. The Yallfiles are
-now the editable execution recipes; the JSON remains the original inventory.
+now the editable execution recipes; the JSON records the inventory and association notes.
 
 ## Calibration sequence
 

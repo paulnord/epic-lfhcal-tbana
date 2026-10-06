@@ -113,6 +113,15 @@ class Recipes(unittest.TestCase):
         self.assertEqual(Path(result),build)
         self.assertTrue(build.is_dir())
 
+    def test_toa_is_only_an_input_when_an_offset_file_is_assigned(self):
+        for name, r in self.recipes.items():
+            for task in self.parse(name).tasks:
+                if not task.name.startswith('transfer-'):
+                    continue
+                self.assertEqual('-G' in task.command, r['toa'] is not None)
+                self.assertEqual(any(f.role == 'toa' for f in task.inputs), r['toa'] is not None)
+                self.assertNotIn('UNASSIGNED_TOA_', str(task))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,7 +9,7 @@
 # NOTE: Run 191 is present in the merge list but absent from the active conversion list.
 # NOTE: Pedestal dead time is 2000; muons include 1700, 1800 and 2000.
 # DRAFT: pedestal association inferred
-# DRAFT: ToA choice not supplied for this named set
+# ToA: external offsets omitted (optional for ADC/MIP); timing diagnostics are not phase-calibrated.
 campaign lfhcal-2026-ps-b1-legacy-original
 backend condor
 %account-provenance off
@@ -84,10 +84,9 @@ transfer-{ped}-{sample}: merge-muon pedestal-{ped}
     @input raw {WORK}/converted/rawHGCROC_{sample}.root
     @input bad {CFG}/badChannel_HGCROC_PSTB2026_dummy.txt
     @input rundb {CFG}/DataTakingDB_TBPST10_202604_HGCROC.csv
-    @input toa {CFG}/UNASSIGNED_TOA_ps-b1.csv
     @output root {WORK}/transfer/rawHGCROC_wPed_wBC_{sample}.root
     @output plots {WORK}/plots/transfer/{sample}
-    {BUILD}/DataPrep -d 1 -e -f -P @input.pedestal -i @input.raw -o @output.root -O @output.plots -r @input.rundb -B @input.bad -G @input.toa -F png
+    {BUILD}/DataPrep -d 1 -e -f -P @input.pedestal -i @input.raw -o @output.root -O @output.plots -r @input.rundb -B @input.bad -F png
 
 mip-{ped}-{sample}: transfer-{ped}-{sample}
     @input root {WORK}/transfer/rawHGCROC_wPed_wBC_{sample}.root
