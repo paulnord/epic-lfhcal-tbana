@@ -1,0 +1,163 @@
+# Standalone Yallfile: edit the tables and run with yall-run.
+@env CALWORK
+@env LFHCAL_SOURCE
+@env LFHCAL_RAW
+@env EIC_SHELL
+# sps-param1: legacy fitter, original boundary; 5 refinements.
+# Native tasks: no Python calibration runner and no automatic submission.
+# Pedestal evidence: script-assigned per run; never merge different scan settings
+# NOTE: Group numbers follow calibMuonParScan Set1/Set2/Set3, not the smaller example Yallfile selections.
+# NOTE: Extra raw runs are in the conversion recipe but not its calibration pairs.
+campaign lfhcal-2026-sps-param1-legacy-original
+backend condor
+%account-provenance off
+%cpus 1
+%memory 8GB
+%disk 16GB
+%time 10h
+%getenv true
+@set WORK {CALWORK}/sps-param1
+@set SOURCE {LFHCAL_SOURCE}
+@set BUILD {SOURCE}/NewStructure/build
+@set CFG {SOURCE}/configs/TB2026
+@set RAW {LFHCAL_RAW}/sps-2026/raw
+%wrapper ../calibration-2026/run-in-eic-shell.sh {EIC_SHELL} {WORK}/in-calibration-build.sh {BUILD}
+
+# File role and run number drive conversion. Leading zeros are filenames.
+@table runs type run:
+    pedestal  294
+    pedestal  296
+    pedestal  299
+    pedestal  301
+    pedestal  303
+    pedestal  305
+    muon      295
+    muon      298
+    muon      300
+    muon      302
+    muon      304
+    muon      306
+    unpaired  297
+
+# Each sample has exactly one pedestal. Scan samples remain separate.
+@table pairs ped sample:
+    294 295
+    296 298
+    299 300
+    301 302
+    303 304
+    305 306
+
+# Lightweight host setup runs during yall-run create, before submission.
+# Use the existing build; compilation is outside this calibration campaign.
+%preflight /usr/bin/test -x "{BUILD}/Convert"
+%preflight /usr/bin/test -x "{BUILD}/DataPrep"
+%preflight /usr/bin/test -r "{BUILD}/libLFHCAL.so"
+%preflight /usr/bin/test -x "{EIC_SHELL}"
+%preflight /bin/mkdir -p {WORK}/converted {WORK}/pedestal {WORK}/transfer {WORK}/mip {WORK}/select {WORK}/final {WORK}/refine1 {WORK}/refine2 {WORK}/refine3 {WORK}/refine4 {WORK}/refine5 {WORK}/plots/pedestal {WORK}/plots/transfer {WORK}/plots/mip {WORK}/plots/refine1 {WORK}/plots/refine2 {WORK}/plots/refine3 {WORK}/plots/refine4 {WORK}/plots/refine5
+%preflight /bin/cp ../calibration-2026/in-calibration-build.sh "{WORK}/in-calibration-build.sh"
+
+convert-{type}-{run}:
+    @each type run in runs
+    %memory 4GB
+    %time 24h
+    @input raw {RAW}/Run{run}.h2g
+    @input mapping {CFG}/mapping_HGCROC_SPSH2TB_sumV2_default.csv
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/converted/rawHGCROC_{run}.root
+    {BUILD}/Convert -d 0 -f -w -c @input.raw -o @output.root -m @input.mapping -r @input.rundb
+
+pedestal-{ped}: convert-pedestal-{ped}
+    @each ped in pairs.ped
+    @input raw {WORK}/converted/rawHGCROC_{ped}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @output calib {WORK}/pedestal/rawHGCROC_wPed_{ped}_calib.txt
+    @output hists {WORK}/pedestal/rawHGCROC_wPed_{ped}_Hists.root
+    @output plots {WORK}/plots/pedestal/Run{ped}
+    {BUILD}/DataPrep -a -d 1 -p -i @input.raw -f -o @output.root -O @output.plots -r @input.rundb -F png
+
+# -P transfers pedestal constants; -B loads the bad-channel map; -G loads ToA offsets.
+transfer-{ped}-{sample}: convert-muon-{sample} pedestal-{ped}
+    @each ped sample in pairs
+    @input pedestal {WORK}/pedestal/rawHGCROC_wPed_{ped}.root
+    @input raw {WORK}/converted/rawHGCROC_{sample}.root
+    @input bad {CFG}/badChannel_HGCROC_SPSTB2026_OnlyCenter2x4.txt
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input toa {CFG}/ToAOffsets_TBSPS2026_ParamScan_1.csv
+    @output root {WORK}/transfer/rawHGCROC_wPed_wBC_{sample}.root
+    @output plots {WORK}/plots/transfer/{sample}
+    {BUILD}/DataPrep -d 1 -e -f -P @input.pedestal -i @input.raw -o @output.root -O @output.plots -r @input.rundb -B @input.bad -G @input.toa -F png
+
+mip-{ped}-{sample}: transfer-{ped}-{sample}
+    @input root {WORK}/transfer/rawHGCROC_wPed_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{sample}.root
+    @output calib {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{sample}_calib.txt
+    @output hists {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{sample}_Hists.root
+    @output plots {WORK}/plots/mip/{sample}
+    {BUILD}/DataPrep -a -f -d 1 -e -s -i @input.root -o @output.root -O @output.plots -r @input.rundb -F png
+
+select-{ped}-{sample}: mip-{ped}-{sample}
+    @input root {WORK}/mip/rawHGCROC_wPedwMuon_wBC_{sample}.root
+    @output root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    {BUILD}/DataPrep -f -d 1 -X -i @input.root -o @output.root
+
+# Every refinement reads the same selected event file.
+# -S refits the MIP; -x avoids another event-tree copy; -k carries the preceding constants.
+refine1-{ped}-{sample}: select-{ped}-{sample}
+    @input root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @output root {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{sample}.root
+    @output calib {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{sample}_calib.txt
+    @output hists {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{sample}_Hists.root
+    @output plots {WORK}/plots/refine1/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -o @output.root -O @output.plots -r @input.rundb -F png
+
+refine2-{ped}-{sample}: refine1-{ped}-{sample}
+    @input root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input calib {WORK}/refine1/rawHGCROC_wPedwMuon_wBC_ImpR_{sample}_calib.txt
+    @output root {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{sample}.root
+    @output calib {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{sample}_calib.txt
+    @output hists {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{sample}_Hists.root
+    @output plots {WORK}/plots/refine2/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.calib -o @output.root -O @output.plots -r @input.rundb -F png
+
+refine3-{ped}-{sample}: refine2-{ped}-{sample}
+    @input root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input calib {WORK}/refine2/rawHGCROC_wPedwMuon_wBC_Imp2R_{sample}_calib.txt
+    @output root {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{sample}.root
+    @output calib {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{sample}_calib.txt
+    @output hists {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{sample}_Hists.root
+    @output plots {WORK}/plots/refine3/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.calib -o @output.root -O @output.plots -r @input.rundb -F png
+
+refine4-{ped}-{sample}: refine3-{ped}-{sample}
+    @input root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input calib {WORK}/refine3/rawHGCROC_wPedwMuon_wBC_Imp3R_{sample}_calib.txt
+    @output root {WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_{sample}.root
+    @output calib {WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_{sample}_calib.txt
+    @output hists {WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_{sample}_Hists.root
+    @output plots {WORK}/plots/refine4/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.calib -o @output.root -O @output.plots -r @input.rundb -F png
+
+refine5-{ped}-{sample}: refine4-{ped}-{sample}
+    @input root {WORK}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input rundb {CFG}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
+    @input calib {WORK}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_{sample}_calib.txt
+    @output root {WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_{sample}.root
+    @output calib {WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_{sample}_calib.txt
+    @output hists {WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_{sample}_Hists.root
+    @output plots {WORK}/plots/refine5/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.calib -o @output.root -O @output.plots -r @input.rundb -F png
+
+final-{ped}-{sample}: refine5-{ped}-{sample}
+    @input root {WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_{sample}.root
+    @input calib {WORK}/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_{sample}_calib.txt
+    @output root {WORK}/final/calib_Final_{sample}.root
+    @output calib {WORK}/final/calib_Final_{sample}_calib.txt
+    ! /bin/cp @input.root @output.root && /bin/cp @input.calib @output.calib
+

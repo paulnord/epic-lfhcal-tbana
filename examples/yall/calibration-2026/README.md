@@ -1,6 +1,7 @@
 # PS-2026 and SPS parameter-scan Yallfiles
 
-The files in `recipes/` are the actual Yallfiles. Edit them directly, then use
+The files in `../ps-*/` and `../sps-param*/` are the actual Yallfiles, directly
+under `examples/yall/` alongside the other examples. Edit them directly, then use
 `yall-run validate`, `yall-run plan`, and the normal campaign commands.
 There is no Python preparation or generation step.
 
@@ -12,7 +13,7 @@ notes; it is not read when running a Yallfile.
 ## Use at BNL (tcsh)
 
 Use the existing LFHCal source/configuration checkout and compiled executables.
-After downloading this folder to `~/ps-sps-yallfiles-20261006`:
+With the examples in that checkout:
 
 ```tcsh
 setenv LFHCAL_SOURCE "$HOME/my_eic_work_with_LFHCAL/epic-lfhcal-tf1convolution-benchmark"
@@ -20,7 +21,7 @@ setenv CALWORK /gpfs01/star/scratch/pnord/lfhcal/ps-sps-calibration-20261006
 setenv LFHCAL_RAW /gpfs01/star/pwg/pnord/eic/2026TBanalysis/calibration-raw
 setenv EIC_SHELL "$HOME/my_eic_work_with_LFHCAL/eic-shell"
 
-cd ~/ps-sps-yallfiles-20261006/recipes/ps-c1
+cd "$LFHCAL_SOURCE/examples/yall/ps-c1"
 yall-run validate && yall-run plan
 ```
 
@@ -43,8 +44,9 @@ only `create` executes them. A failed preflight prevents creation of a
 launchable campaign. It adds no scheduler jobs. The preflight uses file
 checks only; it does not compile or run the ROOT programs on the login host.
 
-The EIC wrapper is loaded relative to the recipe folder, so the downloaded
-folder works without adding wrapper files to the analysis source checkout.
+The shared wrappers and this README live in `examples/yall/calibration-2026/`.
+Each Yallfile loads them relative to its own example directory, so keep that
+shared directory when copying examples elsewhere.
 The runtime wrapper selects the existing build directory and library; it
 contains no calibration commands or run lists. All scientific processing
 stays in normal batch tasks, beginning with raw conversion.

@@ -19,8 +19,6 @@ except ModuleNotFoundError as error:
     raise unittest.SkipTest('Install yall-run to validate the native Yallfiles')
 
 CATALOG = Path(__file__).parent/'examples/yall/calibration-2026/calibration_2026_sets.json'
-if not CATALOG.exists():
-    CATALOG = Path(__file__).with_name('calibration_2026_sets.json')
 
 
 def flag(command, name):
@@ -35,7 +33,7 @@ class Recipes(unittest.TestCase):
         self.root = Path(self.tmp.name)
 
     def parse(self, name):
-        directory = CATALOG.parent/'recipes'/name
+        directory = CATALOG.parent.parent/name
         file = directory/('Yallfile.draft' if self.recipes[name]['review_needed'] else 'Yallfile')
         with patch.dict(os.environ, {'CALWORK': str(self.root), 'LFHCAL_SOURCE': str(self.root/'source'),
                                      'LFHCAL_RAW': '/raw', 'EIC_SHELL': '/bin/true'}):
@@ -97,7 +95,7 @@ class Recipes(unittest.TestCase):
     def test_drafts_are_separate_from_complete_yallfiles(self):
         self.assertEqual(sum(not r['review_needed'] for r in self.recipes.values()), 9)
         for name,r in self.recipes.items():
-            directory = CATALOG.parent/'recipes'/name
+            directory = CATALOG.parent.parent/name
             if r['review_needed']:
                 self.assertFalse((directory/'Yallfile').exists())
                 self.assertTrue((directory/'Yallfile.draft').exists())
