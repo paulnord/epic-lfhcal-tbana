@@ -26,8 +26,8 @@ SOURCE_COMMIT = '5227c3e714e3be16b21a24bb76a99ecb8e85a2a5'
 SOURCE_REPO = 'https://github.com/paulnord/epic-lfhcal-tbana'
 DATA_DOCUMENTATION = 'https://friederikebock.gitbook.io/epiclfhcaltb-ana/tb-analysis-basics/getting-the-data'
 REMOTE_ROOTS = {
-    'ps': 'root://dtn-eic.jlab.org//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw',
-    'sps': 'root://dtn-eic.jlab.org//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw',
+    'ps': 'root://dtn-eic.jlab.org:1094//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_PST10/raw',
+    'sps': 'root://dtn-eic.jlab.org:1094//work/eic3/EPIC/TestBeam/LFHCAL/CERN/2026/2026_SPSH2/raw',
 }
 LOCAL_DIRS = {'ps': 'ps-2026/raw', 'sps': 'sps-2026/raw'}
 STOP = threading.Event()
@@ -296,9 +296,9 @@ def file_lock(path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def run_copy(command, log):
-    with Path(log).open('ab') as handle:
-        proc = subprocess.Popen(command, stdout=handle, stderr=subprocess.STDOUT)
+def run_copy(command, log=None):
+    with (Path(log).open('ab') if log else contextlib.nullcontext(None)) as handle:
+        proc = subprocess.Popen(command, stdout=handle, stderr=subprocess.STDOUT if log else None)
         try:
             while proc.poll() is None:
                 if STOP.wait(0.5):
@@ -367,6 +367,66 @@ def download_one(entry, args, request_dir):
         return 'downloaded'
 
 
+def download_direct(entries, args, request_dir):
+    """Match the original tcsh workflow: plain xrdcp, no xrdfs preflight."""
+    say('DIRECT: sequential xrdcp, no xrdfs queries or remote checksum comparison.')
+    say('Existing nonempty files are skipped. Partial transfers restart from the beginning.')
+    completed, failures = [], []
+    report = request_dir / 'result.json'
+    try:
+        for entry in entries:
+            if STOP.is_set():
+                raise RuntimeError('Interrupted')
+            path = Path(entry['local_path'])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            partial = path.with_name(path.name + '.direct.part')
+            marker = partial.with_name(partial.name + '.json')
+            owner = {'url': entry['url'], 'mode': 'direct'}
+            with file_lock(path.with_name(path.name + '.lock')):
+                if path.exists():
+                    if not path.is_file() or path.stat().st_size == 0:
+                        raise RuntimeError('Empty or non-file destination preserved; move aside before retrying: ' + str(path))
+                    say('SKIP existing (not checked against source): ' + str(path))
+                    completed.append(dict(entry, status='existing-unverified', size=path.stat().st_size))
+                    continue
+                if partial.is_symlink() or (partial.exists() and read_json(marker) != owner):
+                    raise RuntimeError('Untracked direct partial preserved; move aside before retrying: ' + str(partial))
+                atomic_json(marker, owner)
+                for attempt in range(1, args.tries + 1):
+                    if STOP.is_set():
+                        raise RuntimeError('Interrupted')
+                    if partial.exists():
+                        say('RESTART partial: ' + str(partial))
+                        partial.unlink()
+                    say('COPY %s/%s attempt %d/%d' % (entry['campaign'], path.name, attempt, args.tries))
+                    # No flags: use the same xrdcp invocation as download_raw.tcsh.
+                    status = run_copy(['xrdcp', entry['url'], str(partial)])
+                    if status == 0 and partial.is_file() and partial.stat().st_size > 0:
+                        break
+                    if attempt == args.tries:
+                        raise RuntimeError('Direct copy failed (xrdcp exit=%s); final file not created: %s' % (status, path))
+                before = stamp(partial)
+                checksum = adler32(partial)
+                if stamp(partial) != before:
+                    raise RuntimeError('Partial changed while recording local checksum: ' + str(partial))
+                os.link(str(partial), str(path))
+                partial.unlink()
+                marker.unlink()
+                completed.append(dict(entry, status='copied', size=before['st_size'],
+                                      local_adler32=checksum, remote_checksum_verified=False))
+                say('OK copied: ' + str(path))
+    except (Exception, KeyboardInterrupt) as exc:
+        failures.append({'error': str(exc) or 'Interrupted'})
+        say('DIRECT stopped: ' + failures[-1]['error'])
+        if isinstance(exc, KeyboardInterrupt):
+            raise
+    finally:
+        atomic_json(report, {'mode': 'direct', 'completed': completed, 'failures': failures,
+                            'remote_checksum_verified': False})
+    say('Direct result: %d copied/skipped, %d failures. Report: %s' % (len(completed), len(failures), report))
+    return 1 if failures else 0
+
+
 def positive(value):
     result = int(value)
     if result < 1:
@@ -384,6 +444,7 @@ def main(argv=None):
     mode.add_argument('--probe', action='store_true', help='Test metadata access to one raw file per selected campaign; no downloads')
     mode.add_argument('--check', action='store_true', help='Check all remote files/checksums and report bytes; no downloads')
     mode.add_argument('--download', action='store_true', help='Check, download/resume, and verify selected raw files')
+    parser.add_argument('--direct', action='store_true', help='With --download: plain sequential xrdcp as in the original tcsh scripts; no xrdfs preflight')
     parser.add_argument('--jobs', type=positive, default=2, help='Concurrent checks/downloads (default 2)')
     parser.add_argument('--tries', type=positive, default=3, help='Transfer attempts per file (default 3)')
     parser.add_argument('--query-timeout', type=positive, default=60, help='Seconds per remote metadata query (default 60)')
@@ -399,6 +460,10 @@ def main(argv=None):
         return 0
     if args.out is None:
         parser.error('--out is required except with --list')
+    if args.direct and not args.download:
+        parser.error('--direct requires --download')
+    if args.direct and args.recheck:
+        parser.error('--recheck requires the normal checksum-verified mode, without --direct')
     names = expand_sets(args.sets)
     roots = {'ps': args.ps_source, 'sps': args.sps_source}
     for root in roots.values(): remote_parts(root)
@@ -411,7 +476,7 @@ def main(argv=None):
         'source_repo': SOURCE_REPO, 'source_commit': SOURCE_COMMIT, 'data_documentation': DATA_DOCUMENTATION,
         'recipe_files': ['NewStructure/convertDataHGCROC_TBPST10_2026.sh', 'NewStructure/runHGCROCCalibration_TBPST10_2026.sh',
                          'NewStructure/convertDataHGCROC_TBSPSH2_2026.sh', 'NewStructure/runHGCROCCalibration_TBSPSH2_2026.sh'],
-        'selected_sets': names, 'files': entries,
+        'selected_sets': names, 'files': entries, 'direct_copy': args.direct,
         'scope': 'Named PS muon sets A1-I2 and all SPS ParameterScan raw inputs. No pion/hadron samples or separate PS voltage/position scans.',
     }
     atomic_json(request_dir / 'plan.json', provenance)
@@ -429,9 +494,13 @@ def main(argv=None):
         for e in entries: say('%s -> %s' % (e['url'], e['local_path']))
         say('Offline plan only. Use --probe to test access, --check for sizes, or --download to transfer.')
         return 0
-    for command in (['xrdfs', 'xrdcp'] if args.download else ['xrdfs']):
+    required = ['xrdcp'] if args.direct else (['xrdfs', 'xrdcp'] if args.download else ['xrdfs'])
+    for command in required:
         if shutil.which(command) is None:
             raise RuntimeError('%s is unavailable. Run this inside eic-shell (or an XRootD client environment).' % command)
+    if args.direct:
+        say('XRootD copy client: ' + shutil.which('xrdcp'))
+        return download_direct(entries, args, request_dir)
     say('XRootD client: ' + shutil.which('xrdfs'))
     checked, failures = preflight(entries, args)
     checked.sort(key=lambda e: (e['campaign'], e['run']))
@@ -491,7 +560,7 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        say('Interrupted. Verified files and resumable partial files are retained.')
+        say('Interrupted. Completed files and any partial files are retained.')
         sys.exit(130)
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
         say('ERROR: ' + str(exc))

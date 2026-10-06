@@ -116,6 +116,45 @@ class DownloaderTests(unittest.TestCase):
         manifest = next((self.out / 'manifests').glob('*/ps-i2.json'))
         self.assertEqual(json.loads(manifest.read_text())['pedestal_runs'], [462])
 
+    def test_direct_uses_plain_xrdcp_without_xrdfs_and_skips_existing(self):
+        (self.root / 'bin' / 'xrdfs').unlink()
+        output = self.run_cli('--download', '--direct')
+        self.assertIn('OK copied', output)
+        self.assertFalse(self.meta_log.exists())
+        self.assertEqual(len(self.copies()), 3)
+        for call in self.copies():
+            self.assertEqual(len(call), 2)
+            self.assertTrue(call[0].startswith('root://dtn-eic.jlab.org:1094//'))
+        report = json.loads(next((self.out / 'manifests').glob('*/result.json')).read_text())
+        self.assertFalse(report['remote_checksum_verified'])
+        self.assertTrue(all(e['status'] == 'copied' for e in report['completed']))
+        self.assertIn('SKIP existing', self.run_cli('--download', '--direct'))
+        self.assertEqual(len(self.copies()), 3)
+
+    def test_direct_restarts_owned_failed_partial(self):
+        self.env['FAKE_FAIL_ONCE'] = '1'
+        output = self.run_cli('--download', '--direct', '--tries', '1', expected=1)
+        self.assertIn('final file not created', output)
+        path = Path(self.entries[0]['local_path'])
+        self.assertFalse(path.exists())
+        self.assertTrue(path.with_name(path.name + '.direct.part').exists())
+        self.assertEqual(len(self.copies()), 1)
+        self.assertIn('RESTART partial', self.run_cli('--download', '--direct'))
+        self.assertEqual(len(self.copies()), 4)
+        for entry in self.entries:
+            self.assertEqual(Path(entry['local_path']).read_bytes(), (self.remote / 'ps' / entry['filename']).read_bytes())
+        self.assertTrue(all(len(call) == 2 for call in self.copies()))
+        self.assertFalse(self.meta_log.exists())
+
+    def test_direct_preserves_untracked_partial(self):
+        path = Path(self.entries[0]['local_path'])
+        path.parent.mkdir(parents=True)
+        partial = path.with_name(path.name + '.direct.part')
+        partial.write_bytes(b'unknown data')
+        self.assertIn('Untracked direct partial preserved', self.run_cli('--download', '--direct', expected=1))
+        self.assertEqual(partial.read_bytes(), b'unknown data')
+        self.assertEqual(self.copies(), [])
+
     def test_remote_check_does_not_download(self):
         output = self.run_cli('--check')
         self.assertIn('Remote preflight complete', output)

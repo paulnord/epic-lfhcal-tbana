@@ -56,6 +56,37 @@ lists all 20 selections without writing anything. Scan selectors are
 Run the same download command again after an interruption. The default is two
 concurrent transfers and three attempts per file; adjust with `--jobs` and `--tries`.
 
+## Use the earlier direct xrdcp workflow
+
+The original `download_raw.tcsh` used `xrdcp SOURCE FILE.part` without an `xrdfs`
+metadata preflight. A timeout from the new preflight does not establish that this
+direct transfer also fails. To use the original transfer method with the new run
+lists, add `--direct`:
+
+```tcsh
+python3 /tmp/download_calibration_raw.py --out "$RAW" --download --direct --tries 1
+```
+
+This calls plain `xrdcp` sequentially, shows its output/progress, uses the explicit
+`:1094` address from the old script, and stops at a failed file. The port is made
+explicit for consistency; it has not been established as the cause of the timeout.
+Set selection still works, e.g. `--sets ps-a1`. There is no required container
+change if the current shell's `xrdcp` works.
+
+Like the original script, direct mode skips existing nonempty files and starts
+partial transfers over. It only replaces its own tracked `.direct.part` files;
+partials from the normal mode are left alone. A final filename is created only
+after `xrdcp` succeeds and produces a nonempty file. Failed partials are retained
+until retrying. The number of attempts per file follows `--tries`; `--jobs` does
+not affect this sequential mode.
+
+Direct mode does not query remote sizes, precheck total storage, or compare
+server checksums. Its report explicitly labels existing files as unverified and
+records a local checksum for newly copied files. This is not proof of agreement
+with a server checksum. It cannot be combined with `--recheck`; use the normal
+`--download` mode later for remote size/checksum verification when metadata
+queries work.
+
 ## If metadata queries time out
 
 Stop an older check with Ctrl-C. A timeout does not establish that an input is
