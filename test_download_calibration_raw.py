@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline integration tests: python3 -m unittest -v test_download_calibration_raw."""
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,7 +17,7 @@ downloader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(downloader)
 
 FAKE_CLIENT = r'''#!/usr/bin/env python3
-import json, os, sys, time, zlib
+import hashlib, json, os, sys, time, zlib
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -40,7 +41,15 @@ if Path(sys.argv[0]).name == 'xrdfs':
     if args[1] == 'stat':
         print('Path: ' + path + '\nSize: ' + str(len(data)))
     elif args[1:3] == ['query', 'checksum']:
-        print('adler32 %08x' % (zlib.adler32(data) & 0xffffffff))
+        algorithm = os.environ.get('FAKE_CHECKSUM', 'adler32')
+        if algorithm == 'mixed':
+            algorithm = 'md5' if campaign == 'ps' else 'adler32'
+        if 'FAKE_CHECKSUM_REPLY' in os.environ:
+            print(os.environ['FAKE_CHECKSUM_REPLY'])
+        elif algorithm == 'md5':
+            print('md5 ' + hashlib.md5(data).hexdigest())
+        else:
+            print('adler32 %08x' % (zlib.adler32(data) & 0xffffffff))
     else:
         sys.exit(2)
 else:
@@ -161,6 +170,33 @@ class DownloaderTests(unittest.TestCase):
         self.assertEqual(self.copies(), [])
         self.assertFalse((self.out / 'ps-2026' / 'raw').exists())
 
+    def test_checksum_response_validation(self):
+        self.assertEqual(downloader.parse_checksum('md5 fd2738532de84c1ddd4a764f15562a3a'),
+                         ('md5', 'fd2738532de84c1ddd4a764f15562a3a'))
+        self.assertEqual(downloader.parse_checksum('MD5 ' + 'AB' * 16), ('md5', 'ab' * 16))
+        self.assertEqual(downloader.parse_checksum('adler32 0xABC'), ('adler32', '00000abc'))
+        for response in ('md5 abc', 'md5 ' + 'z' * 32, 'md5 ' + '0' * 33,
+                         'adler32 123456789', 'sha256 ' + '0' * 64, ''):
+            with self.subTest(response=response), self.assertRaises(ValueError):
+                downloader.parse_checksum(response)
+
+    def test_unsupported_checksum_stops_before_copy(self):
+        self.env['FAKE_CHECKSUM_REPLY'] = 'sha256 ' + '0' * 64
+        output = self.run_cli('--download', expected=1)
+        self.assertIn('Expected an Adler-32 or MD5 server checksum', output)
+        self.assertIn('No raw transfers started', output)
+        self.assertNotIn('Retry --probe inside your EIC shell', output)
+        self.assertEqual(self.copies(), [])
+
+    def test_mixed_remote_checksum_algorithms(self):
+        self.env['FAKE_CHECKSUM'] = 'mixed'
+        entries = downloader.make_plan(['ps-f1', 'sps-param3'], self.out, downloader.REMOTE_ROOTS)
+        self.populate(entries)
+        self.run_cli('--probe', sets='ps-f1,sps-param3')
+        report = json.loads(next((self.out / 'manifests').glob('*/remote-manifest.json')).read_text())
+        self.assertEqual([downloader.checksum_spec(e)[0] for e in report['files']], ['md5', 'adler32'])
+        self.assertEqual(self.copies(), [])
+
     def test_missing_remote_stops_all_transfers(self):
         (self.remote / 'ps' / 'Run463.h2g').unlink()
         self.assertIn('No raw transfers started', self.run_cli('--download', expected=1))
@@ -225,6 +261,19 @@ class DownloaderTests(unittest.TestCase):
         self.assertIn('Size/checksum mismatch', self.run_cli('--download', expected=1))
         self.assertEqual(path.read_bytes(), b'x' * len(good))
         self.assertEqual(len(self.copies()), 2)
+
+    def test_md5_resume_verify_then_skip(self):
+        self.env['FAKE_CHECKSUM'] = 'md5'
+        self.test_download_resume_verify_then_skip()
+        for entry in self.entries:
+            path = Path(entry['local_path'])
+            source = json.loads(path.with_name(path.name + '.verified.json').read_text())['source']
+            self.assertEqual(source['md5'], hashlib.md5(path.read_bytes()).hexdigest())
+            self.assertNotIn('adler32', source)
+
+    def test_md5_adopt_existing_and_preserve_corruption(self):
+        self.env['FAKE_CHECKSUM'] = 'md5'
+        self.test_adopt_existing_and_preserve_corruption()
 
     def test_changed_source_invalidates_receipt(self):
         self.run_cli('--download')

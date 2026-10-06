@@ -128,7 +128,7 @@ substitute another host or dataset.
   `--check` does not verify existing local data.
 - Downloads use `.part` files and resume with `xrdcp --continue`. A sidecar records
   which source and checksum the partial belongs to.
-- A completed file is published only after whole-file size and Adler-32 checks
+- A completed file is published only after whole-file size and checksum checks
   agree with the server. An existing file without a verification receipt is
   checked and adopted if it matches; an existing corrupt file is preserved and
   reported, never overwritten automatically.
@@ -213,6 +213,13 @@ source URL; preserve/move that partial and its JSON marker if choosing direct mo
 after changing sources.
 
 Directory overrides are available with `--ps-source` and `--sps-source`.
+
+The metadata preflight accepts either Adler-32 or MD5, as named in the server's
+checksum response. Local verification uses that same algorithm, and manifests,
+partial markers, and verification receipts retain its name and value. The new
+endpoint returned MD5 for PS Run085 on 2026-10-06. Unsupported algorithms and
+malformed digests stop preflight; verification is never silently skipped.
+Existing Adler-32 receipts and partial markers retain their original format.
 
 Offline integration tests use simulated XRootD clients to exercise manifest
 deduplication, campaign separation, preflight failures, interrupted transfers,

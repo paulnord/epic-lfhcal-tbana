@@ -10,6 +10,7 @@ import concurrent.futures
 import contextlib
 import datetime
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -157,7 +158,26 @@ def atomic_json(path, data):
 
 
 def identity(entry):
-    return {k: entry[k] for k in ('url', 'size', 'adler32')}
+    algorithm, _ = checksum_spec(entry)
+    # Keep the original Adler-32 receipt shape so existing partials can resume.
+    return {k: entry[k] for k in ('url', 'size', algorithm)}
+
+
+def checksum_spec(entry):
+    algorithms = [name for name in ('adler32', 'md5') if name in entry]
+    if len(algorithms) != 1:
+        raise ValueError('Expected exactly one supported checksum in file metadata')
+    algorithm = algorithms[0]
+    return algorithm, entry[algorithm]
+
+
+def parse_checksum(response):
+    for algorithm, length in (('adler32', '{1,8}'), ('md5', '{32}')):
+        match = re.fullmatch(algorithm + r'\s+(?:0x)?([0-9a-fA-F]' + length + ')',
+                             response.strip(), re.I)
+        if match:
+            return algorithm, match.group(1).lower().zfill(8 if algorithm == 'adler32' else 32)
+    raise ValueError('Expected an Adler-32 or MD5 server checksum; got %r' % response)
 
 
 def remote_parts(url):
@@ -190,10 +210,8 @@ def inspect_remote(entry, timeout):
     if not match or int(match.group(1)) <= 0:
         raise RuntimeError('No positive remote file size for ' + entry['url'])
     checksum = command_output(['xrdfs', server, 'query', 'checksum', path], timeout).strip()
-    match_sum = re.fullmatch(r'adler32\s+(?:0x)?([0-9a-fA-F]{1,8})', checksum)
-    if not match_sum:
-        raise RuntimeError('Expected server Adler-32 checksum for %s; got %r' % (entry['url'], checksum))
-    return dict(entry, size=int(match.group(1)), adler32=match_sum.group(1).lower().zfill(8))
+    algorithm, digest = parse_checksum(checksum)
+    return dict(entry, size=int(match.group(1)), **{algorithm: digest})
 
 
 def preflight(entries, args):
@@ -211,7 +229,8 @@ def preflight(entries, args):
         try:
             result = operation()
             checked.append(result)
-            say('CHECK %s/%s %d bytes' % (result['campaign'], result['filename'], result['size']))
+            say('CHECK %s/%s %d bytes (%s)' %
+                (result['campaign'], result['filename'], result['size'], checksum_spec(result)[0]))
             return True
         except Exception as exc:
             failures.append({'url': entry['url'], 'error': str(exc)})
@@ -249,7 +268,15 @@ def preflight(entries, args):
     return checked, failures
 
 
-def adler32(path):
+def file_checksum(path, algorithm):
+    if algorithm not in ('adler32', 'md5'):
+        raise ValueError('Unsupported checksum algorithm: ' + algorithm)
+    digest = None
+    if algorithm == 'md5':
+        try:
+            digest = hashlib.md5(usedforsecurity=False)
+        except TypeError:  # Python 3.8 lacks the usedforsecurity keyword.
+            digest = hashlib.md5()
     value = 1
     with Path(path).open('rb') as handle:
         while True:
@@ -258,8 +285,15 @@ def adler32(path):
             chunk = handle.read(8 * 1024 * 1024)
             if not chunk:
                 break
-            value = zlib.adler32(chunk, value)
-    return '%08x' % (value & 0xffffffff)
+            if digest is not None:
+                digest.update(chunk)
+            else:
+                value = zlib.adler32(chunk, value)
+    return digest.hexdigest() if digest is not None else '%08x' % (value & 0xffffffff)
+
+
+def adler32(path):
+    return file_checksum(path, 'adler32')
 
 
 def stamp(path):
@@ -277,7 +311,8 @@ def read_json(path):
 
 def verify(path, entry):
     before = stamp(path)
-    if before['st_size'] != entry['size'] or adler32(path) != entry['adler32']:
+    algorithm, expected = checksum_spec(entry)
+    if before['st_size'] != entry['size'] or file_checksum(path, algorithm) != expected:
         raise RuntimeError('Size/checksum mismatch: %s. File preserved; move it aside before retrying.' % path)
     if stamp(path) != before:
         raise RuntimeError('File changed during verification: ' + str(path))
@@ -512,7 +547,8 @@ def main(argv=None):
     })
     if failures:
         say('Preflight stopped after a failed query. No raw transfers started.')
-        say('A timeout does not establish that a file is missing. Retry --probe inside your EIC shell to compare clients/access.')
+        if any('timed out after' in failure['error'] for failure in failures):
+            say('A timeout does not establish that a file is missing. Retry --probe inside your EIC shell to compare clients/access.')
         return 1
     if args.probe:
         say('Probe complete: %d file(s) checked. Remaining files have not been checked; use --check for the full list.' % len(checked))
