@@ -893,6 +893,8 @@ void Calib::PrintDetailedGlobalInfo(){
 
 void Calib::PrintCalibToFile(TString filename){
   std::fstream fFileCalibOut;
+  // A failed open, buffered write, or close must reach the caller.
+  fFileCalibOut.exceptions(std::ios::failbit | std::ios::badbit);
   std::cout << "********************************************************************************************************" << std::endl;
   std::cout << "Printing calib info to: " << filename.Data() << std::endl;
   std::cout << "********************************************************************************************************" << std::endl;

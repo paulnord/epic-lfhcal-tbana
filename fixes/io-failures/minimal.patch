@@ -1,0 +1,257 @@
+diff --git a/NewStructure/Analyses.cc b/NewStructure/Analyses.cc
+--- a/NewStructure/Analyses.cc
++++ b/NewStructure/Analyses.cc
+@@ -1096,7 +1096,7 @@
+   std::map<int, TileSpectra>::iterator ithSpectra;	
+ 
+   // create output file for histos
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+   // entering histoOutput file
+   RootOutputHist->mkdir("IndividualCells");
+   RootOutputHist->cd("IndividualCells");
+@@ -1411,7 +1411,7 @@
+   //==================================================================================
+   // create additional output hist
+   //==================================================================================
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+   RootOutputHist->cd();
+ 
+   TH2D* hSampleTOAVsCellID       = new TH2D( "hSampleTOAvsCellID","#sample ToA; cell ID; #sample TOA",
+@@ -1773,7 +1773,7 @@
+   //==================================================================================
+   // create additional output hist 
+   //==================================================================================
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+ 
+   int maxChanneTransferCaliblPerLayer       = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1)*(setup->GetNMaxModule()+1);
+   int maxChannelPerLayerSingleMod           = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1);
+@@ -2366,7 +2366,7 @@
+   //==================================================================================
+   // create additional output hist 
+   //==================================================================================
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+ 
+   RootOutputHist->mkdir("IndividualCells");
+   RootOutputHist->cd("IndividualCells");
+@@ -2697,7 +2697,7 @@
+   //==================================================================================
+   // create additional output hist
+   //==================================================================================
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+   
+   RootOutputHist->mkdir("IndividualCells");
+   RootOutputHist->mkdir("IndividualCellsTrigg");
+@@ -2874,7 +2874,7 @@
+   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
+ 
+   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");  
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+ 
+   // reading calib from file
+   TcalibIn->GetEntry(0);
+@@ -3898,7 +3898,7 @@
+   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
+   
+   // create output file for histos
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+    
+   // setup general fitting options 
+   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");
+@@ -4529,7 +4529,7 @@
+   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
+   
+   // create output file for histos
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+ 
+   // setup trigger sel
+   double factorMinTrigg   = 0.5;
+@@ -4844,7 +4844,7 @@
+   // Create & setup general monitoring histograms
+   //==================================================================================  
+   // create output file for histos
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+   // 2D beam profile -EP
+   int maxChannelPerLayer          = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1)*(setup->GetNMaxModule()+1);
+   int maxChannelPerLayerSingleMod = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1);
+@@ -5145,7 +5145,7 @@
+   //=============================================================================================
+   // Create output histos
+   //=============================================================================================
+-  CreateOutputRootHistFile();
++  if (!CreateOutputRootHistFile()) return false;
+   
+   TH2D* hspectraHGvsCellID          = nullptr;
+   TH2D* hspectraHGCorrvsCellID      = nullptr;
+diff --git a/NewStructure/Calib.cc b/NewStructure/Calib.cc
+--- a/NewStructure/Calib.cc
++++ b/NewStructure/Calib.cc
+@@ -893,6 +893,8 @@
+ 
+ void Calib::PrintCalibToFile(TString filename){
+   std::fstream fFileCalibOut;
++  // A failed open, buffered write, or close must reach the caller.
++  fFileCalibOut.exceptions(std::ios::failbit | std::ios::badbit);
+   std::cout << "********************************************************************************************************" << std::endl;
+   std::cout << "Printing calib info to: " << filename.Data() << std::endl;
+   std::cout << "********************************************************************************************************" << std::endl;
+diff --git a/NewStructure/DataPrep.cc b/NewStructure/DataPrep.cc
+--- a/NewStructure/DataPrep.cc
++++ b/NewStructure/DataPrep.cc
+@@ -23,6 +23,7 @@
+ #include "HGCROC.h"
+ #include "Caen.h"
+ #include "Analyses.h"
++#include "CheckedIO.h"
+ 
+ void PrintHelp(char* exe){
+   std::cout<<"Usage:"<<std::endl;
+@@ -265,13 +266,5 @@
+       return 0;
+     }
+   }
+-  if(!AnAnalysis.CheckAndOpenIO()){
+-    std::cout<<"Check input and configurations, inconsistency or error with I/O detected"<<std::endl;
+-    PrintHelp(argv[0]);
+-    return -1;
+-  }
+-
+-  AnAnalysis.Process();
+-  std::cout<<"Exiting"<<std::endl;
+-  return 0;
++  return lfhcal::RunCheckedAnalysis(AnAnalysis, "DataPrep");
+ }
+diff --git a/NewStructure/Convert.cc b/NewStructure/Convert.cc
+--- a/NewStructure/Convert.cc
++++ b/NewStructure/Convert.cc
+@@ -23,6 +23,7 @@
+ #include "HGCROC.h"
+ #include "Caen.h"
+ #include "Analyses.h"
++#include "CheckedIO.h"
+ 
+ void PrintHelp(char* exe){
+   std::cout<<"Usage:"<<std::endl;
+@@ -115,13 +116,5 @@
+       return 0;
+     }
+   }
+-  if(!AnAnalysis.CheckAndOpenIO()){
+-    std::cout<<"Check input and configurations, inconsistency or error with I/O detected"<<std::endl;
+-    PrintHelp(argv[0]);
+-    return -1;
+-  }
+-
+-  AnAnalysis.Process();
+-  std::cout<<"Exiting"<<std::endl;
+-  return 0;
++  return lfhcal::RunCheckedAnalysis(AnAnalysis, "Convert");
+ }
+diff --git a/NewStructure/CheckedIO.h b/NewStructure/CheckedIO.h
+new file mode 100644
+--- /dev/null
++++ b/NewStructure/CheckedIO.h
+@@ -0,0 +1,95 @@
++#ifndef LFHCAL_CHECKED_IO_H
++#define LFHCAL_CHECKED_IO_H
++
++#include "TError.h"
++#include "TFile.h"
++#include <atomic>
++#include <cstring>
++#include <exception>
++#include <initializer_list>
++#include <iostream>
++
++namespace lfhcal {
++
++// One guard per command-line process. Keep ROOT's diagnostics and fatal-error
++// behavior, while remembering I/O errors from APIs such as SaveAs that return void.
++class RootIOErrors {
++ public:
++  RootIOErrors() {
++    failed().store(false);
++    previous() = SetErrorHandler(Handle);
++  }
++  ~RootIOErrors() { SetErrorHandler(previous()); }
++  RootIOErrors(const RootIOErrors&) = delete;
++  RootIOErrors& operator=(const RootIOErrors&) = delete;
++  bool ok() const { return !failed().load(); }
++
++ private:
++  static std::atomic<bool>& failed() {
++    static std::atomic<bool> value{false};
++    return value;
++  }
++  static ErrorHandlerFunc_t& previous() {
++    static ErrorHandlerFunc_t value = nullptr;
++    return value;
++  }
++  static bool IsIOError(int level, const char* location) {
++    if (level < kError || !location) return false;
++    const char* prefixes[] = {"TFile::", "TDirectory", "TBranch", "TTree::",
++      "TBufferFile::", "TKey::", "TASImage::", "TImage::", "TCanvas::",
++      "TPad::", "TPDF::", "TPostScript::", "TSVG::"};
++    for (const char* prefix : prefixes)
++      if (std::strncmp(location, prefix, std::strlen(prefix)) == 0) return true;
++    return false;
++  }
++  static void Handle(int level, Bool_t abort, const char* location, const char* message) {
++    if (IsIOError(level, location)) failed().store(true);
++    ErrorHandlerFunc_t handler = previous();
++    if (handler && handler != Handle) handler(level, abort, location, message);
++    else DefaultErrorHandler(level, abort, location, message);
++  }
++};
++
++inline bool CloseAndCheckOutputs(std::initializer_list<TFile*> outputs) {
++  bool ok = true;
++  for (TFile* output : outputs) {
++    if (!output) continue;
++    if (output->IsOpen()) {
++      output->Flush();
++      output->Close();
++    }
++    if (output->IsZombie() || output->TestBit(TFile::kWriteError)) {
++      std::cerr << "ROOT output failed: " << output->GetName() << std::endl;
++      ok = false;
++    }
++  }
++  return ok;
++}
++
++// Shared exit-status handling for Convert and DataPrep. Do not short-circuit
++// the output check: Close can expose a buffered write failure after Process.
++template <class Analysis>
++int RunCheckedAnalysis(Analysis& analysis, const char* executable) {
++  RootIOErrors io;
++  try {
++    if (!analysis.CheckAndOpenIO()) {
++      std::cerr << executable << ": input/configuration check failed" << std::endl;
++      return 1;
++    }
++    const bool processed = analysis.Process();
++    const bool written = CloseAndCheckOutputs(
++        {analysis.RootOutput, analysis.RootOutputHist, analysis.RootCalibOutput});
++    if (!processed || !written || !io.ok()) {
++      std::cerr << executable << ": processing or I/O failed" << std::endl;
++      return 1;
++    }
++  } catch (const std::exception& error) {
++    std::cerr << executable << ": processing or I/O failed: " << error.what() << std::endl;
++    return 1;
++  }
++  std::cout << "Exiting" << std::endl;
++  return 0;
++}
++
++} // namespace lfhcal
++#endif

@@ -1,0 +1,310 @@
+[
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "good",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "check_false",
+    "exit": 255,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "process_false",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "root_write",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "root_short",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "root_close",
+    "exit": -6,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "text_full",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "text_open",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "image",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "fit_error",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "before",
+    "executable": "DataPrep",
+    "case": "warning",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "good",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "check_false",
+    "exit": 255,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "process_false",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "root_write",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "root_short",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "root_close",
+    "exit": -6,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "text_full",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "text_open",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "image",
+    "exit": 0,
+    "expected_after": 1
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "fit_error",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "before",
+    "executable": "Convert",
+    "case": "warning",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "good",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "check_false",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "process_false",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "root_write",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "root_short",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "root_close",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "text_full",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "text_open",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "image",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "fit_error",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "DataPrep",
+    "case": "warning",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "good",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "check_false",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "process_false",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "root_write",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "root_short",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "root_close",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "text_full",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "text_open",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "image",
+    "exit": 1,
+    "expected_after": 1
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "fit_error",
+    "exit": 0,
+    "expected_after": 0
+  },
+  {
+    "version": "after",
+    "executable": "Convert",
+    "case": "warning",
+    "exit": 0,
+    "expected_after": 0
+  }
+]
