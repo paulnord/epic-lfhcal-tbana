@@ -6,7 +6,6 @@ import html
 import json
 import re
 import shutil
-import sys
 import textwrap
 import zipfile
 from datetime import datetime, timezone
@@ -287,6 +286,28 @@ CATALOG = {
 }
 STAGES = ['pedestal', 'transfer', 'mip'] + ['refine%d' % n for n in range(1, 6)]
 METHOD = 'Adaptive HG fitting; original fit boundary'
+# Page order transcribed from F. Bock's 27-page SummarySetB.pdf.
+# R5 names have no _2nd suffix (that suffix belongs to the initial MIP stage).
+SUMMARY_PAGES = [
+    ('HG_FWHMMip.png', 'HG FWHM'),
+    ('HG_GaussSigMip.png', 'HG Gaussian width'),
+    ('HG_LandMPVMip.png', 'HG Landau MPV'),
+    ('HG_LandSigMip.png', 'HG Landau width'),
+    ('HG_MaxMip.png', 'HG peak position'),
+    ('HGscaleChi2VsLayer.png', 'HG chi-square / ndf'),
+] + [
+    ('MIP_HG_Layer%02d.png' % layer, 'MIP spectra and fits - layer %d' % layer)
+    for layer in range(8)
+] + [
+    ('MipTriggXY.png', 'Trigger counts in XY'),
+    ('MuonTriggers.png', 'Trigger counts by channel'),
+    ('SNRTriggVsLayer.png', 'Signal-to-noise ratio'),
+    ('SuppressionNoise.png', 'S/B in noise region'),
+    ('SuppressionSignal.png', 'S/B in signal region'),
+] + [
+    ('TriggPrimitive_Layer%02d.png' % layer, 'Trigger primitives - layer %d' % layer)
+    for layer in range(8)
+]
 CSS = '''body{font:17px system-ui,sans-serif;max-width:1500px;margin:30px auto;padding:0 24px;color:#182839}
 a{color:#12618b}table{border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #ccd;text-align:left}
 figure{margin:24px 0;border-top:1px solid #ccd;padding-top:16px}img{max-width:100%;height:auto}
@@ -306,55 +327,64 @@ def figure(rel, caption):
     return '<figure><figcaption>%s</figcaption><a href="%s"><img loading="lazy" src="%s" alt="%s"></a></figure>' % (html.escape(caption), url, url, html.escape(caption))
 
 
-def pdf_report(path, groups, meta, stamp):
+def select_summary(paths):
+    """Resolve exact R5 basenames; never substitute another stage or duplicate."""
+    by_name = {}
+    for p in paths:
+        by_name.setdefault(p.name, []).append(p)
+    pages = []
+    for name, title in SUMMARY_PAGES:
+        matches = by_name.get(name, [])
+        if len(matches) > 1:
+            raise ValueError('Ambiguous R5 plot %s: %s' % (name, ', '.join(map(str, matches))))
+        # ROOT omits layer panels when all its channels are masked. Keep a clearly
+        # marked missing page so later pages retain the reference numbering.
+        if not matches and '_Layer' not in name:
+            raise ValueError('Missing R5 summary map: ' + name)
+        pages.append((matches[0] if matches else None, title, name))
+    return pages
+
+
+def summary_pdf_name(key):
+    return 'SummaryPS_' + key[3:].upper() + '.pdf'
+
+
+def pdf_report(path, groups):
+    """One plot per page, with no added cover/title pages or plot overlays."""
     from reportlab.pdfgen.canvas import Canvas
     from reportlab.lib.utils import ImageReader
-    c = Canvas(str(path), pagesize=(1000, 750))
-    c.setTitle('PS April 2026 - calibration plot report')
+    c = Canvas(str(path), pagesize=(567, 499))
+    c.setTitle('PS April 2026 - R5 summary - ' + ', '.join(k.upper() for k in groups))
     c.setAuthor('Paul Nord')
-    def footer():
-        c.setFont('Helvetica', 10)
-        c.drawString(32, 18, 'PS April 2026 | ' + METHOD)
-        c.drawRightString(968, 18, str(c.getPageNumber()))
-    def text_page(title, lines, bookmark):
-        c.bookmarkPage(bookmark)
-        c.addOutlineEntry(title, bookmark, 0)
-        c.setFont('Helvetica-Bold', 23)
-        c.drawString(40, 700, title)
-        y = 655
-        c.setFont('Helvetica', 13)
-        for line in lines:
-            for wrapped in textwrap.wrap(line, 115) or ['']:
-                if y < 55:
-                    footer(); c.showPage(); y = 700; c.setFont('Helvetica', 13)
-                c.drawString(40, y, wrapped); y -= 20
-            y -= 8
-        footer(); c.showPage()
-    text_page('PS April 2026 - calibration plots', [METHOD,
-        'Standard R5 summary maps and spectrum panels with the existing fit overlays. One original PNG per page.',
-        'This is a plot collection for review, not a validation of calibration quality or agreement with an external standard.',
-        'Campaign names contain legacy-original, but the running HGCROC HG fitter was identified as adaptive.',
-        'Run and pedestal notes below describe the input recipe. They are not new conclusions from these plots.',
-        'Pedestal, transfer, initial MIP and R1-R4 plots are available in the HTML appendix.',
-        'Generated ' + stamp], 'intro')
+    c.setSubject(METHOD + '; page order follows F. Bock SummarySetB')
     for key, paths in groups.items():
-        m = meta[key]
-        text_page(key.upper() + ' - R5', [
-            'Muon runs: ' + ', '.join(map(str, m['muon_runs'])),
-            'Pedestal runs: ' + ', '.join(map(str, m['pedestal_runs'])),
-            'Pedestal association in recipe: ' + m['pedestal_evidence'],
-            'Recipe notes:'] + (m['notes'] or ['None recorded.']) +
-            ['R5 plot pages: %d' % len(paths)], key)
-        for p, label in paths:
-            im = ImageReader(str(p)); w, h = im.getSize()
-            scale = min(936 / w, 640 / h)
-            c.setFont('Helvetica-Bold', 13)
-            c.drawString(32, 724, key.upper() + ' | R5')
-            c.setFont('Helvetica', 9)
-            c.drawString(32, 706, label[:160])
-            c.drawImage(im, (1000-w*scale)/2, 44+(640-h*scale)/2,
-                        width=w*scale, height=h*scale, mask='auto')
-            footer(); c.showPage()
+        for number, (p, title, name) in enumerate(paths, 1):
+            # Keep the original image aspect and every pixel; no resampling.
+            if p is not None:
+                im = ImageReader(str(p)); w, h = im.getSize()
+                width, height = 567, 567 * h / w
+            else:
+                width, height = 567, 421
+            c.setPageSize((width, height))
+            bookmark = '%s-%02d' % (key, number)
+            c.bookmarkPage(bookmark)
+            if number == 1:
+                c.addOutlineEntry(key.upper() + ' - R5', bookmark, 0)
+            c.addOutlineEntry('%02d - %s' % (number, title), bookmark, 1)
+            if p is not None:
+                c.drawImage(im, 0, 0, width=width, height=height, mask='auto')
+            else:
+                c.setFont('Helvetica-Bold', 18)
+                c.drawString(32, height-60, key.upper() + ' - R5 plot unavailable')
+                c.setFont('Helvetica', 12)
+                y = height-100
+                for line in [title, 'Expected file: ' + name,
+                             'No matching R5 PNG was found. No other stage was substituted.',
+                             'ROOT can omit panels for masked layers; the reason has not been verified.']:
+                    for part in textwrap.wrap(line, 75):
+                        c.drawString(32, y, part); y -= 18
+                    y -= 10
+            c.showPage()
     c.save()
 
 
@@ -362,9 +392,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--root', required=True, type=Path, help='CALWORK with ps-a1 ... ps-i2')
     ap.add_argument('--out', required=True, type=Path, help='New report directory')
-    ap.add_argument('--pdf', action='store_true', help='Also make bookmarked R5 PDF (requires reportlab)')
+    ap.add_argument('--pdf', action='store_true', help='Make 27-page per-set summaries and a combined PDF (requires reportlab)')
     ap.add_argument('--sets', nargs='+', choices=sorted(CATALOG), default=sorted(CATALOG))
     args = ap.parse_args()
+    args.sets = list(dict.fromkeys(args.sets))
     if args.pdf:
         try:
             import reportlab  # noqa: F401
@@ -373,13 +404,17 @@ def main():
     root, out = args.root.resolve(), args.out.resolve()
     if out.exists() or out.with_suffix('.zip').exists():
         ap.error('Output or ZIP already exists; choose a new --out directory.')
-    inventory, problems = {}, []
+    inventory, summaries, problems = {}, {}, []
     for key in args.sets:
         stages = {}
         for stage in STAGES:
             stages[stage] = sorted((root/key/'plots'/stage).rglob('*.png'), key=natural)
         if not stages['refine5']:
             problems.append(key + ': no R5 PNGs')
+        try:
+            summaries[key] = select_summary(stages['refine5'])
+        except ValueError as e:
+            problems.append(key + ': ' + str(e))
         final = list((root/key/'final').glob('*_calib.txt'))
         if not final or not all(p.stat().st_size for p in final):
             problems.append(key + ': missing/empty final calibration text')
@@ -394,17 +429,21 @@ def main():
     out.mkdir(parents=True)
     stamp = datetime.now(timezone.utc).isoformat()
     manifest = {'created_utc': stamp, 'source_root': str(root), 'method': METHOD,
-                'recipe_metadata': {k: CATALOG[k] for k in args.sets}, 'plots': []}
+                'summary_template': 'F. Bock SummarySetB: 27 pages, layers 0-7',
+                'recipe_metadata': {k: CATALOG[k] for k in args.sets},
+                'plots': [], 'summary_pages': [], 'warnings': []}
     rows, pdf_groups = [], {}
     for key, stages in inventory.items():
         print('Packaging ' + key, flush=True)
         m = CATALOG[key]
         intro = '<p><a href="index.html">All sets</a></p><p>%s</p>' % METHOD
+        if args.pdf:
+            intro += '<p><a href="%s">27-page R5 summary PDF</a></p>' % summary_pdf_name(key)
         intro += '<p>Muon runs: %s<br>Pedestal runs: %s<br>Pedestal association: %s</p>' % (
             ', '.join(map(str,m['muon_runs'])), ', '.join(map(str,m['pedestal_runs'])), html.escape(m['pedestal_evidence']))
         intro += '<h2>Recipe notes</h2><ul>' + ''.join('<li>%s</li>' % html.escape(n) for n in m['notes']) + '</ul>'
         intro += '<p>These notes describe the source recipe, not findings from this report.</p>'
-        links, stage_figures = [], {}
+        links = []
         for stage, paths in stages.items():
             figs = []
             for p in paths:
@@ -414,30 +453,53 @@ def main():
                 label = p.relative_to(root/key/'plots'/stage).as_posix()
                 figs.append(figure(rel, label))
                 manifest['plots'].append({'set':key, 'stage':stage, 'path':rel.as_posix(), 'bytes':dest.stat().st_size})
-            stage_figures[stage] = ''.join(figs)
             stage_name = key + '-' + stage + '.html'
             (out/stage_name).write_text(page(key.upper()+' - '+stage, '<p><a href="%s.html">Back to set</a></p>' % key + (''.join(figs) or '<p>No plots found for this stage.</p>')), encoding='utf-8')
             links.append('<li><a href="%s">%s (%d plots)</a></li>' % (stage_name,stage,len(paths)))
-        body = intro + '<h2>All stages</h2><ul>' + ''.join(links) + '</ul><h2>Final refinement (R5)</h2>' + stage_figures['refine5']
+        selected_figures, pdf_groups[key] = [], []
+        for number, (p, title, name) in enumerate(summaries[key], 1):
+            rel = p.relative_to(root) if p else None
+            manifest['summary_pages'].append({'set': key, 'page': number, 'title': title,
+                                              'expected_file': name,
+                                              'path': rel.as_posix() if rel else '',
+                                              'status': 'present' if p else 'missing'})
+            if p:
+                selected_figures.append(figure(rel, '%02d - %s' % (number, title)))
+            else:
+                warning = '%s: missing R5 panel %s; placeholder at page %d' % (key, name, number)
+                print('WARNING: ' + warning, flush=True)
+                manifest['warnings'].append(warning)
+                selected_figures.append('<p><strong>%02d - %s: plot unavailable (%s)</strong></p>' % (number, html.escape(title), name))
+            pdf_groups[key].append((out/rel if rel else None, title, name))
+        body = intro + '<h2>All stages (complete PNG collection)</h2><ul>' + ''.join(links) + '</ul><h2>R5 summary in Fredi\'s page order</h2>' + ''.join(selected_figures)
         (out/(key+'.html')).write_text(page(key.upper(),body), encoding='utf-8')
-        pdf_groups[key] = [(out/p.relative_to(root),p.relative_to(root/key/'plots'/'refine5').as_posix()) for p in stages['refine5']]
         # Text constants are small and useful alongside the report. Event trees stay at BNL.
         for stage in ['pedestal','mip']+STAGES[3:]+['final']:
             for p in (root/key/stage).glob('*_calib.txt'):
                 dest=out/p.relative_to(root); dest.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(p,dest)
-        rows.append('<tr><td><a href="%s.html">%s</a></td><td>%s</td><td>%s</td><td>%d</td></tr>' % (key,key.upper(), ', '.join(map(str,m['muon_runs'])), ', '.join(map(str,m['pedestal_runs'])),len(stages['refine5'])))
-    body = '<p>%s</p><p>Full standard R5 plot collections, with the original fit overlays. Earlier stages are linked from each set.</p>' % METHOD
+        pdf_link = '<a href="%s">PDF</a>' % summary_pdf_name(key) if args.pdf else '-'
+        present = sum(p is not None for p, title, name in summaries[key])
+        rows.append('<tr><td><a href="%s.html">%s</a></td><td>%s</td><td>%s</td><td>%d/27</td><td>%s</td></tr>' % (key,key.upper(), ', '.join(map(str,m['muon_runs'])), ', '.join(map(str,m['pedestal_runs'])), present, pdf_link))
+    body = '<p>%s</p><p>R5 summaries follow Fredi\'s 27-page SummarySetB plot selection and order. Original PNGs fill each PDF page, with their aspect ratios preserved. Earlier stages and all other PNGs are linked from each set.</p>' % METHOD
     body += '<p>Campaign labels still say legacy-original. The method label above reflects the identified running HG fitter.</p><p>Plot collection for review; no calibration-quality or external-agreement claim is made.</p>'
     if args.pdf: body += '<p><a href="ps-2026-r5-report.pdf">Download the R5 PDF report</a></p>'
-    body += '<table><tr><th>Set</th><th>Muon runs</th><th>Pedestal</th><th>R5 plots</th></tr>' + ''.join(rows) + '</table>'
+    body += '<p>Pages 1-6: fit-parameter maps; 7-14: MIP spectra, layers 0-7; 15-19: trigger and signal/noise maps; 20-27: trigger primitives, layers 0-7.</p>'
+    if manifest['warnings']:
+        body += '<h2>Missing panels</h2><p>Missing layer plots have marked placeholder pages; their absence is not evidence of a successful or failed fit.</p><ul>' + ''.join('<li>%s</li>' % html.escape(w) for w in manifest['warnings']) + '</ul>'
+    body += '<table><tr><th>Set</th><th>Muon runs</th><th>Pedestal</th><th>Summary plots</th><th>Summary</th></tr>' + ''.join(rows) + '</table>'
     body += '<p>Generated %s. <a href="manifest.json">Plot inventory and recipe notes</a></p>' % stamp
     (out/'index.html').write_text(page('PS April 2026 - calibration report',body),encoding='utf-8')
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')
     with (out/'plot-inventory.csv').open('w',newline='') as f:
         w=csv.DictWriter(f,fieldnames=['set','stage','path','bytes']);w.writeheader();w.writerows(manifest['plots'])
+    with (out/'summary-pages.csv').open('w',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=['set','page','title','expected_file','path','status']);w.writeheader();w.writerows(manifest['summary_pages'])
     if args.pdf:
-        print('Building R5 PDF from PNGs...',flush=True)
-        pdf_report(out/'ps-2026-r5-report.pdf',pdf_groups,CATALOG,stamp)
+        for key, paths in pdf_groups.items():
+            print('Building ' + summary_pdf_name(key) + ' (27 pages)...', flush=True)
+            pdf_report(out/summary_pdf_name(key), {key: paths})
+        print('Building combined R5 PDF...',flush=True)
+        pdf_report(out/'ps-2026-r5-report.pdf',pdf_groups)
     print('Creating portable ZIP...',flush=True)
     with zipfile.ZipFile(out.with_suffix('.zip'),'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as z:
         for p in sorted(out.rglob('*')):
@@ -445,7 +507,7 @@ def main():
     print('Report: '+str(out/'index.html'))
     if args.pdf:print('PDF: '+str(out/'ps-2026-r5-report.pdf'))
     print('Download: '+str(out.with_suffix('.zip')))
-    print('%d sets; %d R5 plots; %d total plots. No fits rerun.' % (len(inventory),sum(len(v) for v in pdf_groups.values()),len(manifest['plots'])))
+    print('%d sets; %d summary pages (%d missing panels); %d total PNGs. No fits rerun.' % (len(inventory),len(manifest['summary_pages']),len(manifest['warnings']),len(manifest['plots'])))
 
 
 if __name__ == '__main__':
