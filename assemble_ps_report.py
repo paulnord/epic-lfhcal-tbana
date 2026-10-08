@@ -285,7 +285,10 @@ CATALOG = {
     }
 }
 STAGES = ['pedestal', 'transfer', 'mip'] + ['refine%d' % n for n in range(1, 6)]
-METHOD = 'Adaptive HG fitting; original fit boundary'
+METHODS = {
+    'legacy': 'Legacy HG fitting; original fit boundary',
+    'adaptive': 'Adaptive HG fitting; original fit boundary',
+}
 # Page order transcribed from F. Bock's 27-page SummarySetB.pdf.
 # R5 names have no _2nd suffix (that suffix belongs to the initial MIP stage).
 SUMMARY_PAGES = [
@@ -349,14 +352,14 @@ def summary_pdf_name(key):
     return 'SummaryPS_' + key[3:].upper() + '.pdf'
 
 
-def pdf_report(path, groups):
+def pdf_report(path, groups, method):
     """One plot per page, with no added cover/title pages or plot overlays."""
     from reportlab.pdfgen.canvas import Canvas
     from reportlab.lib.utils import ImageReader
     c = Canvas(str(path), pagesize=(567, 499))
-    c.setTitle('PS April 2026 - R5 summary - ' + ', '.join(k.upper() for k in groups))
+    c.setTitle('PS April 2026 - R5 summary - ' + method + ' - ' + ', '.join(k.upper() for k in groups))
     c.setAuthor('Paul Nord')
-    c.setSubject(METHOD + '; page order follows F. Bock SummarySetB')
+    c.setSubject(method + '; page order follows F. Bock SummarySetB')
     for key, paths in groups.items():
         for number, (p, title, name) in enumerate(paths, 1):
             # Keep the original image aspect and every pixel; no resampling.
@@ -369,7 +372,9 @@ def pdf_report(path, groups):
             bookmark = '%s-%02d' % (key, number)
             c.bookmarkPage(bookmark)
             if number == 1:
-                c.addOutlineEntry(key.upper() + ' - R5', bookmark, 0)
+                set_bookmark = key + '-r5'
+                c.bookmarkPage(set_bookmark)
+                c.addOutlineEntry(key.upper() + ' - R5 - ' + method, set_bookmark, 0)
             c.addOutlineEntry('%02d - %s' % (number, title), bookmark, 1)
             if p is not None:
                 c.drawImage(im, 0, 0, width=width, height=height, mask='auto')
@@ -392,9 +397,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--root', required=True, type=Path, help='CALWORK with ps-a1 ... ps-i2')
     ap.add_argument('--out', required=True, type=Path, help='New report directory')
+    ap.add_argument('--method', required=True, choices=sorted(METHODS),
+                    help='HG fitter used for these results (original boundary); labels only, no refitting')
     ap.add_argument('--pdf', action='store_true', help='Make 27-page per-set summaries and a combined PDF (requires reportlab)')
     ap.add_argument('--sets', nargs='+', choices=sorted(CATALOG), default=sorted(CATALOG))
     args = ap.parse_args()
+    method = METHODS[args.method]
     args.sets = list(dict.fromkeys(args.sets))
     if args.pdf:
         try:
@@ -428,7 +436,8 @@ def main():
         ap.error('\n'.join(problems))
     out.mkdir(parents=True)
     stamp = datetime.now(timezone.utc).isoformat()
-    manifest = {'created_utc': stamp, 'source_root': str(root), 'method': METHOD,
+    manifest = {'created_utc': stamp, 'source_root': str(root), 'method': method,
+                'method_key': args.method,
                 'summary_template': 'F. Bock SummarySetB: 27 pages, layers 0-7',
                 'recipe_metadata': {k: CATALOG[k] for k in args.sets},
                 'plots': [], 'summary_pages': [], 'warnings': []}
@@ -436,7 +445,7 @@ def main():
     for key, stages in inventory.items():
         print('Packaging ' + key, flush=True)
         m = CATALOG[key]
-        intro = '<p><a href="index.html">All sets</a></p><p>%s</p>' % METHOD
+        intro = '<p><a href="index.html">All sets</a></p><p>%s</p>' % method
         if args.pdf:
             intro += '<p><a href="%s">27-page R5 summary PDF</a></p>' % summary_pdf_name(key)
         intro += '<p>Muon runs: %s<br>Pedestal runs: %s<br>Pedestal association: %s</p>' % (
@@ -480,8 +489,8 @@ def main():
         pdf_link = '<a href="%s">PDF</a>' % summary_pdf_name(key) if args.pdf else '-'
         present = sum(p is not None for p, title, name in summaries[key])
         rows.append('<tr><td><a href="%s.html">%s</a></td><td>%s</td><td>%s</td><td>%d/27</td><td>%s</td></tr>' % (key,key.upper(), ', '.join(map(str,m['muon_runs'])), ', '.join(map(str,m['pedestal_runs'])), present, pdf_link))
-    body = '<p>%s</p><p>R5 summaries follow Fredi\'s 27-page SummarySetB plot selection and order. Original PNGs fill each PDF page, with their aspect ratios preserved. Earlier stages and all other PNGs are linked from each set.</p>' % METHOD
-    body += '<p>Campaign labels still say legacy-original. The method label above reflects the identified running HG fitter.</p><p>Plot collection for review; no calibration-quality or external-agreement claim is made.</p>'
+    body = '<p>%s</p><p>R5 summaries follow Fredi\'s 27-page SummarySetB plot selection and order. Original PNGs fill each PDF page, with their aspect ratios preserved. Earlier stages and all other PNGs are linked from each set.</p>' % method
+    body += '<p>The method label is supplied with --method; it is not inferred from campaign names or images.</p><p>Plot collection for review; no calibration-quality or external-agreement claim is made.</p>'
     if args.pdf: body += '<p><a href="ps-2026-r5-report.pdf">Download the R5 PDF report</a></p>'
     body += '<p>Pages 1-6: fit-parameter maps; 7-14: MIP spectra, layers 0-7; 15-19: trigger and signal/noise maps; 20-27: trigger primitives, layers 0-7.</p>'
     if manifest['warnings']:
@@ -497,9 +506,9 @@ def main():
     if args.pdf:
         for key, paths in pdf_groups.items():
             print('Building ' + summary_pdf_name(key) + ' (27 pages)...', flush=True)
-            pdf_report(out/summary_pdf_name(key), {key: paths})
+            pdf_report(out/summary_pdf_name(key), {key: paths}, method)
         print('Building combined R5 PDF...',flush=True)
-        pdf_report(out/'ps-2026-r5-report.pdf',pdf_groups)
+        pdf_report(out/'ps-2026-r5-report.pdf',pdf_groups,method)
     print('Creating portable ZIP...',flush=True)
     with zipfile.ZipFile(out.with_suffix('.zip'),'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as z:
         for p in sorted(out.rglob('*')):
@@ -512,3 +521,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

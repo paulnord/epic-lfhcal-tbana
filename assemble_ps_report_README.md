@@ -5,8 +5,15 @@ It packages existing PNGs and calibration text; it does not run ROOT or refit da
 
 ```console
 python3 -m pip install --user reportlab
-python3 assemble_ps_report.py --root /gpfs01/star/scratch/pnord/lfhcal/ps-sps-calibration-20261006 --out /gpfs01/star/scratch/pnord/lfhcal/ps-summaries-20261007 --pdf
+python3 assemble_ps_report.py --root /gpfs01/star/scratch/pnord/lfhcal/ps-legacy-pr86-pr87-20261007 --out /gpfs01/star/scratch/pnord/lfhcal/ps-legacy-pr86-pr87-20261007/fredi-legacy-r5-20261008 --method legacy --pdf
 ```
+
+`--method legacy` or `--method adaptive` is required. It labels the HTML,
+manifest, PDF metadata and bookmarks; it does not alter any PNG or run a fit.
+Both choices describe the original fit boundary. Select the fitter actually
+used to produce the inputs; campaign names alone are not reliable evidence.
+For the earlier adaptive batch, use `--method adaptive` and the root
+`/gpfs01/star/scratch/pnord/lfhcal/ps-sps-calibration-20261006`.
 
 The output directory must be new. The default selects all 17 PS sets; use
 `--sets ps-b1 ps-b2` to package a subset. Without `--pdf`, only the HTML collection,
@@ -35,10 +42,10 @@ ROOT can omit layer panels when all channels are masked. An absent layer panel
 produces a clearly labelled placeholder at its reference page number, a console
 warning, and an inventory entry. The assembler does not infer why it is absent.
 
-These are PS results from adaptive HG fitting with the original fit boundary.
-Matching the report format does not make the fitter or the numerical results
-identical to the SPS reference. The old `legacy-original` campaign names do not
-describe the HG fitter actually identified in this deployment.
+Matching the report format does not make the numerical PS results identical
+to the SPS reference. The October 7 Legacy batch uses the original fit boundary
+with the PR86 and PR87 fixes. The earlier PS batch used adaptive HG fitting,
+also with the original boundary, despite its `legacy-original` campaign names.
 
 ## Other output
 
@@ -56,3 +63,4 @@ Validation used rasterized pages of the supplied SPS reference as local test
 inputs: page order, per-set/combined page counts, rendering without cropping,
 missing-layer placeholders and ambiguous/missing-map rejection were checked.
 The real PS input plots remain at BNL and are read when the command is run there.
+
