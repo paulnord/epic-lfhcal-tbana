@@ -1,0 +1,51 @@
+# Replay the last Legacy fit pass against the completed selected events and R4.
+# Earlier stages are reused; outputs go into the separate PLOT_WORK directory.
+@env PS_REFERENCE
+@env PLOT_WORK
+@env PLOT_SOURCE
+@env EIC_SHELL
+campaign ps-legacy-r5-faithful-plots
+backend condor
+%account-provenance off
+%cpus 1
+%memory 8GB
+%disk 16GB
+%time 10h
+%getenv true
+@set WORK {PLOT_WORK}
+@set REF {PS_REFERENCE}
+@set BUILD {PLOT_SOURCE}/NewStructure/build
+@set CFG {PLOT_SOURCE}/configs/TB2026
+@set SUPPORT {PLOT_SOURCE}/examples/yall/calibration-2026
+%wrapper {SUPPORT}/run-in-eic-shell.sh {EIC_SHELL} {SUPPORT}/in-calibration-build.sh {BUILD}
+%preflight /usr/bin/sha256sum --status -c {WORK}/build.sha256
+
+@table sets psset sample:
+    ps-a1 Muon_FullSetA_1
+    ps-a2 Muon_FullSetA_2
+    ps-b1 Muon_FullSetB_1
+    ps-b2 Muon_FullSetB_2
+    ps-c1 Muon_FullSetC_1
+    ps-c2 Muon_FullSetC_2
+    ps-d1 Muon_FullSetD_1
+    ps-d2 Muon_FullSetD_2
+    ps-e1 Muon_FullSetE_1
+    ps-e2 Muon_FullSetE_2
+    ps-f1 Muon_FullSetF_1
+    ps-f2 Muon_FullSetF_2
+    ps-g1 Muon_FullSetG_1
+    ps-g2 Muon_FullSetG_2
+    ps-h1 Muon_FullSetH_1
+    ps-i1 Muon_FullSetI_1
+    ps-i2 Muon_FullSetI_2
+
+replot-{psset}-{sample}:
+    @each psset sample in sets
+    @input root {REF}/{psset}/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_{sample}.root
+    @input calib {REF}/{psset}/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_{sample}_calib.txt
+    @input rundb {CFG}/DataTakingDB_TBPST10_202604_HGCROC.csv
+    @output root {WORK}/{psset}/final/calib_Final_{sample}.root
+    @output calib {WORK}/{psset}/final/calib_Final_{sample}_calib.txt
+    @output hists {WORK}/{psset}/final/calib_Final_{sample}_Hists.root
+    @output plots {WORK}/{psset}/plots/refine5/{sample}
+    {BUILD}/DataPrep -x -a -f -d 1 -S -i @input.root -k @input.calib -o @output.root -O @output.plots -r @input.rundb -F png
