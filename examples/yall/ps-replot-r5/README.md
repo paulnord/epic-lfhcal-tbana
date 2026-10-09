@@ -52,6 +52,20 @@ checked-in Yallfile into `PLOT_WORK`. Repeating preparation with the same
 configuration is safe. It rejects a changed build or conflicting setup.
 Keep this source/build fixed while jobs run.
 
+If an earlier preparation reported `declared outputs already exist` for the
+`plots/refine5/Muon_FullSet*` directories, remove only those empty directories
+and start the existing campaign:
+
+```tcsh
+rmdir "$PLOT_WORK"/ps-*/plots/refine5/Muon_FullSet* && \
+yall-run start "$replot"
+yall-run status "$replot" -v
+```
+
+`rmdir` refuses to remove a directory containing any results. No rebuild or
+new campaign is needed. The corrected helper creates only the `refine5`
+parent; DataPrep creates each declared sample directory itself.
+
 ## Submit once
 
 ```tcsh

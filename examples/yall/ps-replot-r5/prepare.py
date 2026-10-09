@@ -78,7 +78,9 @@ def main():
     for psset, sample in pairs:
         (work / psset / "final").mkdir(parents=True, exist_ok=True)
         plots = work / psset / "plots"
-        (plots / "refine5" / sample).mkdir(parents=True, exist_ok=True)
+        # The sample directory is a declared task output. Even an empty leaf
+        # would prevent yall-run start; DataPrep creates it when plotting.
+        (plots / "refine5").mkdir(parents=True, exist_ok=True)
         for stage in ("pedestal", "transfer", "mip", "refine1", "refine2", "refine3", "refine4"):
             old, link = ref / psset / "plots" / stage, plots / stage
             if old.is_dir():
