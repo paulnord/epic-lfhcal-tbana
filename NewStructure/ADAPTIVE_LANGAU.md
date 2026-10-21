@@ -7,6 +7,17 @@ model. It ports the existing `AdaptiveLangau.h` unchanged from
 `eic/epic-lfhcal-tbana` base `92df3e48b84204dfacf0aa579893d379db5c5919`.
 The earlier helper was extracted from `LangauNumerics.h` at `3a643646`.
 
+## Pending upstream dependencies
+
+This draft is layered over `review/upstream-92df3e4-pr86-pr87` at
+`6be44e60b7e852b13d78554a97ddf08bf15c6ed3`: upstream `92df3e48` plus
+[PR #86](https://github.com/eic/epic-lfhcal-tbana/pull/86) at `f81708c` and
+[PR #87](https://github.com/eic/epic-lfhcal-tbana/pull/87) at `9bdb828`.
+Both dependencies are still unmerged. The snapshot is only a comparison base in
+Paul's fork; it does not change upstream or `main`. Buffer-lifetime cleanup and
+checked output handling belong to those dependencies, not the adaptive diff.
+After they merge, retarget/rebase onto the accepted upstream versions and recheck.
+
 ## Switch and intended adoption
 
 The review patch defaults to **legacy**. Build two independent directories to
@@ -48,8 +59,8 @@ not an existing cache explicitly or implicitly set to OFF.
 - No FFT, Moyal model, extra Gaussian floor, rebinning, or fit-range correction is
   bundled here. Campaigns, plotting revisions, and unrelated bug fixes are excluded.
 - No data schema or ROOT class version change, TileSpectra.h change, or new library
-  dependency. Four temporary HG arrays use stack storage so early returns and
-  numerical exceptions do not leak them; the new CAEN seven-parameter size is kept.
+  dependency. PR #86 supplies automatic fit-buffer lifetime, including the
+  seven-parameter HG buffers; this adaptive change relies on it for safe exits.
 - An adaptive numerical failure rejects that fit, clears its saved-fit flag, and
   leaves previous calibration and caller outputs untouched. It does not silently
   fall back to legacy. Unrelated CAEN exceptions keep their previous behavior.

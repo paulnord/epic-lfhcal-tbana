@@ -1,4 +1,5 @@
 #include "Analyses.h"
+#include <array>
 #include <vector>
 #include "TROOT.h"
 #include <bitset>
@@ -1095,7 +1096,7 @@ bool Analyses::GetPedestal(void){
   std::map<int, TileSpectra>::iterator ithSpectra;	
 
   // create output file for histos
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
   // entering histoOutput file
   RootOutputHist->mkdir("IndividualCells");
   RootOutputHist->cd("IndividualCells");
@@ -1410,7 +1411,7 @@ bool Analyses::EvaluateHGCROCToAPhases(void){
   //==================================================================================
   // create additional output hist
   //==================================================================================
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
   RootOutputHist->cd();
 
   TH2D* hSampleTOAVsCellID       = new TH2D( "hSampleTOAvsCellID","#sample ToA; cell ID; #sample TOA",
@@ -1440,14 +1441,14 @@ bool Analyses::EvaluateHGCROCToAPhases(void){
                                               8,-0.5,7.5);
   hSampleDiffMin->SetDirectory(0);
   
-  TH2D* h2DToAvsADC[setup->GetNMaxROUnit()+1][2][5];
-  TProfile* hToAvsADC[setup->GetNMaxROUnit()+1][2][5];
-  TH2D* h2DWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2][5];
-  TProfile* hWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2][5];
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<std::array<TH2D*, 5>, 2>> h2DToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TProfile*, 5>, 2>> hToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TH2D*, 5>, 2>> h2DWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<std::array<TProfile*, 5>, 2>> hWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);
 
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
   
   for (Int_t ro = 0; ro < setup->GetNMaxROUnit()+1; ro++){
     for (int h = 0; h< 2; h++){
@@ -1772,7 +1773,7 @@ bool Analyses::TransferCalib(void){
   //==================================================================================
   // create additional output hist 
   //==================================================================================
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
 
   int maxChanneTransferCaliblPerLayer       = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1)*(setup->GetNMaxModule()+1);
   int maxChannelPerLayerSingleMod           = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1);
@@ -1790,9 +1791,9 @@ bool Analyses::TransferCalib(void){
   TH2D* hNCellsWTOAVsTotADC   =nullptr;
   TH2D* hNCellsWmADCVsTotADC  =nullptr;        
   // plot setup per half asic for ToA 
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);
   
   // only create these if we have an HGCROC data type as input
   if (typeRO == ReadOut::Type::Hgcroc){
@@ -2365,7 +2366,7 @@ bool Analyses::ReevaluateLGHGCorr(void){
   //==================================================================================
   // create additional output hist 
   //==================================================================================
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
 
   RootOutputHist->mkdir("IndividualCells");
   RootOutputHist->cd("IndividualCells");
@@ -2695,7 +2696,7 @@ bool Analyses::VisualizeWaveform(void){
   //==================================================================================
   // create additional output hist
   //==================================================================================
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
   
   RootOutputHist->mkdir("IndividualCells");
   RootOutputHist->mkdir("IndividualCellsTrigg");
@@ -2872,7 +2873,7 @@ bool Analyses::GetScaling(void){
   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
 
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");  
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
 
   // reading calib from file
   TcalibIn->GetEntry(0);
@@ -3897,7 +3898,7 @@ bool Analyses::GetImprovedScaling(void){
   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
   
   // create output file for histos
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
    
   // setup general fitting options 
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2", "Migrad");
@@ -4597,7 +4598,7 @@ bool Analyses::GetNoiseSampleAndRefitPedestal(void){
   std::map<int, TileSpectra>::iterator ithSpectraTrigg;
   
   // create output file for histos
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
 
   // setup trigger sel
   double factorMinTrigg   = 0.5;
@@ -4947,7 +4948,7 @@ bool Analyses::RunEvalLocalTriggers(void){
   // Create & setup general monitoring histograms
   //==================================================================================  
   // create output file for histos
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
   // 2D beam profile -EP
   int maxChannelPerLayer          = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1)*(setup->GetNMaxModule()+1);
   int maxChannelPerLayerSingleMod = (setup->GetNMaxColumn()+1)*(setup->GetNMaxRow()+1);
@@ -5249,7 +5250,7 @@ bool Analyses::Calibrate(void){
   //=============================================================================================
   // Create output histos
   //=============================================================================================
-  CreateOutputRootHistFile();
+  if (!CreateOutputRootHistFile()) return false;
   
   TH2D* hspectraHGvsCellID          = nullptr;      // all cells raw ADC (HG - CAEN, ADC HGCROC) spectrum vs Cell ID
   TH2D* hspectraHGCorrvsCellID      = nullptr;      // all cells pedestal corrected ADC (HG - CAEN, ADC HGCROC) spectrum vs Cell ID
@@ -5265,8 +5266,8 @@ bool Analyses::Calibrate(void){
   TH1D* hSaturatedLG                = nullptr;      // saturated LG ADC (CAEN) frequency per event
   TH1D* hLGHGCorrOutsideBoundCellID = nullptr;      // LG/HG outside expectation frequency vs cellID
   TH1D* hNCellsLGHGCorrOutsideBound = nullptr;      // Nr. of cells outside expectation for LG/HG per event  
-  TH2D* h2DTotLGROvsLGHGCheck[setup->GetNMaxROUnit()+1];  // total LG vs LG/HG outside expectation  (with value) 
-  TH2D* h2DTotLGROvsLGHGCheckNCells[setup->GetNMaxROUnit()+1];  // total LG vs LG/HG outside expectation Number of cells
+  std::vector<TH2D*> h2DTotLGROvsLGHGCheck(setup->GetNMaxROUnit()+1);  // total LG vs LG/HG outside expectation  (with value)
+  std::vector<TH2D*> h2DTotLGROvsLGHGCheckNCells(setup->GetNMaxROUnit()+1);  // total LG vs LG/HG outside expectation Number of cells
   
   // HGCROC only
   TH2D* hspectraTotvsCellID         = nullptr;      // all cells raw TOT vs cell ID
@@ -5278,9 +5279,9 @@ bool Analyses::Calibrate(void){
   TH1D* hSampleTOA                  = nullptr;      // nSample TOA all cells
   TH2D* hTOANsVsCellID              = nullptr;      // linearized TOA (ns) vs cellID
   TH2D* hTOACorrNsVsCellID          = nullptr;      // corrected linearized TOA (ns) vs cellID
-  TH2D* h2DToAvsnSample[setup->GetNMaxROUnit()+1][2];           // ToA vs nSample TOA per readout unit half
-  TH2D* h2DWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];    // ToA corrected Waveform per readout unit half
-  TProfile* hWaveFormHalfAsicAll[setup->GetNMaxROUnit()+1][2];  // profile of ToA corrected Waveform per readout unit half
+  std::vector<std::array<TH2D*, 2>> h2DToAvsnSample(setup->GetNMaxROUnit()+1);           // ToA vs nSample TOA per readout unit half
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);    // ToA corrected Waveform per readout unit half
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsicAll(setup->GetNMaxROUnit()+1);  // profile of ToA corrected Waveform per readout unit half
   
   //Create 1D Histos for Delta time
   TH1D* hDeltaTime = new TH1D("hDeltaTime", "Time Difference between Events; Delta Time (#mus); Counts", 2000, 0, 100000);
