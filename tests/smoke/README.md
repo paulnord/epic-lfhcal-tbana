@@ -129,3 +129,10 @@ It runs for relevant pull-request changes, pushes to main, or manual dispatch.
 The plotting regression runs only when its renderer is in the tested checkout;
 otherwise it explicitly reports a skip. No other branch is fetched, no beam
 campaign is started, and the separate `Yall examples` result is not a ROOT pass.
+
+### Optional raw-conversion diagnostic (currently failing)
+
+`python3 tests/smoke/raw_conversion.py --build-dir NewStructure/build` exercises
+actual CAEN v3.3 conversion with tiny generated data and deterministic corruption.
+See [RAW_CONVERSION.md](RAW_CONVERSION.md) for strict expectations and defects
+exposed. This is not part of the baseline green CI claim or an all-workflow test.
