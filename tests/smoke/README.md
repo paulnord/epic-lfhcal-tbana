@@ -118,3 +118,14 @@ The first command uses fake executables to test failure propagation, timeouts,
 path quoting, temporary-directory cleanup and optional-Yall behavior. Passing it
 is **not** evidence that the production ROOT smoke checks passed. Run the real
 one-command check in a compiled LFHCal environment as well.
+
+## GitHub Actions
+
+`ROOT smoke tests` builds `Convert` and `DataPrep` and runs the runner unit tests
+and real ROOT smoke checks on GitHub-hosted Ubuntu 24.04. It uses the official
+`rootproject/root:6.34.00-ubuntu24.04` image pinned by digest, with read-only
+repository permissions and the decoder revision recorded in the submodule.
+It runs for relevant pull-request changes, pushes to main, or manual dispatch.
+The plotting regression runs only when its renderer is in the tested checkout;
+otherwise it explicitly reports a skip. No other branch is fetched, no beam
+campaign is started, and the separate `Yall examples` result is not a ROOT pass.
