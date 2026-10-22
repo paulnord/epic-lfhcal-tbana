@@ -1,0 +1,66 @@
+[
+  {
+    "case": "A. Historical cell 896: narrow legacy",
+    "provenance": "Rounded historical fit parameters; no recovered histogram",
+    "parameters": [
+      0.12192,
+      22.555322,
+      13519.316,
+      7.889414
+    ],
+    "fit_range": [
+      3.5,
+      67.71
+    ],
+    "points": 8428,
+    "old_display_error_over_peak": 0.5254363000884464
+  },
+  {
+    "case": "B. Synthetic narrow case: frozen legacy fit",
+    "provenance": "Synthetic histogram; saved fit status 0; no refit here",
+    "parameters": [
+      0.29589503500360026,
+      21.951544791556465,
+      13565.136634866652,
+      7.645258961332652
+    ],
+    "fit_range": [
+      3.5,
+      67.71
+    ],
+    "points": 3474,
+    "old_display_error_over_peak": 0.0786966406403227
+  },
+  {
+    "case": "C. Well-resolved control: frozen legacy fit",
+    "provenance": "Synthetic control; saved fit status 0; no refit here",
+    "parameters": [
+      1.999999956313212,
+      22.000000044559382,
+      13519.315949552738,
+      2.9999998410852
+    ],
+    "fit_range": [
+      3.5,
+      67.71
+    ],
+    "points": 1002,
+    "old_display_error_over_peak": 0.024117117246087266
+  },
+  {
+    "case": "D. Well-resolved control: frozen adaptive fit",
+    "provenance": "Same control histogram as C; different fitted evaluator",
+    "parameters": [
+      2.000000000816051,
+      21.99999999840824,
+      13519.316001613306,
+      3.0000000009293513
+    ],
+    "fit_range": [
+      3.5,
+      67.71
+    ],
+    "points": 1002,
+    "old_display_error_over_peak": 0.024117115346905374
+  }
+]
