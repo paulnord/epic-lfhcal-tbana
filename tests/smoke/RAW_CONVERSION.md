@@ -26,6 +26,7 @@ Observed with the current production code (review base `6be44e6`, ROOT 6.40):
 - Expected finite timestamps 1000/2000; board-0-only mapping gives infinity.
 - Short header and truncated hit print parser errors but incorrectly exit 0.
 - Nonnumeric ADC is accepted instead of rejected.
+- A valid CRLF version header is incorrectly rejected; LF input is accepted.
 - Unsupported version is correctly rejected with exit 1.
 
 The tests preserve these strict expectations; no expected-failure decorations,

@@ -113,6 +113,10 @@ class RawConversionTests(unittest.TestCase):
                 self.assertTrue(math.isfinite(event["time"]), event)
                 self.assertEqual(event["time"], (index + 1) * 1000.)
 
+    def test_crlf_capture_is_accepted(self):
+        result = self.convert(RAW.replace("\n", "\r\n"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_unsupported_format_is_rejected(self):
         self.assert_rejected(RAW.replace("Version 3.3", "Version 9.9"),
                              "This version cannot be converted")
