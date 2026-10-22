@@ -38,6 +38,15 @@ no beam-data dependency. `driver.C` propagates interpreter and payload failures
 as nonzero status; the Python runner also requires an explicit success marker.
 Checks do not use C++ `assert`, so release builds cannot disable them.
 
+## Optional plotting checks
+
+[Plotting regression and comparison routines](../../NewStructure/tests/FIT_CURVE_TESTS.md)
+are separate explicit commands; the default smoke runner does not invoke them.
+They require the renderer from PR #16. Pass `--source-dir` to its `NewStructure`
+checkout if that feature is not yet in this checkout. Optional adaptive
+comparisons additionally require the unchanged `AdaptiveLangau.h` from PR #89.
+No detector data, full campaign, or generated evidence is added to the baseline.
+
 ## Optional Yall readiness, not a Yall test campaign
 
 If Yall is relevant to this environment, explicitly request only its version:
