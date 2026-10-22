@@ -7,11 +7,19 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import run_pr90_benchmark as bench
 
 
 class RunnerTests(unittest.TestCase):
+    def test_runtime_library_isolation(self):
+        with patch.dict(bench.os.environ, {"LD_LIBRARY_PATH": "/other/build", "DYLD_LIBRARY_PATH": ""}):
+            environment = bench.runtime_environment(Path("/my/build/plot_copy_bench"))
+            self.assertEqual(environment["LD_LIBRARY_PATH"], "/my/build:/other/build")
+            self.assertEqual(environment["DYLD_LIBRARY_PATH"], "/my/build")
+            self.assertEqual(bench.os.environ["LD_LIBRARY_PATH"], "/other/build")
+
     def fixture(self, path):
         (path / "plot.png").write_bytes(b"fixture image bytes; not an actual ROOT plot")
         value = dict(elapsed_seconds=2.0, peak_rss_kib=204800,

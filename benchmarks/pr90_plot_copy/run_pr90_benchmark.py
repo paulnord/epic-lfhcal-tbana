@@ -115,6 +115,16 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def runtime_environment(executable: Path) -> dict[str, str]:
+    """Prevent a user's existing LFHCAL build from overriding the trial build."""
+    environment = os.environ.copy()
+    directory = str(executable.resolve().parent)
+    for key in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
+        previous = environment.get(key)
+        environment[key] = directory + (os.pathsep + previous if previous else "")
+    return environment
+
+
 def read_result(path: Path, wall: float, variant: str, trial: int) -> dict:
     result = json.loads((path / "result.json").read_text())
     for field in ("elapsed_seconds", "peak_rss_kib", "before_digest", "after_digest", "saved_digest",
@@ -205,8 +215,10 @@ def main(argv: list[str] | None = None) -> int:
             run_dir.mkdir()
             command = [str(executables[label]), str(run_dir), str(args.cells), str(args.iterations), str(args.warmup)]
             started = time.monotonic()
-            logged(command, run_dir / "run.log", cwd=str(out / (label + "-build")))
+            environment = runtime_environment(executables[label])
+            logged(command, run_dir / "run.log", cwd=str(out / (label + "-build")), env=environment)
             result = read_result(run_dir, time.monotonic() - started, label, trial)
+            result["runtime_library_paths"] = {key: environment[key] for key in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH")}
             results.append(result)
             print(f"{label} trial {trial}: {result['elapsed_seconds']:.3f} s plotting, "
                   f"{result['peak_rss_kib'] / 1024:.1f} MiB process peak RSS", flush=True)

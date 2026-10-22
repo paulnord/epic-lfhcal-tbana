@@ -1,0 +1,16 @@
+{
+  "inputs": {
+    "input": "/absolute/path/to/converted_hgcroc_run.root",
+    "runlist": "/absolute/path/to/matching_runlist.txt"
+  },
+  "argv": [
+    "{exe}",
+    "-w",
+    "-i", "{input}",
+    "-r", "{runlist}",
+    "-o", "{output}/analysis.root",
+    "-O", "{output}/plots",
+    "-F", "png",
+    "-L", "1000"
+  ]
+}

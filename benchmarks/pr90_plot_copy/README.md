@@ -2,6 +2,8 @@
 
 Run the real plotting wrapper before and after [PR #90](https://github.com/eic/epic-lfhcal-tbana/pull/90), with the same deterministic ROOT histogram input. No experiment data files are needed.
 
+For your existing converted HGCROC data, use [REAL_DATA.md](REAL_DATA.md) and `run_real_data.py`. That companion runs the actual `HGCROCStudy` workflow on the same input file before/after the change. Its whole-job timing is separate from the controlled synthetic plotting measurement below.
+
 ## Get it at BNL
 
 From any existing checkout, these commands fetch this benchmark into a **new detached worktree**. They do not switch or modify your current branch or working files. Choose an unused sibling directory if `../pr90-bench-tools` already exists.
@@ -93,7 +95,7 @@ Do not treat a failed correctness check as a successful performance result.
 
 ## Validation of this bundle
 
-The Python runner was syntax-checked and passed eight ROOT-free orchestration tests, including real temporary Git clones, preservation of an existing dirty checkout, exact diff checking, result validation, and mismatch detection. Run them with:
+The Python runner was syntax-checked and passed nine ROOT-free orchestration tests, including real temporary Git clones, preservation of an existing dirty checkout, exact diff checking, per-build library-path isolation, result validation, and mismatch detection. Run them with:
 
 ```sh
 python3 -m unittest -v test_runner.py
