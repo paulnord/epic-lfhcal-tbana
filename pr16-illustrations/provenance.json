@@ -1,0 +1,112 @@
+{
+  "purpose": "PR16 description-only illustrations; no production changes",
+  "production_commit": "9e6b862991671c266b03419b88fd88abd3a6fd96",
+  "public_parameter_source": "https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json",
+  "reference": "Segmented 64-point Gauss-Legendre; 32-point comparison throughout; 128-point and independent segmented QUADPACK checks at 153 positions per case; identical ROOT Landau approximation, normalization, MP shift and \u00b15\u03c3 window. No fits performed.",
+  "cases": [
+    {
+      "tag": "problem-case",
+      "kind": "Rounded historical fit parameters; no recovered histogram",
+      "params": [
+        0.12192,
+        22.555322,
+        13519.316,
+        7.889414
+      ],
+      "params_hex": [
+        "0x1.f36262cba732ep-4",
+        "0x1.68e299524bfd3p+4",
+        "0x1.a67a872b020c5p+13",
+        "0x1.f8ec28b2a6b0ep+2"
+      ],
+      "width_over_sigma": 0.015453619242189597,
+      "x_range": [
+        3.5,
+        67.71
+      ],
+      "x_points": 24001,
+      "reference_peak": 670.56801169785,
+      "max_abs_error_over_reference_peak": 0.4800130882035639,
+      "max_relative_error_where_reference_above_10pct_peak": 0.5503416299301123,
+      "rms_error_over_reference_peak": 0.14999896107099556,
+      "gl32_vs64_over_peak": 6.781524661981161e-16,
+      "gl64_vs128_checks_over_peak": 1.017228699297174e-15,
+      "gl64_vs_quadpack_checks_over_peak": 3.3907623309905803e-16,
+      "quadpack_tolerance_1e8_vs1e11_over_peak": 0.0,
+      "quadpack_max_reported_error_over_peak": 2.325598437222138e-13,
+      "independent_quadpack_points": 153,
+      "frozen_parameters_unchanged": true,
+      "worst_x": 22.147654166666662,
+      "metadata": {
+        "source": "https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json",
+        "source_case": "A. Historical cell 896: narrow legacy",
+        "no_refitting": true
+      },
+      "production_commit": "9e6b862991671c266b03419b88fd88abd3a6fd96",
+      "renderer_sha256": "794b9be80f01ec0dbc811fa389ca5928baffdffe1886593100a32425a3ac7bd7",
+      "callback_sha256": "94e39b4f7a5e66ef8a4aa9e0d691c6553ae892583526bb7e0e6677a8180b3487",
+      "faithful_points": 8428,
+      "faithful_vertices_exact": true,
+      "parameters_range_npx_unchanged": true,
+      "old_drawing_range": [
+        0.0,
+        2000.0
+      ],
+      "old_drawing_npx": 1000,
+      "old_display_vs_live_over_live_peak": 0.5254969438567988,
+      "faithful_interpolation_vs_live_over_live_peak": 0.0002876581689489277
+    },
+    {
+      "tag": "clean-control",
+      "kind": "Synthetic control; saved fit status 0; no refit here",
+      "params": [
+        1.999999956313212,
+        22.000000044559382,
+        13519.315949552738,
+        2.9999998410852
+      ],
+      "params_hex": [
+        "0x1.ffffff445dde6p+0",
+        "0x1.6000000bf618fp+4",
+        "0x1.a67a87108f219p+13",
+        "0x1.7ffffeaabbaa3p+1"
+      ],
+      "width_over_sigma": 0.6666666874188051,
+      "x_range": [
+        3.5,
+        67.71
+      ],
+      "x_points": 24001,
+      "reference_peak": 892.0960256301593,
+      "max_abs_error_over_reference_peak": 4.457965398887548e-09,
+      "max_relative_error_where_reference_above_10pct_peak": 2.5138788828371617e-08,
+      "rms_error_over_reference_peak": 1.909783663500573e-09,
+      "gl32_vs64_over_peak": 6.371894642244923e-16,
+      "gl64_vs128_checks_over_peak": 5.097515713795938e-16,
+      "gl64_vs_quadpack_checks_over_peak": 3.823136785346954e-16,
+      "quadpack_tolerance_1e8_vs1e11_over_peak": 0.0,
+      "quadpack_max_reported_error_over_peak": 1.110223025041146e-14,
+      "independent_quadpack_points": 153,
+      "frozen_parameters_unchanged": true,
+      "worst_x": 36.29525749999999,
+      "metadata": {
+        "source": "https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json",
+        "source_case": "C. Well-resolved control: frozen legacy fit",
+        "no_refitting": true
+      },
+      "production_commit": "9e6b862991671c266b03419b88fd88abd3a6fd96",
+      "renderer_sha256": "794b9be80f01ec0dbc811fa389ca5928baffdffe1886593100a32425a3ac7bd7",
+      "callback_sha256": "94e39b4f7a5e66ef8a4aa9e0d691c6553ae892583526bb7e0e6677a8180b3487",
+      "faithful_points": 1002,
+      "faithful_vertices_exact": true,
+      "parameters_range_npx_unchanged": true,
+      "old_drawing_range": [
+        0.0,
+        2000.0
+      ],
+      "old_drawing_npx": 1000,
+      "old_display_vs_live_over_live_peak": 0.024134079233528852,
+      "faithful_interpolation_vs_live_over_live_peak": 2.5551422476599094e-05
+    }
+  ]
+}
