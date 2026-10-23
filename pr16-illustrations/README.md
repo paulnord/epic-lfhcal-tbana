@@ -2,7 +2,9 @@
 
 These fixed-parameter comparisons illustrate faithful drawing and numerical integration. They are stored on a separate evidence branch, not in the production code.
 
-The simplified three-panel [main graphic](faithful-langau-explained.png) uses the same historical case and validated numerical arrays as the problem-case figure below. It shows the peak region, 8–42 ADC, on identical axes: the old coarse drawing, the function actually fitted, and the independently converged Langau at the same parameters. The refined curve is a reference, not a replacement evaluator introduced by the plotting change.
+The simplified three-panel [main graphic](faithful-langau-explained.png) uses the same fixed parameter vector and validated numerical arrays as the problem-case figure below. It shows the peak region, 8–42 ADC, on identical axes: the old coarse drawing, the function actually fitted, and the independently converged Langau at the same parameters. The refined curve is a reference, not a replacement evaluator introduced by the plotting change.
+
+Main example parameters: Landau width **0.121920**, MPV **22.555322**, normalization **13519.316**, Gaussian sigma **7.889414**, and width/sigma **0.01545361924**. No measured data are shown; no refit is performed.
 
 Both examples freeze the previously published parameter vectors from cases A and C of [this provenance record](https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json). No fits are performed. The problem case is a rounded historical parameter replay with no recovered measured histogram. The control is a saved synthetic fit, not measured data.
 
