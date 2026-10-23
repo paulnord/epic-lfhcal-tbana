@@ -1,10 +1,19 @@
 # Faithful Langau plotting: illustration methods
 
-These fixed-parameter comparisons illustrate faithful drawing and numerical integration. They are stored on a separate evidence branch, not in the production code.
+The [main graphic](faithful-langau-explained.png) compares three fixed-parameter Langau examples. Gaussian sigma is **8.0**, MPV **25**, and normalization **13519.316** throughout. Landau widths **0.08**, **0.16**, and **0.24** give width/sigma ratios **0.01**, **0.02**, and **0.03**. No measured data are shown and no fits are performed.
 
-The simplified three-panel [main graphic](faithful-langau-explained.png) uses the same fixed parameter vector and validated numerical arrays as the problem-case figure below. It shows the peak region, 8–42 ADC, on identical axes: the old coarse drawing, the function actually fitted, and the independently converged Langau at the same parameters. The refined curve is a reference, not a replacement evaluator introduced by the plotting change.
+Each row uses identical parameters for all three columns, with a common 0–65 ADC display window and identical axes:
+- Gray: the old ROOT drawing, 1000 samples over 0–2000 ADC, obtained from an in-memory copy of the same live callback.
+- Orange: the actual legacy 100-point integration callback, evaluated directly at 26001 positions.
+- Blue: a converged reference retaining ROOT's Landau approximation, MP correction, normalization and the same ±5 Gaussian-sigma integration window. The faint blue line in the middle column is this reference.
 
-Main example parameters: Landau width **0.121920**, MPV **22.555322**, normalization **13519.316**, Gaussian sigma **7.889414**, and width/sigma **0.01545361924**. No measured data are shown; no refit is performed.
+The reference uses segmented 64-point Gauss-Legendre integration. Order 32 is checked at all 26001 positions; order 128 and independent segmented QUADPACK are checked at 153 positions per case. QUADPACK tolerance is also varied. Every orange ordinate is checked against live TF1::Eval; the source function's parameters, range and Npx remain unchanged. See [lineup-validation.json](lineup-validation.json) for the parameter vectors, convergence checks and distinct integration/display-error metrics.
+
+**Faithful plotting reveals the function's existing integration distortions. It does not repair the integral or alter a fit.** These illustration assets are separate from the production code.
+
+## Earlier problem case and clean control
+
+The earlier [problem-case](problem-case.png) and [clean-control](clean-control.png) figures and their evidence remain available below.
 
 Both examples freeze the previously published parameter vectors from cases A and C of [this provenance record](https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json). No fits are performed. The problem case is a rounded historical parameter replay with no recovered measured histogram. The control is a saved synthetic fit, not measured data.
 

@@ -1,0 +1,151 @@
+{
+  "same_parameters_except_width": true,
+  "no_data_no_refit": true,
+  "metrics_domain": [
+    0.0,
+    65.0
+  ],
+  "cases": [
+    {
+      "tag": "ratio_0.01",
+      "kind": "Fixed-parameter Langau model; only Landau width varied; no data and no refit",
+      "params": [
+        0.08,
+        25.0,
+        13519.316,
+        8.0
+      ],
+      "params_hex": [
+        "0x1.47ae147ae147bp-4",
+        "0x1.9000000000000p+4",
+        "0x1.a67a872b020c5p+13",
+        "0x1.0000000000000p+3"
+      ],
+      "width_over_sigma": 0.01,
+      "x_range": [
+        0.0,
+        65.0
+      ],
+      "x_points": 26001,
+      "reference_peak": 665.803543169049,
+      "max_abs_error_over_reference_peak": 1.0191860402167827,
+      "max_relative_error_where_reference_above_10pct_peak": 1.1196925708978958,
+      "rms_error_over_reference_peak": 0.2686631293537198,
+      "gl32_vs64_over_peak": 6.830053032190049e-16,
+      "gl64_vs128_checks_over_peak": 8.53756629023756e-16,
+      "gl64_vs_quadpack_checks_over_peak": 3.4150265160950245e-16,
+      "quadpack_tolerance_1e8_vs1e11_over_peak": 0.0,
+      "quadpack_max_reported_error_over_peak": 2.3914799738009045e-13,
+      "independent_quadpack_points": 153,
+      "frozen_parameters_unchanged": true,
+      "worst_x": 24.5975,
+      "metadata": {
+        "specified_width_over_sigma": 0.01
+      },
+      "old_drawing_npx": 1000,
+      "old_drawing_range": [
+        0,
+        2000
+      ],
+      "old_sampling_error_over_actual_peak": 0.7398129702526071,
+      "old_display_vs_reference_over_reference_peak": 0.9902396030443884,
+      "live_vertices_exact": true,
+      "fit_state_unchanged": true,
+      "callback_sha256": "94e39b4f7a5e66ef8a4aa9e0d691c6553ae892583526bb7e0e6677a8180b3487"
+    },
+    {
+      "tag": "ratio_0.02",
+      "kind": "Fixed-parameter Langau model; only Landau width varied; no data and no refit",
+      "params": [
+        0.16,
+        25.0,
+        13519.316,
+        8.0
+      ],
+      "params_hex": [
+        "0x1.47ae147ae147bp-3",
+        "0x1.9000000000000p+4",
+        "0x1.a67a872b020c5p+13",
+        "0x1.0000000000000p+3"
+      ],
+      "width_over_sigma": 0.02,
+      "x_range": [
+        0.0,
+        65.0
+      ],
+      "x_points": 26001,
+      "reference_peak": 657.5762127510234,
+      "max_abs_error_over_reference_peak": 0.30192433543909203,
+      "max_relative_error_where_reference_above_10pct_peak": 0.3514725466756161,
+      "rms_error_over_reference_peak": 0.09503692808471893,
+      "gl32_vs64_over_peak": 5.186630941803594e-16,
+      "gl64_vs128_checks_over_peak": 6.915507922404792e-16,
+      "gl64_vs_quadpack_checks_over_peak": 3.457753961202396e-16,
+      "quadpack_tolerance_1e8_vs1e11_over_peak": 0.0,
+      "quadpack_max_reported_error_over_peak": 2.3005328761607185e-13,
+      "independent_quadpack_points": 153,
+      "frozen_parameters_unchanged": true,
+      "worst_x": 25.035,
+      "metadata": {
+        "specified_width_over_sigma": 0.02
+      },
+      "old_drawing_npx": 1000,
+      "old_drawing_range": [
+        0,
+        2000
+      ],
+      "old_sampling_error_over_actual_peak": 0.3715946570406686,
+      "old_display_vs_reference_over_reference_peak": 0.28863131042916257,
+      "live_vertices_exact": true,
+      "fit_state_unchanged": true,
+      "callback_sha256": "94e39b4f7a5e66ef8a4aa9e0d691c6553ae892583526bb7e0e6677a8180b3487"
+    },
+    {
+      "tag": "ratio_0.03",
+      "kind": "Fixed-parameter Langau model; only Landau width varied; no data and no refit",
+      "params": [
+        0.24,
+        25.0,
+        13519.316,
+        8.0
+      ],
+      "params_hex": [
+        "0x1.eb851eb851eb8p-3",
+        "0x1.9000000000000p+4",
+        "0x1.a67a872b020c5p+13",
+        "0x1.0000000000000p+3"
+      ],
+      "width_over_sigma": 0.03,
+      "x_range": [
+        0.0,
+        65.0
+      ],
+      "x_points": 26001,
+      "reference_peak": 649.493295385355,
+      "max_abs_error_over_reference_peak": 0.11277000859132305,
+      "max_relative_error_where_reference_above_10pct_peak": 0.14317183777237608,
+      "rms_error_over_reference_peak": 0.03558376185339375,
+      "gl32_vs64_over_peak": 5.251178350694002e-16,
+      "gl64_vs128_checks_over_peak": 8.751963917823337e-16,
+      "gl64_vs_quadpack_checks_over_peak": 3.5007855671293343e-16,
+      "quadpack_tolerance_1e8_vs1e11_over_peak": 0.0,
+      "quadpack_max_reported_error_over_peak": 2.1529867836139677e-13,
+      "independent_quadpack_points": 153,
+      "frozen_parameters_unchanged": true,
+      "worst_x": 24.9075,
+      "metadata": {
+        "specified_width_over_sigma": 0.03
+      },
+      "old_drawing_npx": 1000,
+      "old_drawing_range": [
+        0,
+        2000
+      ],
+      "old_sampling_error_over_actual_peak": 0.14938665406599855,
+      "old_display_vs_reference_over_reference_peak": 0.07966832282772598,
+      "live_vertices_exact": true,
+      "fit_state_unchanged": true,
+      "callback_sha256": "94e39b4f7a5e66ef8a4aa9e0d691c6553ae892583526bb7e0e6677a8180b3487"
+    }
+  ]
+}
