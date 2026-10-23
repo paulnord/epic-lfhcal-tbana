@@ -2,6 +2,8 @@
 
 These images support [PR16](https://github.com/paulnord/epic-lfhcal-tbana/pull/16). They are stored on a separate evidence branch and are not in its production diff.
 
+The simplified three-panel [main graphic](faithful-langau-explained.png) uses the same historical case and validated numerical arrays as the problem-case figure below. It shows the peak region, 8–42 ADC, on identical axes: the old coarse drawing, the function actually fitted, and the independently converged Langau at the same parameters. The refined curve is a reference, not a replacement evaluator introduced by PR16.
+
 Both examples freeze the previously published parameter vectors from cases A and C of [this provenance record](https://github.com/paulnord/epic-lfhcal-tbana/blob/0421e435a2fcba5942eea5abdab3e0c256259346/NewStructure/tests/fit-curve-evidence/fixed-fit-four-case-audit.json). No fits are performed. The problem case is a rounded historical parameter replay with no recovered measured histogram. The control is a saved synthetic fit, not measured data.
 
 - Gray: old ROOT drawing, 1000 samples over 0–2000, using an in-memory copy of the same live callback.
