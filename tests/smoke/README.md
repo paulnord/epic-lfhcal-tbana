@@ -101,7 +101,7 @@ modify the bootstrap or make tests run automatically during installation.
 
 Useful later additions, outside this small baseline:
 
-- A tiny supported raw-input fixture with expected event count and channel map.
+- Promote the strict raw-conversion diagnostics only after decoder defects are fixed.
 - A known calibration text fixture loaded through the public file reader.
 - A reference histogram fit with documented numerical tolerances.
 - Bad input and unwritable output checks with reliable nonzero process status.
@@ -115,7 +115,8 @@ python3 -m unittest discover -s tools/tests -v
 ```
 
 The first command uses fake executables to test failure propagation, timeouts,
-path quoting, temporary-directory cleanup and optional-Yall behavior. Passing it
+path quoting, temporary-directory cleanup and optional-Yall behavior. It also
+checks real fixture hashes and raw record structure without ROOT. Passing it
 is **not** evidence that the production ROOT smoke checks passed. Run the real
 one-command check in a compiled LFHCal environment as well.
 
@@ -130,9 +131,11 @@ The plotting regression runs only when its renderer is in the tested checkout;
 otherwise it explicitly reports a skip. No other branch is fetched, no beam
 campaign is started, and the separate `Yall examples` result is not a ROOT pass.
 
-### Optional raw-conversion diagnostic (currently failing)
+## Optional strict raw conversion (known failing)
 
-`python3 tests/smoke/raw_conversion.py --build-dir NewStructure/build` exercises
-actual CAEN v3.3 conversion with tiny generated data and deterministic corruption.
-See [RAW_CONVERSION.md](RAW_CONVERSION.md) for strict expectations and defects
-exposed. This is not part of the baseline green CI claim or an all-workflow test.
+See [RAW_CONVERSION.md](RAW_CONVERSION.md) for synthetic and small real CAEN
+checks. The [real fixture provenance](fixtures/caen/README.md) distinguishes
+acquisition-quality concerns from deliberately corrupted records. These opt-in
+commands currently fail and are not run by the baseline smoke command or CI
+gate. Offline tests verify fixture bytes/structure only; they do not validate
+production conversion.

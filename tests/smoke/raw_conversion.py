@@ -29,7 +29,7 @@ beam-line smoke
 """
 
 
-def inspect_output(library, filename):
+def inspect_output(library, filename, channels=(0, 1)):
     # Invoked in a fresh process: inspect actual serialized production trees,
     # not objects retained by Convert or a mock implementation.
     import ROOT
@@ -48,7 +48,7 @@ def inspect_output(library, filename):
     setup.Initialize(setup_tree.setup)
     calib_tree.GetEntry(0)
     result = {"entries": {n: int(t.GetEntries()) for n, t in trees.items()},
-              "mapping": [setup.GetCellID(0, i) for i in range(2)],
+              "mapping": [setup.GetCellID(0, i) for i in channels],
               "calibration_run": calib_tree.calib.GetRunNumber(), "events": []}
     for row in data:
         event = row.event
@@ -139,12 +139,14 @@ if __name__ == "__main__":
     parser.add_argument("--build-dir", required=True, type=Path)
     parser.add_argument("--timeout", type=float, default=15.)
     parser.add_argument("--inspect", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--channels", default="0,1", help=argparse.SUPPRESS)
     args = parser.parse_args()
     BUILD, TIMEOUT = args.build_dir.resolve(), args.timeout
     if not math.isfinite(TIMEOUT) or TIMEOUT <= 0:
         parser.error("timeout must be finite and positive")
     if args.inspect:
         candidates = [BUILD / name for name in ("libLFHCAL.so", "libLFHCAL.dylib")]
-        inspect_output(next(p for p in candidates if p.is_file()), args.inspect)
+        inspect_output(next(p for p in candidates if p.is_file()), args.inspect,
+                       tuple(map(int, args.channels.split(","))))
     else:
         unittest.main(argv=[sys.argv[0]], verbosity=2)
