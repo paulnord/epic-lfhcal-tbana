@@ -103,7 +103,14 @@ void DrawAriBoxes(const AriRFData& data, AriMetric metric){
       yMax = std::max(yMax,value.second);
     }
   }
-  if (!(yMax > yMin)){ yMin = 0.; yMax = 1.; }
+  if (!std::isfinite(yMin) || !std::isfinite(yMax)){
+    yMin = 0.;
+    yMax = 1.;
+  } else if (!(yMax > yMin)){
+    const double padding = std::max(1.,0.1*std::fabs(yMin));
+    yMin -= padding;
+    yMax += padding;
+  }
   const double span = yMax-yMin;
   yMin -= 0.08*span;
   yMax += 0.12*span;
