@@ -259,6 +259,38 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
                                               8,-0.5,7.5);
   TH1D* hSampleDiffMin           = new TH1D( "hSampleDiffMin","#sample ToA-#sample above th; #sample maxADC-#sample  above th",
                                               8,-0.5,7.5);
+
+  const int nCellBins = setup->GetMaxCellID()+1;
+  TH1D* hWaveformPeakAmplitudeVsCellID = new TH1D(
+    "hWaveformPeakAmplitudeVsCellID",
+    "Ari waveform peak amplitude;cell ID;peak profile value (arb. units)",
+    nCellBins,-0.5,nCellBins-0.5);
+  TH1D* hWaveformPeakTimeVsCellID = new TH1D(
+    "hWaveformPeakTimeVsCellID",
+    "Ari waveform peak time;cell ID;peak time (ns)",
+    nCellBins,-0.5,nCellBins-0.5);
+  TH1D* hWaveformFWHMVsCellID = new TH1D(
+    "hWaveformFWHMVsCellID",
+    "Ari waveform FWHM;cell ID;FWHM (ns)",
+    nCellBins,-0.5,nCellBins-0.5);
+  TH1D* hWaveformMeasurementStatusVsCellID = new TH1D(
+    "hWaveformMeasurementStatusVsCellID",
+    "Waveform measurement status;cell ID;status code + 1 (0 = unmeasured)",
+    nCellBins,-0.5,nCellBins-0.5);
+  TH1D* hWaveformMeasurementStatusCounts = new TH1D(
+    "hWaveformMeasurementStatusCounts",
+    "Waveform measurement status;status;channels",10,-0.5,9.5);
+  for (int code = 0; code <= 8; ++code){
+    hWaveformMeasurementStatusCounts->GetXaxis()->SetBinLabel(
+      code+1,TileSpectra::WaveformMeasurementStatusName(
+        static_cast<WaveformMeasurementStatus>(code)));
+  }
+  hWaveformMeasurementStatusCounts->GetXaxis()->SetBinLabel(10,"peak at search boundary");
+  hWaveformPeakAmplitudeVsCellID->SetDirectory(0);
+  hWaveformPeakTimeVsCellID->SetDirectory(0);
+  hWaveformFWHMVsCellID->SetDirectory(0);
+  hWaveformMeasurementStatusVsCellID->SetDirectory(0);
+  hWaveformMeasurementStatusCounts->SetDirectory(0);
   
   RootOutputHist->mkdir("IndividualCells");
   RootOutputHist->mkdir("IndividualCellsTrigg");
@@ -468,6 +500,22 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
     }
   }
 
+  for (ithSpectra=hSpectra.begin(); ithSpectra!=hSpectra.end(); ++ithSpectra){
+    const int cellID = ithSpectra->first;
+    const WaveformMeasurement measurement = ithSpectra->second.MeasureWaveform();
+    const int statusCode = static_cast<int>(measurement.status);
+    hWaveformMeasurementStatusVsCellID->SetBinContent(cellID+1,statusCode+1);
+    hWaveformMeasurementStatusCounts->Fill(statusCode);
+    if (measurement.peakAtSearchBoundary)
+      hWaveformMeasurementStatusCounts->Fill(9);
+    if (measurement.hasPeak){
+      hWaveformPeakAmplitudeVsCellID->SetBinContent(cellID+1,measurement.amplitude);
+      hWaveformPeakTimeVsCellID->SetBinContent(cellID+1,measurement.peakTime);
+    }
+    if (measurement.hasFWHM)
+      hWaveformFWHMVsCellID->SetBinContent(cellID+1,measurement.fwhm);
+  }
+
   //==================================================================================
   // Setup general plotting infos
   //==================================================================================    
@@ -655,6 +703,11 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   hSampleMaxADCVsCellID->Write();
   hspectraTOAvsCellID->Write();
   hspectraTOTvsCellID->Write();
+  hWaveformPeakAmplitudeVsCellID->Write();
+  hWaveformPeakTimeVsCellID->Write();
+  hWaveformFWHMVsCellID->Write();
+  hWaveformMeasurementStatusVsCellID->Write();
+  hWaveformMeasurementStatusCounts->Write();
 
   for (Int_t ro = 0; ro < setup->GetNMaxROUnit()+1; ro++){
     for (int h = 0; h< 2; h++){
