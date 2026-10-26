@@ -148,9 +148,21 @@ production PDF/PNG rendering. The command bootstrap was then exercised end to
 end on a deliberately synthetic event fixture: 18,040 events, 18,030 triggered
 entries matching the retained histogram, plus ten synthetic rejected events.
 This validates mechanics, not the missing authentic inclusive distribution.
-Public URLs were verified separately; local bootstrap tests substituted their
-exact hash-pinned bytes. Missing-input/wrong-campaign/output-collision tests pass.
+The initial bootstrap tests substituted retained text-export header copies. Both
+copies contained one extra trailing newline, so their original SHA256 pins did
+not match raw GitHub downloads. The pins now identify the exact raw Git blobs at
+the same reviewed revision; no header function or scientific calculation changed.
+An opt-in regression test checks actual HTTP bytes against independently read
+Git blob IDs, sizes and SHA256, and the full synthetic replay is tested with real
+HTTP downloads (no substituted transport). Missing-input/wrong-campaign/output-collision tests pass.
 Independent source/code review found no critical parity or no-refit defect.
+
+Run focused tests with Python3; the second command also checks live GitHub access:
+
+```bash
+python3 -m unittest discover -s scripts/real-data-plot-replay/tests -v
+LFHCAL_TEST_NETWORK=1 python3 -m unittest discover -s scripts/real-data-plot-replay/tests -v
+```
 
 No raw event data, calibration files, generated plots, binaries, build outputs,
 private Library links, credentials, or local execution logs are included here.

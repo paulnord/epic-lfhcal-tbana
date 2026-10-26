@@ -10,7 +10,8 @@ def sha(path):
     return h.hexdigest()
 def pin(path, digest):
     need(path.is_file(), 'Missing original input: '+str(path))
-    need(sha(path)==digest, 'Original input/source differs: '+str(path))
+    actual=sha(path)
+    need(actual==digest, 'Original input/source differs: '+str(path)+'; expected SHA256 '+digest+', got '+actual)
 def function(text):
     start=text.index('  inline void PlotMipWithFitsSingleTile (')
     end=text.index('{',start)+1; depth=1
@@ -82,8 +83,9 @@ for key in ('xmin','xmax','npx','chi2','ndf'): lines.append('const double '+key+
 lines+=['const double entries = '+literal(hist['entries'])+';','}']
 (O/'reference.h').write_text('\n'.join(lines)+'\n')
 revision='51a43cb548edeb6a418be037a402ae1e21387c23'
-for name,digest in [('PlotHelper.h','9e2282be510fda1324dd3622dac8fa1df806f2af1429f194f3ad02db912e2c55'),
-                    ('FitCurveDrawing.h','bf98550bca808b334f37da55703d26cb27878db31e06c39bc8fc4e2ee5893e61')]:
+# SHA256 of exact raw Git blobs, not text-export copies with an added newline.
+for name,digest in [('PlotHelper.h','a80231a7c58736689fc0d91cd32e27d56d9c2dbdf5273c81263371e3c18a0ab6'),
+                    ('FitCurveDrawing.h','173e7dbdab857d0eae448caee32ef9cb585c04457546ba38803091adced54fbc')]:
     with urllib.request.urlopen('https://raw.githubusercontent.com/eic/epic-lfhcal-tbana/'+revision+'/NewStructure/'+name,timeout=90) as response:
         (O/name).write_bytes(response.read())
     pin(O/name,digest)

@@ -12,22 +12,27 @@
     "shell_syntax": "PASS",
     "python_syntax": "PASS",
     "bootstrap_fixture": "PASS: synthetic only, 18040 events, 18030 archived triggered entries; not BNL",
-    "public_header_urls": "VERIFIED via GitHub connector",
-    "network_transport": "Local test substitutes exact pinned header bytes; BNL HTTP not executed",
+    "public_header_urls": "PASS: actual urllib raw HTTP bytes match independently read Git blob IDs, sizes and SHA256 at reviewed revision",
+    "network_transport": "PASS: live HTTP tests plus end-to-end synthetic replay; no substituted transport",
     "full_BNL_data_run": "NOT EXECUTED",
-    "published_launcher_end_to_end": "PASS: synthetic fixture only; header transport substituted with verified bytes",
+    "published_launcher_end_to_end": "PASS: 18040-event synthetic fixture with real raw GitHub HTTP downloads; 18030 triggered entries, exact function parity, no refit",
     "launcher_prerequisite_diagnostics": "PASS: missing root-config, missing Python3, missing PyROOT, broken root-config and inconsistent versions fail visibly before output creation",
     "launcher_after_diagnostics_change": "PASS: end-to-end synthetic fixture, 18040 events/18030 triggered; no real BNL run",
     "archived_selection_unit_tests": "PASS: 9 tests, synthetic checksum fixtures; wrong hash/size/identity/report/missing record rejected; no archive writes",
-    "default_path_after_archive_override": "PASS: unchanged 18040-event synthetic fixture, 18030 triggered entries"
+    "default_path_after_archive_override": "PASS: unchanged 18040-event synthetic fixture, 18030 triggered entries",
+    "exact_raw_source_pins": "PASS: retained text exports had one additional trailing newline; corrected exact raw-byte pins at unchanged revision; added-newline mismatch still rejected",
+    "focused_tests": "PASS: 17 tests, including opt-in live HTTP checks",
+    "raw_pin_fix_rendering": "PASS: both PNGs pixel-identical to previous synthetic fixture test"
   },
   "source_sha256": {
-    "run.py": "faf208c4f3aec936781bd2210b79d026e3d6dde77638492dd9838b4f9086bff9",
+    "run.py": "b3df980f363cbcb49c38c8ff7802c88c66c30aff720ddf1dc5a319cb7fe1ef6d",
     "run.sh": "93c3f144a6ccc64e151243c11c90dadfed74fcfd93eebc31d4925ebba51a6ed2",
     "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a",
     "tests/test_launcher.py": "414168e2f20e73ade10e993079716ad2220572ba0bd0d46f4744c8bc91ae0a03",
     "archived_selection.py": "56a0e03efae8784df9432c500aed26b146a0589e261c8ef52165dcc7d588ea5e",
-    "tests/test_archived_selection.py": "24c4861b04b5faf2de741c3bd13f4ac96dc6e9c8a3270aa65835064fbd936102"
+    "tests/test_archived_selection.py": "24c4861b04b5faf2de741c3bd13f4ac96dc6e9c8a3270aa65835064fbd936102",
+    "tests/test_source_pins.py": "608c925a1cd94b1bcb227d132159a5affb8a5fd10b1b4c487ee9d524d3d97ccc"
   },
-  "actual_PWG_event_hash_check": "NOT EXECUTED LOCALLY; enforced by override at BNL"
+  "actual_PWG_event_hash_check": "PASS on user BNL run 2026-10-26; not executed locally",
+  "BNL_progress": "User run at ROOT 6.40.04 passed the 5.62 GB archived-event SHA256, original inputs and saved histogram/fit gates, then stopped at the former header pin; full replay remains unverified."
 }
