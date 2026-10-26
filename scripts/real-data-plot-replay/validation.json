@@ -15,24 +15,29 @@
     "public_header_urls": "PASS: actual urllib raw HTTP bytes match independently read Git blob IDs, sizes and SHA256 at reviewed revision",
     "network_transport": "PASS: live HTTP tests plus end-to-end synthetic replay; no substituted transport",
     "full_BNL_data_run": "NOT EXECUTED",
-    "published_launcher_end_to_end": "PASS: 18040-event synthetic fixture with real raw GitHub HTTP downloads; 18030 triggered entries, exact function parity, no refit",
+    "published_launcher_end_to_end": "PASS on synthetic events only, using original float-derived Vov and real raw GitHub HTTP downloads; no full BNL replay claim",
     "launcher_prerequisite_diagnostics": "PASS: missing root-config, missing Python3, missing PyROOT, broken root-config and inconsistent versions fail visibly before output creation",
     "launcher_after_diagnostics_change": "PASS: end-to-end synthetic fixture, 18040 events/18030 triggered; no real BNL run",
     "archived_selection_unit_tests": "PASS: 9 tests, synthetic checksum fixtures; wrong hash/size/identity/report/missing record rejected; no archive writes",
     "default_path_after_archive_override": "PASS: unchanged 18040-event synthetic fixture, 18030 triggered entries",
     "exact_raw_source_pins": "PASS: retained text exports had one additional trailing newline; corrected exact raw-byte pins at unchanged revision; added-newline mismatch still rejected",
-    "focused_tests": "PASS: 17 tests, including opt-in live HTTP checks",
-    "raw_pin_fix_rendering": "PASS: both PNGs pixel-identical to previous synthetic fixture test"
+    "focused_tests": "PASS: 21 tests, including real HTTP, original float-metadata regression, failed-command log visibility, bounded tail and successful command behavior",
+    "raw_pin_fix_rendering": "PASS: both PNGs pixel-identical to previous synthetic fixture test",
+    "production_vov_old_guard_reproduction": "PASS: serialized synthetic Calib using original float subtraction reproduces Wrong final calibration campaign with old executable (exit2)",
+    "production_vov_end_to_end": "PASS: corrected exact runlist-value guard, real HTTP, 18040 synthetic events/18030 triggered, both PNGs pixel-identical to prior synthetic run"
   },
   "source_sha256": {
-    "run.py": "b3df980f363cbcb49c38c8ff7802c88c66c30aff720ddf1dc5a319cb7fe1ef6d",
+    "run.py": "891ff59ae5b17a6a79e5805ca8bfb2a95fa33bdd734fc97f6d2f0eeddc16a4ba",
     "run.sh": "93c3f144a6ccc64e151243c11c90dadfed74fcfd93eebc31d4925ebba51a6ed2",
-    "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a",
+    "replay.cc": "8e3c3106879d59796be527226532e28d077848a03dce9a43b13aade2743d5fbe",
     "tests/test_launcher.py": "414168e2f20e73ade10e993079716ad2220572ba0bd0d46f4744c8bc91ae0a03",
     "archived_selection.py": "56a0e03efae8784df9432c500aed26b146a0589e261c8ef52165dcc7d588ea5e",
     "tests/test_archived_selection.py": "24c4861b04b5faf2de741c3bd13f4ac96dc6e9c8a3270aa65835064fbd936102",
-    "tests/test_source_pins.py": "608c925a1cd94b1bcb227d132159a5affb8a5fd10b1b4c487ee9d524d3d97ccc"
+    "tests/test_source_pins.py": "608c925a1cd94b1bcb227d132159a5affb8a5fd10b1b4c487ee9d524d3d97ccc",
+    "tests/test_calibration_metadata.py": "385b0de9412282f7012ced48571a1522691ebe780a88bedd449c2d0801f3da53",
+    "tests/test_subprocess_diagnostics.py": "fd6c8f76bf0d23e92548c9163e3f0d16bb9c011b759b49689b1bb4fa0fd3b9a5"
   },
   "actual_PWG_event_hash_check": "PASS on user BNL run 2026-10-26; not executed locally",
-  "BNL_progress": "User run at ROOT 6.40.04 passed the 5.62 GB archived-event SHA256, original inputs and saved histogram/fit gates, then stopped at the former header pin; full replay remains unverified."
+  "BNL_progress": "User run at ROOT6.40.04 passed archived event hash, original saved histogram/fit, source/plot parity and build; stopped before event scan at helper Vov guard. User ROOT Scan confirmed run421,Vop44,Vov5.7000007629394531. Corrected full-data rerun is pending.",
+  "limitations": "Synthetic fixture proves mechanics, not authentic inclusive counts or full-data replay parity. No real-event scan or final figure has succeeded at BNL yet."
 }

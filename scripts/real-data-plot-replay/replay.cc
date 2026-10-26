@@ -171,8 +171,17 @@ int main(int argc,char** argv) try {
   demand(std::isfinite(avg) && avg>0,"Invalid original trigger calibration average");
   auto finalFile=open_file(argv[6]);Calib* final=nullptr;auto* finalTree=tree(*finalFile,"Calib");branch(finalTree,"calib",&final);
   demand(finalTree->GetEntry(0)>0 && final,"Cannot read final full-precision calibration");
-  demand(final->find(cell)!=final->end() && final->GetRunNumber()==421 && std::abs(final->GetVov()-5.7)<1e-12,"Wrong final calibration campaign");
+  // Historical HGCROC_Convert stores the subtraction of two FLOAT RunInfo fields.
+  // Do not replace its promoted result (5.7000007629394531) by decimal double 5.7.
+  const double expectedVov=static_cast<double>(runs.at(421).vop-runs.at(421).vbr);
+  std::cout<<std::setprecision(17)<<"Final calibration: run="<<final->GetRunNumber()
+    <<" Vov="<<final->GetVov()<<"; original runlist-derived Vov="<<expectedVov<<std::endl;
+  demand(final->find(cell)!=final->end(),"Target cell absent from final calibration");
+  demand(final->GetRunNumber()==421,"Wrong final calibration run number (expected421)");
+  demand(final->GetVov()==expectedVov,"Final calibration Vov differs from original runlist calculation");
   TileCalib* finalTile=final->GetTileCalib(cell);
+  std::cout<<"Final target calibration: ScaleH="<<finalTile->ScaleH<<" ScaleWidthH="<<finalTile->ScaleWidthH
+    <<" PedestalSigH="<<finalTile->PedestalSigH<<" BadChannel="<<finalTile->BadChannel<<std::endl;
   demand(std::abs(finalTile->ScaleH-22.018432)<0.00000051 && std::abs(finalTile->ScaleWidthH-0.634287)<0.00000051,
     "Final calibration does not match saved original fit record");
   demand(finalTile->BadChannel==3 && std::abs(finalTile->PedestalSigH-1.517257)<0.00000051,

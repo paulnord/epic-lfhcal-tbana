@@ -20,7 +20,16 @@ def function(text):
     return text[start:end]
 def run(args, log):
     print('+',shlex.join(map(str,args)),flush=True)
-    with log.open('w') as stream: subprocess.run(list(map(str,args)),stdout=stream,stderr=subprocess.STDOUT,check=True)
+    try:
+        with log.open('w') as stream:
+            subprocess.run(list(map(str,args)),stdout=stream,stderr=subprocess.STDOUT,check=True)
+    except subprocess.CalledProcessError as exc:
+        print('ERROR: command exited '+str(exc.returncode)+'; full log: '+str(log),file=sys.stderr,flush=True)
+        with log.open('rb') as stream:
+            stream.seek(0,2); stream.seek(max(0,stream.tell()-16384))
+            tail=stream.read().decode('utf-8',errors='replace').splitlines()[-60:]
+        print('--- last log lines ---\n'+'\n'.join(tail)+'\n--- end log ---',file=sys.stderr,flush=True)
+        raise
 
 C=Path(os.environ['CAMPAIGN']).resolve(); O=Path(os.environ['OUT']).resolve()
 need(O!=C and C not in O.parents,'Output must be outside the original campaign')

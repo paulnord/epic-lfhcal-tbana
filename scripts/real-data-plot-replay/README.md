@@ -140,6 +140,20 @@ legacy quadrature structure. It does not improve the model or fit quality.
 **Full BNL data run: NOT EXECUTED locally.** No authentic full-data inclusive
 figure is claimed by these tests.
 
+The user's BNL run has passed archived-event identity, original histogram/fit,
+source/function parity and compilation, but stopped before scanning events at
+an incorrect helper metadata guard. Original `RunInfo.vop` and `vbr` are `float`;
+production stores their subtraction as double **5.7000007629394531**, confirmed
+from the actual final Calib ROOT tree. The guard now requires exact equality to
+that unchanged runlist calculation, not rounded decimal double `5.7`. It neither
+changes stored metadata nor widens a tolerance. The old synthetic fixture used
+literal `5.7` and missed this. A new serialized fixture uses production arithmetic:
+the old executable reproduces the failure; the corrected one passes. This is
+still synthetic-event validation, **not a successful real-data replay**.
+
+Subprocess failures now display the last 60 log lines (at most 16 KiB) and the
+full log path while preserving the nonzero failure. Full logs remain on disk.
+
 Local ROOT6.40.00 checks passed: source/function parity, original-record hash,
 Setup/Calib/Event/HGCROC ROOT round-trip, calibration tolerance/segmented average,
 strict trigger endpoints, ADC preservation, historical errors/NaNs, intentional
