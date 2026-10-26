@@ -1,0 +1,25 @@
+{
+  "full_BNL_data_run": "NOT EXECUTED",
+  "local_ROOT": "6.40.00",
+  "historical_ROOT": "6.40.04",
+  "synthetic_fixture_only": true,
+  "synthetic_events": 18040,
+  "synthetic_triggered_entries": 18030,
+  "tests": {
+    "wrong_campaign": "PASS",
+    "missing_manifest": "PASS",
+    "existing_output_rejected": "PASS",
+    "shell_syntax": "PASS",
+    "python_syntax": "PASS",
+    "bootstrap_fixture": "PASS: synthetic only, 18040 events, 18030 archived triggered entries; not BNL",
+    "public_header_urls": "VERIFIED via GitHub connector",
+    "network_transport": "Local test substitutes exact pinned header bytes; BNL HTTP not executed",
+    "full_BNL_data_run": "NOT EXECUTED",
+    "published_launcher_end_to_end": "PASS: synthetic fixture only; header transport substituted with verified bytes"
+  },
+  "source_sha256": {
+    "run.py": "ab8e2cfeca95d8ab1c85c413f4cb2fbf374695004da4c755d82379461b2feb25",
+    "run.sh": "6f76c6c884a8ea57579457800ad4d4d7f6c47977a6bc1e667e4ad80133519700",
+    "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a"
+  }
+}
