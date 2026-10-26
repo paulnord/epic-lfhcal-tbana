@@ -23,7 +23,7 @@ def run(args, log):
 
 C=Path(os.environ['CAMPAIGN']).resolve(); O=Path(os.environ['OUT']).resolve()
 need(O!=C and C not in O.parents,'Output must be outside the original campaign')
-need(O.is_dir() and {p.name for p in O.iterdir()}<={'replay.cc','run.py'},'Use a new output directory; do not overwrite earlier results')
+need(O.is_dir() and {p.name for p in O.iterdir()}<={'replay.cc','run.py','archived_selection.py'},'Use a new output directory; do not overwrite earlier results')
 need(C.name=='adaptive-fullchains-remaining-20260929T014858Z','Wrong campaign directory')
 pin(C/'manifest.json','0000c9cf24fb886896415f54a6dbd98807d23b2512693f0efe0808e90e70f0f2')
 pin(C/'source-hashes.json','59b602bc644cd09ce641cc09771472ecf4de165dfa0d6ca9dcf5b946146eace1')
@@ -33,6 +33,12 @@ for path in S.iterdir():
         need('NewStructure/'+path.name in hashes,'Unrecorded source: '+str(path))
         pin(path,hashes['NewStructure/'+path.name])
 events=C/'legacy/e2/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetE_2.root'
+verified_events=None
+if os.environ.get('LFHCAL_EVENTS_OVERRIDE'):
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from archived_selection import verify
+    events=Path(os.environ['LFHCAL_EVENTS_OVERRIDE']).resolve()
+    verified_events=verify(C,events)
 prior=C/'legacy/e2/refine4/rawHGCROC_wPedwMuon_wBC_Imp4R_Muon_FullSetE_2_calib.txt'
 final=C/'legacy/e2/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetE_2.root'
 hists=final.with_name(final.stem+'_Hists.root')
@@ -102,7 +108,11 @@ run(shlex.split(os.environ.get('CXX','c++'))+['-O2']+flags('--cflags')+['-I'+str
 inputs={}
 for path in (events,prior,final,hists):
     st=path.stat(); print('Recording input SHA256:',path,flush=True)
-    inputs[str(path)]=dict(bytes=st.st_size,mtime_ns=st.st_mtime_ns,sha256=sha(path))
+    if path==events and verified_events is not None:
+        need((st.st_size,st.st_mtime_ns)==(verified_events['bytes'],verified_events['mtime_ns']),'Archived event file changed after verification')
+        inputs[str(path)]=verified_events
+    else:
+        inputs[str(path)]=dict(bytes=st.st_size,mtime_ns=st.st_mtime_ns,sha256=sha(path))
 run([O/'replay','replay',O,db,events,prior,final],O/'run.log')
 for name,record in inputs.items():
     st=Path(name).stat(); need((st.st_size,st.st_mtime_ns)==(record['bytes'],record['mtime_ns']),'Input changed during replay; discard outputs')

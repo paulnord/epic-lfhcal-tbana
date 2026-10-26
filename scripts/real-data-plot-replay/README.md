@@ -48,6 +48,35 @@ legacy/e2/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetE_2.root
 legacy/e2/refine5/rawHGCROC_wPedwMuon_wBC_Imp5R_Muon_FullSetE_2_Hists.root
 ```
 
+### Archived original selection (PWG)
+
+The old campaign's selected-event duplicate was deliberately removed after its
+byte-identical boundary-campaign copy was archived. Keep the **original** source,
+calibration and saved fit in the original campaign, and pass that archived legacy
+selection explicitly as the optional third argument:
+
+```bash
+bash scripts/real-data-plot-replay/run.sh \
+  /gpfs01/star/pwg/pnord/eic/2026TBanalysis/adaptive-fullchains-remaining-20260929T014858Z \
+  "$HOME/lfhcal-real-fit-$(date -u +%Y%m%dT%H%M%SZ)" \
+  /gpfs01/star/pwg/pnord/eic/2026TBanalysis/boundary-fullchains-20261002/legacy/e2/select/rawHGCROC_mipTrigg_wPedwMuon_wBC_Muon_FullSetE_2.root
+```
+
+This makes **no copy, symlink, or change in either archive**. Before compilation,
+the helper checks `boundary-fullchains-20261002/inputs/legacy/e2/ready.json` against
+the independently recovered original/copy paths, legacy E2 identity, processing
+boundary, size **5,622,928,634 bytes**, SHA256
+`aaf20ad783d42c86f6a706d9423fb5e19a0125f066ffc0ff2e9eb409d592bc41`, and tree counts
+Data681628 / Setup5 / Calib1. It binds the record to the original campaign's
+`legacy/e2/select/stage.json` using its separately recorded SHA256
+`60c1ca8cacd8fb92136c1ddbb215c35f4e49e737656c9e2c998b3ac5b2dd82a8`, then reads the
+candidate file to verify its full SHA256. That report hash is **not** an event-file
+hash. The event hash was established while copying the surviving original
+selection; the earlier report recorded tree counts, not a historic event hash.
+The verified input hash is reused in the audit, avoiding a second large hash read.
+The default two-argument path remains unchanged. There is no automatic selection
+of an adaptive copy, later PS sample, or new boundary-campaign calibration/fit.
+
 These are recorded historical paths, not a claim that they remain available at
 BNL. Missing or changed inputs cause an error. Recover the original file rather
 than substituting another campaign or rerunning a fit. The final full-precision
@@ -76,10 +105,11 @@ record fingerprint. Final raw scale/width/noise/BC metadata are gated too.
 Fit and histogram metadata are checked again after drawing; all four output
 files must have valid PDF/PNG signatures before reporting success.
 
-**Inclusive has no independently archived checksum.** It is regenerated from
-the original unchanged selected-event file. Trigger equality cannot establish
-that rejected events were unchanged; the input SHA256 recorded now is an audit
-record, not comparison against an unavailable historical checksum. “Inclusive”
+**The inclusive spectrum has no independently archived bin checksum.** It is
+regenerated from the original selected-event file. Trigger equality alone cannot
+establish that rejected events were unchanged. The default path records a new
+input SHA256 for audit; the explicit archive route additionally verifies the
+historical selected-event copy SHA256 and provenance described above. “Inclusive”
 means all target-cell observations in the original refine5 input, not raw-event
 reprocessing. The original stage generated layer pages; this uses its existing
 single-tile production presentation, not a byte-identical old saved image.

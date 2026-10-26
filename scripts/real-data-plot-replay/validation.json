@@ -17,12 +17,17 @@
     "full_BNL_data_run": "NOT EXECUTED",
     "published_launcher_end_to_end": "PASS: synthetic fixture only; header transport substituted with verified bytes",
     "launcher_prerequisite_diagnostics": "PASS: missing root-config, missing Python3, missing PyROOT, broken root-config and inconsistent versions fail visibly before output creation",
-    "launcher_after_diagnostics_change": "PASS: end-to-end synthetic fixture, 18040 events/18030 triggered; no real BNL run"
+    "launcher_after_diagnostics_change": "PASS: end-to-end synthetic fixture, 18040 events/18030 triggered; no real BNL run",
+    "archived_selection_unit_tests": "PASS: 9 tests, synthetic checksum fixtures; wrong hash/size/identity/report/missing record rejected; no archive writes",
+    "default_path_after_archive_override": "PASS: unchanged 18040-event synthetic fixture, 18030 triggered entries"
   },
   "source_sha256": {
-    "run.py": "ab8e2cfeca95d8ab1c85c413f4cb2fbf374695004da4c755d82379461b2feb25",
-    "run.sh": "46377e48d9eef35707491ba3cef14d5ee9296f70612fad7576c780310ee9baa5",
+    "run.py": "faf208c4f3aec936781bd2210b79d026e3d6dde77638492dd9838b4f9086bff9",
+    "run.sh": "93c3f144a6ccc64e151243c11c90dadfed74fcfd93eebc31d4925ebba51a6ed2",
     "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a",
-    "tests/test_launcher.py": "414168e2f20e73ade10e993079716ad2220572ba0bd0d46f4744c8bc91ae0a03"
-  }
+    "tests/test_launcher.py": "414168e2f20e73ade10e993079716ad2220572ba0bd0d46f4744c8bc91ae0a03",
+    "archived_selection.py": "56a0e03efae8784df9432c500aed26b146a0589e261c8ef52165dcc7d588ea5e",
+    "tests/test_archived_selection.py": "24c4861b04b5faf2de741c3bd13f4ac96dc6e9c8a3270aa65835064fbd936102"
+  },
+  "actual_PWG_event_hash_check": "NOT EXECUTED LOCALLY; enforced by override at BNL"
 }
