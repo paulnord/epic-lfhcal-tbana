@@ -15,11 +15,14 @@
     "public_header_urls": "VERIFIED via GitHub connector",
     "network_transport": "Local test substitutes exact pinned header bytes; BNL HTTP not executed",
     "full_BNL_data_run": "NOT EXECUTED",
-    "published_launcher_end_to_end": "PASS: synthetic fixture only; header transport substituted with verified bytes"
+    "published_launcher_end_to_end": "PASS: synthetic fixture only; header transport substituted with verified bytes",
+    "launcher_prerequisite_diagnostics": "PASS: missing root-config, missing Python3, missing PyROOT, broken root-config and inconsistent versions fail visibly before output creation",
+    "launcher_after_diagnostics_change": "PASS: end-to-end synthetic fixture, 18040 events/18030 triggered; no real BNL run"
   },
   "source_sha256": {
     "run.py": "ab8e2cfeca95d8ab1c85c413f4cb2fbf374695004da4c755d82379461b2feb25",
-    "run.sh": "6f76c6c884a8ea57579457800ad4d4d7f6c47977a6bc1e667e4ad80133519700",
-    "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a"
+    "run.sh": "46377e48d9eef35707491ba3cef14d5ee9296f70612fad7576c780310ee9baa5",
+    "replay.cc": "fba270a4f2aef0b10015f68a5d650e278123986d3b8378da5995bb1cef97ab8a",
+    "tests/test_launcher.py": "414168e2f20e73ade10e993079716ad2220572ba0bd0d46f4744c8bc91ae0a03"
   }
 }

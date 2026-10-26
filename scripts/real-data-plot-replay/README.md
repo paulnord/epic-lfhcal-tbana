@@ -10,6 +10,11 @@ Activate one consistent ROOT/PyROOT/compiler environment first. Historical ROOT
 was **6.40.04**; local validation used **6.40.00**. Python3 must be able to import
 the same ROOT version reported by `root-config`. Public GitHub access is needed
 for two SHA-verified source headers. No additional Python packages are needed.
+The launcher now diagnoses missing `root-config`, Python3, missing PyROOT, or
+inconsistent ROOT versions before creating the output directory. It does not
+activate or modify your environment. The error tells you to activate your usual
+ROOT/PyROOT setup in the current terminal and rerun with `bash`; this also works
+when your interactive shell is csh/tcsh.
 
 From an existing checkout (your current branch/files are not switched):
 
