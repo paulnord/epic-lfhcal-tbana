@@ -1,0 +1,43 @@
+name: Diagnostic fixture integrity
+
+on:
+  pull_request:
+    paths:
+      - 'NewStructure/tests/**'
+      - 'tests/smoke/**'
+      - '.github/workflows/diagnostic-fixture-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'NewStructure/tests/**'
+      - 'tests/smoke/**'
+      - '.github/workflows/diagnostic-fixture-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-integrity:
+    name: Offline fixture integrity only (not decoder or plotting validation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out diagnostic fixtures (no decoder needed)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check four fixture-integrity tests
+        run: python3 -m unittest discover -s tests/smoke -p 'test_raw_fixtures.py' -v
+      - name: Check Python syntax only
+        run: >-
+          python3 -m py_compile
+          tests/smoke/caen_fixture.py tests/smoke/raw_conversion.py
+          tests/smoke/real_raw_conversion.py tests/smoke/test_raw_fixtures.py
+          NewStructure/tests/test_fit_curve_drawing.py
+          NewStructure/tests/compare_fit_curve_samples.py
+          NewStructure/tests/audit_fixed_fit_curves.py
+      - name: State validation boundary
+        run: |
+          echo 'Passed: offline fixture integrity and Python syntax only.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'NOT RUN: strict known-failing CAEN conversion, ROOT, stale plotting routines, or baseline smoke.' >> "$GITHUB_STEP_SUMMARY"
