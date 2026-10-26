@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "retrieved_utc": "2026-10-22",
+  "record_definition": "One seven-field event header plus NHits-1 four-field hit rows; counts are from bytes, not the run log or decoder.",
+  "fixtures": [
+    {
+      "file": "Run34_first16.txt",
+      "run": 34,
+      "source_url": "https://drive.google.com/file/d/1IJ7Vg-f5urfF0s8ejvZtds22Gl2-SQDv/view",
+      "source_filename": "Run34_list.txt",
+      "source_size_bytes": 2320132,
+      "source_sha256": "eaaa829427f2144987c25d901661d1c1ca23740216fb4e223dad5aaad4431f82",
+      "source_complete_records": 19998,
+      "fixture_size_bytes": 2220,
+      "fixture_sha256": "760ad29b6bef63b8257260e18f7a4ed06ed08d0a04167dfbd1ffe073ae32152e",
+      "fixture_complete_records": 16,
+      "line_endings": "CRLF",
+      "extraction": {
+        "kind": "byte-identical prefix",
+        "start_byte": 0,
+        "end_byte_exclusive": 2220,
+        "header_lines": 9,
+        "event_lines": 48
+      },
+      "acquisition_quality": "good (run log)"
+    },
+    {
+      "file": "Run36_list.txt",
+      "run": 36,
+      "source_url": "https://drive.google.com/file/d/1cqLhoogSc2_qVWZohkEeHtpOdizb2nQN/view",
+      "source_filename": "Run36_list.txt",
+      "source_size_bytes": 62192,
+      "source_sha256": "21f9423182227afa891c0d7bdcbc720ac9d6fac82938cef7a1548c3438d171eb",
+      "source_complete_records": 533,
+      "fixture_size_bytes": 62192,
+      "fixture_sha256": "21f9423182227afa891c0d7bdcbc720ac9d6fac82938cef7a1548c3438d171eb",
+      "fixture_complete_records": 533,
+      "line_endings": "CRLF",
+      "extraction": {
+        "kind": "whole file",
+        "start_byte": 0,
+        "end_byte_exclusive": 62192,
+        "header_lines": 9,
+        "event_lines": 1599
+      },
+      "acquisition_quality": "bad (run log: weird burst of triggers; not a malformed-record label)"
+    }
+  ]
+}
