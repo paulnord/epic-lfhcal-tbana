@@ -1156,6 +1156,10 @@ bool HGCROC_Waveform_Analysis::InvestigateCrossTalk(void){
   //==================================================================================
   // process events from tree
   //==================================================================================
+  const auto nAsicHalves = (setup->GetNMaxROUnit()+1)*2;
+  std::vector<int> nSatTiles(nAsicHalves, 0);
+  std::vector<int> nNegTiles(nAsicHalves, 0);
+  std::vector<int> nNegTileswT(nAsicHalves, 0);
   for(int i=0; i<evts && i < maxEvents ; i++){
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     if (debug > 2 ){
@@ -1167,11 +1171,11 @@ bool HGCROC_Waveform_Analysis::InvestigateCrossTalk(void){
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
     int nSatTilesS  = 0;
     int nNegTilesS  = 0;
-    std::vector<int> nSatTiles((setup->GetNMaxROUnit()+1)*2, 0);
-    std::vector<int> nNegTiles((setup->GetNMaxROUnit()+1)*2, 0);
     int nToA          = 0;
     int nNegTilesSwT  = 0;
-    std::vector<int> nNegTileswT((setup->GetNMaxROUnit()+1)*2, 0);
+    std::fill(nSatTiles.begin(), nSatTiles.end(), 0);
+    std::fill(nNegTiles.begin(), nNegTiles.end(), 0);
+    std::fill(nNegTileswT.begin(), nNegTileswT.end(), 0);
     
     for(int j=0; j<event.GetNTiles(); j++){
       Hgcroc* aTile=(Hgcroc*)event.GetTile(j);
