@@ -1,4 +1,5 @@
 #include "HGCROC_Waveform_Analysis.h"
+#include <array>
 #include <vector>
 #include <algorithm>
 #include "TROOT.h"
@@ -264,10 +265,10 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   RootOutputHist->mkdir("IndividualCellsTrigg");
   RootOutputHist->cd("IndividualCells");
   
-  TH2D* h2DToAvsADC[setup->GetNMaxROUnit()+1][2];
-  TProfile* hToAvsADC[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2];
-  TProfile* hWaveFormHalfAsic[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hToAvsADC(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TProfile*, 2>> hWaveFormHalfAsic(setup->GetNMaxROUnit()+1);
   for (Int_t ro = 0; ro < setup->GetNMaxROUnit()+1; ro++){
     for (int h = 0; h< 2; h++){
       hToAvsADC[ro][h]    = new TProfile(Form("ADCTOA_Asic_%d_Half_%d",ro,h),
@@ -1111,9 +1112,9 @@ bool HGCROC_Waveform_Analysis::InvestigateCrossTalk(void){
   h2DNSatCellsVsNegCellsWToA->SetDirectory(0);
   h2DNSatCellsVsNegCellsWToA->Sumw2();
   
-  TH2D* h2DAsicSatCellVsNegCell[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DAsicSatCellVsNegCellWToA[setup->GetNMaxROUnit()+1][2];
-  TH2D* h2DAsicNegCellVsNegCellWToA[setup->GetNMaxROUnit()+1][2];
+  std::vector<std::array<TH2D*, 2>> h2DAsicSatCellVsNegCell(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DAsicSatCellVsNegCellWToA(setup->GetNMaxROUnit()+1);
+  std::vector<std::array<TH2D*, 2>> h2DAsicNegCellVsNegCellWToA(setup->GetNMaxROUnit()+1);
   
   for (Int_t ro = 0; ro < setup->GetNMaxROUnit()+1; ro++){
     for (int h = 0; h< 2; h++){
@@ -1155,6 +1156,10 @@ bool HGCROC_Waveform_Analysis::InvestigateCrossTalk(void){
   //==================================================================================
   // process events from tree
   //==================================================================================
+  const auto nAsicHalves = (setup->GetNMaxROUnit()+1)*2;
+  std::vector<int> nSatTiles(nAsicHalves, 0);
+  std::vector<int> nNegTiles(nAsicHalves, 0);
+  std::vector<int> nNegTileswT(nAsicHalves, 0);
   for(int i=0; i<evts && i < maxEvents ; i++){
     if (i%5000 == 0&& i > 0 && debug > 0) std::cout << "Reading " <<  i << "/" << evts << " events"<< std::endl;
     if (debug > 2 ){
@@ -1166,16 +1171,11 @@ bool HGCROC_Waveform_Analysis::InvestigateCrossTalk(void){
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
     int nSatTilesS  = 0;
     int nNegTilesS  = 0;
-    int nSatTiles[(setup->GetNMaxROUnit()+1)*2];
-    int nNegTiles[(setup->GetNMaxROUnit()+1)*2];
     int nToA          = 0;
     int nNegTilesSwT  = 0;
-    int nNegTileswT[(setup->GetNMaxROUnit()+1)*2];
-    for (int l = 0; l < (setup->GetNMaxROUnit()+1)*2; l++ ){
-      nSatTiles[l]    = 0;
-      nNegTiles[l]    = 0;
-      nNegTileswT[l]  = 0;
-    }
+    std::fill(nSatTiles.begin(), nSatTiles.end(), 0);
+    std::fill(nNegTiles.begin(), nNegTiles.end(), 0);
+    std::fill(nNegTileswT.begin(), nNegTileswT.end(), 0);
     
     for(int j=0; j<event.GetNTiles(); j++){
       Hgcroc* aTile=(Hgcroc*)event.GetTile(j);
