@@ -126,6 +126,9 @@ if(BUILD_TESTING)
   add_executable(test_waveform_measurement Tests/test_waveform_measurement.cc)
   target_link_libraries(test_waveform_measurement LFHCAL ${ROOT_LIBRARIES})
   add_test(NAME waveform_measurement COMMAND test_waveform_measurement)
+  add_executable(test_fit_curve_legend Tests/test_fit_curve_legend.cc)
+  target_link_libraries(test_fit_curve_legend ${ROOT_LIBRARIES})
+  add_test(NAME fit_curve_legend_lifetime COMMAND test_fit_curve_legend)
 endif()
 
 # Attach the ROOT dictionary to the library that contains it. This makes

@@ -100,3 +100,47 @@ Tests: `PYTHONPATH=/path/to/yall-run/src python3 test_prepare.py`; no raw proces
 ## Preparation safety fixes
 
 The worker adapter is self-contained because yall copies it into the campaign. Preparation normalizes script paths through symlinks (including BNL /gpfs and /gpfs/mnt aliases), completes provenance first, then publishes a staged workspace. If an earlier preparation left a partial `pilot`, preserve it and use a new name such as `pilot-v2`. Recreate campaigns after updating scripts: already-created campaigns retain their archived wrapper.
+
+## Isolated recovery after a downstream MIP plotting failure
+
+`prepare_recovery.py` retains the old full campaign and its outputs unchanged.
+It requires all 13 transfer tasks' **latest attempts** to have completed with
+exit 0, the exact recorded pedestal/run/scan mapping and commands, the matching
+archived recipe, and readable, nonempty transfer files whose size/mtime still
+match those successful attempts. It refuses amended recipes, mismatched inputs,
+and an existing destination or a destination inside the old workspace/campaign.
+No raw files need to be converted again. Keep the old transfer files immutable.
+
+Use a **separate fixed source checkout**, never update a source/build directory
+that existing jobs might still use. With `REPO` set to that checkout and `C` to
+the old campaign directory, this is native tcsh preparation syntax:
+
+```tcsh
+set OLD = /gpfs01/star/scratch/pnord/ari-rf-full-20261029T173654Z/full
+set RECOVERY = /gpfs01/star/scratch/pnord/ari-rf-recovery-`date -u +%Y%m%dT%H%M%SZ`
+python3 "$REPO/examples/yall/ari-rf-batch/prepare_recovery.py" --previous-workspace "$OLD" --campaign "$C" --destination "$RECOVERY" --eic-shell /star/u/pnord/bin/eic-shell
+cd "$RECOVERY"
+yall-run validate
+yall-run plan
+```
+
+These commands only prepare/inspect; they do not submit or cancel jobs. Check
+old campaign status before any later submission; this helper does not stop jobs
+or claim that the old campaign is quiescent. Review the new 93-node graph:
+new build + 13×(MIP, selection, three refinements, calibration, waveform) +summary.
+It reuses the 52 successful conversion/pedestal/transfer tasks' products without
+changing any historical downstream scientific options. Every new output is
+isolated; partial failed MIP files are neither consumed nor deleted.
+
+The build worker runs existing build/tests and then opens all 13 transfer files
+**read-only**, rejects zombie/recovered files, and checks nonempty Setup, Data,
+Calib trees and setup/event/calib branches. Any failure blocks MIP descendants.
+It prints tree entry counts in the build log. This is structural verification,
+not a full event scan or proof of calibration/scientific validity. It does not
+run ROOT on the login host. `recovery.json` records the original campaign/source,
+recipe/manifest/attempt hashes, input file stats and new source/config provenance.
+
+Tests: `PYTHONPATH=/path/to/yall-run/src python3 test_prepare_recovery.py`.
+The parser/campaign tests use real yall schema but synthetic files; optional
+PyROOT tests create tiny ROOT files and test valid/missing/corrupt structures.
+No test submits jobs or uses BNL raw data.
