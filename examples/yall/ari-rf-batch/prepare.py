@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
+import shutil
 
 PAIRS = [(296,298,1),(299,300,1),(303,304,1),(305,306,1),(309,310,1),
          (328,329,2),(332,333,2),(334,335,2),(336,337,2),(338,339,2),
@@ -66,16 +68,26 @@ def prepare(destination, raw, eic_shell, mode, acknowledge):
     python3 @input.driver {{BUILD}}/CompareWaveform @input.rundb @output.root @output.plots --calibrated @input.calibrated --hists @input.hists
 '''
     template = re.sub(r'(^[^#@% \n][^\n]*:\s*[^\n]*\n)', r'\1    %retry 0\n', template, flags=re.MULTILINE)
-    destination.mkdir(parents=True)
-    (destination/'Yallfile').write_text(template)
-    tracked = list((REPO/'configs/TB2026').glob('*')) + list(Path(__file__).parent.glob('*.py')) + list(Path(__file__).parent.glob('*.sh')) + [REPO/'tools/run-in-eic-shell.sh', REPO/'examples/yall/scan-set-1/Yallfile']
+    tracked = list((REPO/'configs/TB2026').glob('*')) + list(Path(__file__).resolve().parent.glob('*.py')) + list(Path(__file__).resolve().parent.glob('*.sh')) + [REPO/'tools/run-in-eic-shell.sh', REPO/'examples/yall/scan-set-1/Yallfile']
     hashes = {str(f.relative_to(REPO)):hashlib.sha256(f.read_bytes()).hexdigest() for f in tracked if f.is_file()}
     raw_stats = {str(raw/f'Run{r}.h2g'):{'size':(raw/f'Run{r}.h2g').stat().st_size,'mtime_ns':(raw/f'Run{r}.h2g').stat().st_mtime_ns} for r in sorted({r for p in pairs for r in p[:2]})}
     metadata = {'input_sha256':hashes, 'raw_stat_not_hash':raw_stats, 'git_diff':subprocess.check_output(['git','-C',str(REPO),'diff','HEAD'],text=True), 'mode':mode, 'recipe':'recovered Ari reduced-tree three-pass/fullMuon sequence; existing scan-set-1 template', 'pairs':pairs,
                 'repo':str(REPO), 'commit':subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip(),
                 'raw':str(raw),'eic_shell':str(eic_shell), 'event_limit':None,
                 'note':'Pilot uses one complete run and its pedestal; this is not a 1000-event calibration.'}
-    (destination/'preparation.json').write_text(json.dumps(metadata,indent=2)+'\n')
+    # Complete all provenance before publishing a workspace. Failed preparation
+    # must not leave a half-written destination that looks ready to submit.
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix='.ari-rf-preparing-', dir=destination.parent))
+    try:
+        (staging/'Yallfile').write_text(template)
+        (staging/'preparation.json').write_text(json.dumps(metadata,indent=2)+'\n')
+        if destination.exists():
+            raise ValueError('Destination appeared during preparation; refusing overwrite')
+        staging.rename(destination)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
     print(destination)
 
 if __name__ == '__main__':

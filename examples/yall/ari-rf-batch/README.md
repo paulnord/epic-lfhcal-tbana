@@ -96,3 +96,7 @@ Keep source, config, scripts, raw files and container image immutable from prepa
 Defaults mirror existing scan examples: 1 CPU, 4GB RAM, 8GB disk, 2h; conversion 2GB RAM; build 2 CPUs. They are starting requests, not measured bounds. `%time` is a site-specific MaxRuntime convention; confirm BNL policy and tune after pilot. `%retry 0` intentionally avoids destructive automatic retries against partially written ROOT outputs. Inspect failed-node logs before recovery; safest retry is a fresh isolated workspace. Never add `-f`, erase outputs, or resume blindly. Generator refuses an existing destination. No job is submitted by `prepare.py`.
 
 Tests: `PYTHONPATH=/path/to/yall-run/src python3 test_prepare.py`; no raw processing or scheduler required. These validate graph expansion, not BNL execution.
+
+## Preparation safety fixes
+
+The worker adapter is self-contained because yall copies it into the campaign. Preparation normalizes script paths through symlinks (including BNL /gpfs and /gpfs/mnt aliases), completes provenance first, then publishes a staged workspace. If an earlier preparation left a partial `pilot`, preserve it and use a new name such as `pilot-v2`. Recreate campaigns after updating scripts: already-created campaigns retain their archived wrapper.

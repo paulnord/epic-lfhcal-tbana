@@ -3,6 +3,11 @@
 import contextlib
 import importlib.util
 import io
+import os
+import subprocess
+import sys
+import json
+from yall_run.execution import archive_wrapper
 from pathlib import Path
 import tempfile
 import unittest
@@ -41,6 +46,39 @@ class PreparationTest(unittest.TestCase):
         tasks={t.name:t for t in result.tasks}
         self.assertIn('pedestal-296',tasks['transfer-296-298-1'].parents)
         self.assertIn('pedestal-296',tasks['transfer-296-300-1'].parents)
+    def test_archived_wrapper_is_self_contained(self):
+        # Use Yall's actual relocation path, not the source wrapper path.
+        self.eic.write_text('#!/bin/bash\nwhile read line; do eval "$line" || exit $?; done\n')
+        result=self.generate('pilot')
+        campaign=self.base/'campaign';campaign.mkdir()
+        archived=archive_wrapper(result,campaign)
+        command=[archived['path'],*archived['args'],sys.executable,'-c',
+                 'import json,os,sys; print(json.dumps([os.environ.get("ARI_RF_BATCH_WORKER"),*sys.argv[1:]]))',
+                 "apostrophe's value",r'literal\backslash']
+        env=dict(os.environ,_CONDOR_JOB_AD='/test/condor-job-ad')
+        run=subprocess.run(command,env=env,text=True,capture_output=True,check=True)
+        self.assertEqual(json.loads(run.stdout),['1',"apostrophe's value",r'literal\backslash'])
+        failed=subprocess.run([archived['path'],*archived['args'],'/bin/false'],env=env)
+        self.assertEqual(failed.returncode,1)
+        env.pop('_CONDOR_JOB_AD')
+        blocked=subprocess.run(command,env=env,capture_output=True)
+        self.assertEqual(blocked.returncode,2)
+
+    def test_symlink_invocation_provenance(self):
+        alias=self.base/'alias-source';alias.symlink_to(p.REPO,target_is_directory=True)
+        destination=self.base/'through-alias'
+        subprocess.run([sys.executable,str(alias/'examples/yall/ari-rf-batch/prepare.py'),
+                        '--destination',str(destination),'--raw',str(self.raw),
+                        '--eic-shell',str(self.eic),'--mode','pilot','--accept-repo-scan-recipe'],
+                       check=True,capture_output=True,text=True)
+        metadata=json.loads((destination/'preparation.json').read_text())
+        self.assertIn('examples/yall/ari-rf-batch/compare.py',metadata['input_sha256'])
+        self.assertEqual(metadata['repo'],str(p.REPO))
+    def test_provenance_failure_leaves_no_destination(self):
+        with patch.object(p.subprocess,'check_output',side_effect=RuntimeError('provenance failed')):
+            with self.assertRaises(RuntimeError): self.generate()
+        self.assertFalse((self.base/'full').exists())
+
     def test_refuses_overwrite(self):
         self.generate()
         with self.assertRaises(ValueError): self.generate()
