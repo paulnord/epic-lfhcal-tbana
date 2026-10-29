@@ -146,3 +146,44 @@ Tests: `PYTHONPATH=/path/to/yall-run/src python3 test_prepare_recovery.py`.
 The parser/campaign tests use real yall schema but synthetic files; optional
 PyROOT tests create tiny ROOT files and test valid/missing/corrupt structures.
 No test submits jobs or uses BNL raw data.
+
+## Additional recorded CC, CF and CFComp scans
+
+`prepare_other_scans.py` prepares nine pedestal/signal pairs: 346/347 through
+362/363, stepping by two. These are recorded SPS H2 muon runs, not additions
+to the RF-only comparison. The run database is checked against the expected
+RF/CF/CC/CFComp settings before preparation. All use the historical calibration
+**Set3** ToA file `ToAOffsets_TBSPS2026_ParamScan_2.csv` (not a file numbered 3)
+and the same pedestal/transfer/MIP/selection/three-refinement/calibration/waveform
+sequence. One shared build plus nine complete chains gives **100 tasks**.
+
+- CC scan: runs 353, 347, baseline 298, 349, 351 (CC 1, 4, 5, 8, 10).
+  Fixed RF9, CF7, CFComp1.
+- CF scan: runs 361, 355/363, baseline 298 (CF 3, 5, 7).
+  Fixed RF9, CC5, CFComp1. Runs355 and363 are separate repeat acquisitions.
+- CFComp scan: runs355,357,359 (CFComp1,8,15). Fixed RF9, CF5, CC5.
+
+RF9 corresponds to 8.89 kOhm. Run355 is processed once even though it belongs
+to two comparisons. The existing RF run298 baseline is recorded as a reference
+only: this graph does not read, alter or reprocess it. No RF-only summary node
+is added, because grouping all these runs by their common RF9 would pool distinct
+settings incorrectly. Per-run waveform plots/histograms are produced; combined
+multi-parameter presentation is a separate plotting step, not promised here.
+
+Native tcsh preparation from a fresh source checkout (`REPO`), using a fresh
+output directory (`WORK`):
+
+```tcsh
+python3 "$REPO/examples/yall/ari-rf-batch/prepare_other_scans.py" --destination "$WORK" --raw /gpfs01/star/pwg/pnord/eic/2026TBdata/raw --eic-shell /star/u/pnord/bin/eic-shell --baseline-workspace /gpfs01/star/scratch/pnord/ari-rf-recovery-20261029T195516Z/recovery --accept-repo-scan-recipe
+cd "$WORK"
+yall-run validate && yall-run plan
+```
+
+After successful validation, use the usual explicit `yall-run create`, `start`
+and `status` commands. Preparation itself never submits. Keep the prior source,
+builds, campaigns and outputs unchanged. `preparation.json` includes pairings,
+scan membership, fixed settings, source/config hashes, raw-file size/mtime,
+and the optional existing-baseline references. References are not claims that
+those external files have been checked; they are not inputs to this graph.
+
+Offline test: `PYTHONPATH=/path/to/yall-run/src python3 test_prepare_other_scans.py`.

@@ -15,7 +15,8 @@ PAIRS = [(296,298,1),(299,300,1),(303,304,1),(305,306,1),(309,310,1),
          (340,341,2),(342,343,2),(344,345,2)]
 REPO = Path(__file__).resolve().parents[3]
 
-def prepare(destination, raw, eic_shell, mode, acknowledge):
+def prepare(destination, raw, eic_shell, mode, acknowledge, *, pairs_override=None,
+            campaign_name=None, include_summary=True, extra_metadata=None):
     if not acknowledge:
         raise ValueError('Select --accept-repo-scan-recipe only after reviewing README: review recovered Ari script provenance and current raw/config inputs')
     paths = [destination, raw, eic_shell, REPO]
@@ -23,14 +24,15 @@ def prepare(destination, raw, eic_shell, mode, acknowledge):
         raise ValueError('Use absolute paths containing only letters, digits, underscore, slash, dot, hyphen')
     if destination.exists():
         raise ValueError('Destination already exists; use a new empty campaign workspace')
-    pairs = PAIRS[:1] if mode == 'pilot' else PAIRS
+    pairs = list(pairs_override) if pairs_override is not None else (PAIRS[:1] if mode == 'pilot' else PAIRS)
+    campaign_name = campaign_name or f'ari-rf-{mode}'
     missing = [str(raw / f'Run{r}.h2g') for r in sorted({r for p in pairs for r in p[:2]}) if not (raw / f'Run{r}.h2g').is_file() or not os.access(raw / f'Run{r}.h2g', os.R_OK) or (raw / f'Run{r}.h2g').stat().st_size == 0]
     if missing:
         raise ValueError('Missing, unreadable or empty raw inputs: ' + ', '.join(missing))
     if not eic_shell.is_file() or not os.access(eic_shell, os.X_OK):
         raise ValueError('Missing worker-visible EIC_SHELL: ' + str(eic_shell))
     template = (REPO/'examples/yall/scan-set-1/Yallfile').read_text()
-    template = template.replace('campaign lfhcal-tb2026-scan-set-1', f'campaign ari-rf-{mode}')
+    template = template.replace('campaign lfhcal-tb2026-scan-set-1', f'campaign {campaign_name}')
     template = template.replace('@env LFHCAL_DATA', f'@set LFHCAL_DATA {raw}')
     template = template.replace('@env LFHCAL_WORK', f'@set LFHCAL_WORK {destination}')
     template = template.replace('@env EIC_SHELL', f'@set EIC_SHELL {eic_shell}')
@@ -58,7 +60,8 @@ def prepare(destination, raw, eic_shell, mode, acknowledge):
 '''
     template = template.replace('# Convert every unique run once;', build + '# Convert every unique run once;')
     # Declarative fan-in collects all calibrated and waveform files, never an untracked glob.
-    template += f'''\nsummary: waveform-{{ped}}-{{run}}-{{scan}}
+    if include_summary:
+        template += f'''\nsummary: waveform-{{ped}}-{{run}}-{{scan}}
     @input calibrated {{LFHCAL_WORK}}/products/calibrated/calibratedHGCROC_Run_{{run}}.root
     @input hists {{LFHCAL_WORK}}/products/waveform/calibratedHGCROC_wave_Run_{{run}}_Hists.root
     @input rundb {{TB2026_CONFIG}}/DataTakingDB_TBSPSH2_202605_HGCROC.csv
@@ -75,6 +78,8 @@ def prepare(destination, raw, eic_shell, mode, acknowledge):
                 'repo':str(REPO), 'commit':subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip(),
                 'raw':str(raw),'eic_shell':str(eic_shell), 'event_limit':None,
                 'note':'Pilot uses one complete run and its pedestal; this is not a 1000-event calibration.'}
+    if extra_metadata:
+        metadata['scan_manifest'] = extra_metadata
     # Complete all provenance before publishing a workspace. Failed preparation
     # must not leave a half-written destination that looks ready to submit.
     destination.parent.mkdir(parents=True, exist_ok=True)

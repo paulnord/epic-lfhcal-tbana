@@ -33,6 +33,7 @@ namespace {
 enum class AriMetric { PeakAmplitude, FWHM, PeakTime };
 
 struct AriRFSettingData {
+  int rfCode = -1;
   std::vector<std::pair<int,double> > peakAmplitude;
   std::vector<std::pair<int,double> > fwhm;
   std::vector<std::pair<int,double> > peakTime;
@@ -41,6 +42,10 @@ struct AriRFSettingData {
 };
 
 using AriRFData = std::map<double,AriRFSettingData>;
+
+TString AriRFLabel(double resistance, const AriRFSettingData& setting){
+  return Form("#splitline{RF %d}{(%.3g k#Omega)}",setting.rfCode,resistance);
+}
 
 bool IsAriRFCell(int cellID){
   static const int cells[] = {
@@ -117,7 +122,7 @@ void DrawAriBoxes(const AriRFData& data, AriMetric metric){
   if (metric != AriMetric::PeakTime && yMin > 0.) yMin = 0.;
 
   TH1D* frame = new TH1D(Form("hAri%sRFFrame",AriMetricName(metric)),
-                          Form("Ari %s by RF;RF (k#Omega);%s",
+                          Form("Ari %s by RF;RF setting (resistance);%s",
                                AriMetricName(metric),AriMetricTitle(metric)),
                           nSettings,0.5,nSettings+0.5);
   frame->SetDirectory(nullptr);
@@ -128,8 +133,11 @@ void DrawAriBoxes(const AriRFData& data, AriMetric metric){
   int settingIndex = 0;
   for (const auto& setting : data){
     ++settingIndex;
-    frame->GetXaxis()->SetBinLabel(settingIndex,Form("%.3g",setting.first));
+    frame->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
   }
+  gPad->SetBottomMargin(0.20);
+  frame->GetXaxis()->SetLabelSize(0.033);
+  frame->GetXaxis()->SetTitleOffset(1.6);
   frame->Draw("AXIS");
 
   settingIndex = 0;
@@ -214,6 +222,19 @@ void DrawAriSummary(const AriRFData& data, AriMetric metric, TFile* output){
   legend->AddEntry(mean,"mean #pm channel-to-channel SD","lp");
   legend->AddEntry(median,"median","lp");
   legend->Draw();
+  // Keep true resistance spacing; code labels are a key, not fictitious ticks.
+  if (metric == AriMetric::PeakAmplitude){
+    gPad->SetBottomMargin(0.25);
+    TLatex* key = new TLatex();
+    key->SetNDC(); key->SetTextSize(0.025);
+    TString row; int index = 0;
+    for (const auto& setting : data){
+      if (!row.IsNull()) row += "   ";
+      row += Form("RF%d: %.3g",setting.second.rfCode,setting.first);
+      if (++index == 7){ key->DrawLatex(0.12,0.075,row); row = ""; }
+    }
+    if (!row.IsNull()) key->DrawLatex(0.12,0.025,row+"  (k#Omega)");
+  }
   if (output){
     output->cd();
     mean->Write();
@@ -247,12 +268,12 @@ void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
   }
 
   TH2D* status = new TH2D("hAriRFWaveformMeasurementStatus",
-                          "Ari RF waveform extraction status;RF (k#Omega);status;channels",
+                          "Ari RF waveform extraction status;RF setting (resistance);status;channels",
                           data.size(),0.5,data.size()+0.5,10,-0.5,9.5);
   int settingIndex = 0;
   for (const auto& setting : data){
     ++settingIndex;
-    status->GetXaxis()->SetBinLabel(settingIndex,Form("%.3g",setting.first));
+    status->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
     for (int code = 0; code <= 8; ++code)
       status->SetBinContent(settingIndex,code+1,setting.second.statusCounts[code]);
     status->SetBinContent(settingIndex,10,setting.second.boundaryPeaks);
@@ -262,6 +283,12 @@ void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
       static_cast<WaveformMeasurementStatus>(code)));
   status->GetYaxis()->SetBinLabel(10,"peak at boundary");
   canvas->Clear();
+  canvas->SetLeftMargin(0.23);
+  canvas->SetRightMargin(0.15);
+  canvas->SetBottomMargin(0.16);
+  status->GetXaxis()->SetLabelSize(0.020);
+  status->GetXaxis()->LabelsOption("h");
+  status->GetXaxis()->SetTitleOffset(1.6);
   status->SetStats(0);
   status->Draw("COLZ TEXT");
   canvas->SaveAs(Form("%s/AriRF_WaveformStatus.%s",outputDirectory.Data(),suffix.Data()));
@@ -433,6 +460,7 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
     std::cout <<calib.GetRunNumber() << "\t" << set_rf << "\t" << set_cf << "\t" << set_cc << "\t" << set_cfcomp << "\t" << set_injec<< std::endl;
     if (ariRFScan){
       AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+      rfData.rfCode = itRun->second.rf;
       rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)] += 64;
     }
     
@@ -489,6 +517,7 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
         entries = profCellWave->GetEntries();
       if (ariRFScan && IsAriRFCell(itcalib->first)){
         AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+        rfData.rfCode = itRun->second.rf;
         --rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)];
         const WaveformMeasurement measurement = TileSpectra::MeasureWaveform(profCellWave);
         const int statusCode = static_cast<int>(measurement.status);
