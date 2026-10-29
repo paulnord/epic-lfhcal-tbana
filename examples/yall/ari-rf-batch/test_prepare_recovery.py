@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from yall_run.syntax import load_yall_spec
+from yall_run.model import load_spec
 from yall_run.campaign import create_campaign
 
 spec=importlib.util.spec_from_file_location('recovery',Path(__file__).with_name('prepare_recovery.py'))
@@ -24,7 +25,7 @@ class RecoveryTest(unittest.TestCase):
         self.old=self.base/'old';self.dest=self.base/'recovery'
         with contextlib.redirect_stdout(io.StringIO()):
             r._p.prepare(self.old,raw,self.eic,'full',True)
-            self.campaign=create_campaign(load_yall_spec(self.old/'Yallfile'),self.base/'campaigns')
+            self.campaign=create_campaign(load_spec(self.old/'Yallfile'),self.base/'campaigns')
         self.manifest=r.read_json(self.campaign/'campaign.json')
         for ped,run,scan in r.PAIRS:
             name=f'transfer-{ped}-{run}-{scan}'
@@ -55,6 +56,22 @@ class RecoveryTest(unittest.TestCase):
         data=r.read_json(self.dest/'recovery.json')
         self.assertEqual(len(data['transfers']),13)
         self.assertEqual(data['previous_source_commit'],r.read_json(self.old/'preparation.json')['commit'])
+    def test_cli_loader_records_ordinary_defaults(self):
+        self.assertTrue(self.manifest['set_values'])
+        self.assertEqual(self.manifest['set_values']['LFHCAL_WORK'],str(self.old))
+        self.assertEqual(len(self.generate().tasks),93)
+    def test_changed_recorded_parameter_refused(self):
+        p=self.campaign/'campaign.json';d=r.read_json(p)
+        d['set_values']['LFHCAL_WORK']='/different/workspace'
+        p.write_text(json.dumps(d))
+        with self.assertRaisesRegex(ValueError,'Recorded parameters differ'):self.generate()
+        self.assertFalse(self.dest.exists())
+    def test_unknown_recorded_parameter_refused(self):
+        p=self.campaign/'campaign.json';d=r.read_json(p)
+        d['set_values']['UNREVIEWED_OPTION']='changed'
+        p.write_text(json.dumps(d))
+        with self.assertRaisesRegex(ValueError,'Recorded parameters differ'):self.generate()
+        self.assertFalse(self.dest.exists())
     def test_failed_transfer_refused(self):
         p=self.campaign/'state/transfer-296-298-1.json'
         d=r.read_json(p);d['state']='failed';p.write_text(json.dumps(d))

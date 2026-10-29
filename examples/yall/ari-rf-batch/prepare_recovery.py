@@ -59,8 +59,15 @@ def prepare(destination, previous, campaign, eic_shell):
         raise ValueError('Amended campaigns need manual provenance review')
     source = archived.read_text()
     sets = dict(re.findall(r'^@set (\w+) (\S+)$', source, flags=re.M))
-    if manifest.get('set_values'):
-        raise ValueError('CLI parameter overrides need manual provenance review')
+    # The CLI records ordinary @set defaults here too, not only overrides.
+    # Accept the archived recipe's exact values; never silently reinterpret
+    # changed or unrecognized parameters while reconstructing the workflow.
+    recorded_sets = manifest.get('set_values') or {}
+    if not isinstance(recorded_sets, dict) or any(
+        key not in sets or value != sets[key]
+        for key, value in recorded_sets.items()
+    ):
+        raise ValueError('Recorded parameters differ from archived @set values; manual provenance review required')
     if Path(sets.get('LFHCAL_WORK', '/')).resolve() != previous.resolve():
         raise ValueError('Campaign LFHCAL_WORK does not match previous workspace')
     reused = []

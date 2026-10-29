@@ -109,6 +109,8 @@ exit 0, the exact recorded pedestal/run/scan mapping and commands, the matching
 archived recipe, and readable, nonempty transfer files whose size/mtime still
 match those successful attempts. It refuses amended recipes, mismatched inputs,
 and an existing destination or a destination inside the old workspace/campaign.
+Recorded yall `set_values` are checked against the archived `@set` defaults;
+ordinary recorded defaults are accepted, changed or unknown values are refused.
 No raw files need to be converted again. Keep the old transfer files immutable.
 
 Use a **separate fixed source checkout**, never update a source/build directory
