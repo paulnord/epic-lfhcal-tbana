@@ -126,6 +126,8 @@ if(BUILD_TESTING)
   add_executable(test_waveform_measurement Tests/test_waveform_measurement.cc)
   target_link_libraries(test_waveform_measurement LFHCAL ${ROOT_LIBRARIES})
   add_test(NAME waveform_measurement COMMAND test_waveform_measurement)
+  add_executable(test_ari_box_plot Tests/test_ari_box_plot.cc)
+  add_test(NAME ari_box_plot COMMAND test_ari_box_plot)
 endif()
 
 # Attach the ROOT dictionary to the library that contains it. This makes
