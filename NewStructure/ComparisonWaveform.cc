@@ -19,6 +19,8 @@
 #include "PlotHelper.h"
 
 #include "TBox.h"
+#include "TArrow.h"
+#include "AriBoxPlot.h"
 #include "TGraph.h"
 #include "TGraphErrors.h"
 #include "TLatex.h"
@@ -33,6 +35,7 @@ namespace {
 enum class AriMetric { PeakAmplitude, FWHM, PeakTime };
 
 struct AriRFSettingData {
+  int rfCode = -1;
   std::vector<std::pair<int,double> > peakAmplitude;
   std::vector<std::pair<int,double> > fwhm;
   std::vector<std::pair<int,double> > peakTime;
@@ -41,6 +44,10 @@ struct AriRFSettingData {
 };
 
 using AriRFData = std::map<double,AriRFSettingData>;
+
+TString AriRFLabel(double resistance, const AriRFSettingData& setting){
+  return Form("#splitline{RF %d}{%.3g}",setting.rfCode,resistance);
+}
 
 bool IsAriRFCell(int cellID){
   static const int cells[] = {
@@ -93,43 +100,43 @@ std::vector<double> PlainValues(const std::vector<std::pair<int,double> >& value
   return result;
 }
 
-void DrawAriBoxes(const AriRFData& data, AriMetric metric){
+// Display-only change: no measurement selection or summary statistics change.
+void DrawAriBoxes(const AriRFData& data, AriMetric metric, bool zoom){
   const int nSettings = static_cast<int>(data.size());
-  double yMin = std::numeric_limits<double>::infinity();
-  double yMax = -std::numeric_limits<double>::infinity();
+  std::vector<AriBoxPlot::Summary> summaries;
   for (const auto& setting : data){
-    for (const auto& value : AriValues(setting.second,metric)){
-      yMin = std::min(yMin,value.second);
-      yMax = std::max(yMax,value.second);
-    }
+    const auto& channelValues = AriValues(setting.second,metric);
+    if (!channelValues.empty())
+      summaries.push_back(AriBoxPlot::Summarize(PlainValues(channelValues)));
   }
-  if (!std::isfinite(yMin) || !std::isfinite(yMax)){
-    yMin = 0.;
-    yMax = 1.;
-  } else if (!(yMax > yMin)){
-    const double padding = std::max(1.,0.1*std::fabs(yMin));
-    yMin -= padding;
-    yMax += padding;
-  }
-  const double span = yMax-yMin;
-  yMin -= 0.08*span;
-  yMax += 0.12*span;
-  if (metric != AriMetric::PeakTime && yMin > 0.) yMin = 0.;
-
-  TH1D* frame = new TH1D(Form("hAri%sRFFrame",AriMetricName(metric)),
-                          Form("Ari %s by RF;RF (k#Omega);%s",
-                               AriMetricName(metric),AriMetricTitle(metric)),
+  const auto range = AriBoxPlot::AxisRange(summaries,zoom,metric != AriMetric::PeakTime);
+  const double yMin = range.low, yMax = range.high, span = yMax-yMin;
+  const char* view = zoom ? "Main" : "FullRange";
+  TH1D* frame = new TH1D(Form("hAri%sRF%sFrame",AriMetricName(metric),view),
+                          Form("Ari %s by RF - %s;RF setting / resistance (k#Omega);%s",
+                               AriMetricName(metric),zoom ? "main distribution" : "full range",
+                               AriMetricTitle(metric)),
                           nSettings,0.5,nSettings+0.5);
   frame->SetDirectory(nullptr);
   frame->SetStats(0);
   frame->SetMinimum(yMin);
   frame->SetMaximum(yMax);
-
   int settingIndex = 0;
   for (const auto& setting : data){
     ++settingIndex;
-    frame->GetXaxis()->SetBinLabel(settingIndex,Form("%.3g",setting.first));
+    frame->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
   }
+  gPad->SetBottomMargin(0.20);
+  gPad->SetTopMargin(metric == AriMetric::FWHM ? 0.32 : 0.20);
+  frame->GetXaxis()->SetLabelSize(0.045);
+  frame->GetXaxis()->SetLabelFont(42);
+  frame->GetYaxis()->SetLabelFont(42);
+  frame->GetXaxis()->SetTitleFont(42);
+  frame->GetYaxis()->SetTitleFont(42);
+  frame->GetYaxis()->SetLabelSize(.040);
+  frame->GetXaxis()->SetTitleSize(.040);
+  frame->GetYaxis()->SetTitleSize(.045);
+  frame->GetXaxis()->SetTitleOffset(1.6);
   frame->Draw("AXIS");
 
   settingIndex = 0;
@@ -137,47 +144,81 @@ void DrawAriBoxes(const AriRFData& data, AriMetric metric){
     ++settingIndex;
     const auto& channelValues = AriValues(setting.second,metric);
     if (channelValues.empty()) continue;
-    const std::vector<double> values = PlainValues(channelValues);
-
+    const auto values = PlainValues(channelValues);
+    const auto stats = AriBoxPlot::Summarize(values);
     TGraph* points = new TGraph();
-    for (size_t i = 0; i < channelValues.size(); ++i){
-      const double jitter = 0.18*std::sin(0.37*channelValues[i].first);
-      points->SetPoint(static_cast<int>(i),settingIndex+jitter,channelValues[i].second);
+    TGraph* outliers = new TGraph();
+    for (const auto& value : channelValues){
+      if (!range.Contains(value.second)) continue; // display only; full companion retains every value
+      const double jitter = 0.18*std::sin(0.37*value.first);
+      points->SetPoint(points->GetN(),settingIndex+jitter,value.second);
+      if (stats.IsOutlier(value.second))
+        outliers->SetPoint(outliers->GetN(),settingIndex+jitter,value.second);
     }
-    points->SetName(Form("gAri%sRF%.4gAllChannels",AriMetricName(metric),setting.first));
+    points->SetName(Form("gAri%sRF%.4g%sChannels",AriMetricName(metric),setting.first,
+                        zoom ? "Visible" : "All"));
     points->SetMarkerStyle(20);
     points->SetMarkerSize(0.45);
     points->SetMarkerColorAlpha(kGray+2,0.40);
-    points->Draw("P SAME");
+    if (points->GetN()) points->Draw("P SAME");
 
-    const double q1 = Quantile(values,0.25);
-    const double median = Quantile(values,0.50);
-    const double q3 = Quantile(values,0.75);
-    const auto minmax = std::minmax_element(values.begin(),values.end());
-    const double x = settingIndex;
-    const double boxWidth = 0.27;
-    TBox* box = new TBox(x-boxWidth,q1,x+boxWidth,q3);
+    const double x = settingIndex, boxWidth = 0.27;
+    TBox* box = new TBox(x-boxWidth,stats.q1,x+boxWidth,stats.q3);
     box->SetFillColorAlpha(kAzure-9,0.45);
     box->SetLineColor(kBlue+2);
     box->SetLineWidth(2);
     box->Draw("same");
-    TLine* medianLine = new TLine(x-boxWidth,median,x+boxWidth,median);
+    TLine* medianLine = new TLine(x-boxWidth,stats.median,x+boxWidth,stats.median);
     medianLine->SetLineWidth(3);
     medianLine->Draw("same");
-    TLine* lowStem = new TLine(x,*minmax.first,x,q1);
-    TLine* highStem = new TLine(x,q3,x,*minmax.second);
-    TLine* lowCap = new TLine(x-0.12,*minmax.first,x+0.12,*minmax.first);
-    TLine* highCap = new TLine(x-0.12,*minmax.second,x+0.12,*minmax.second);
+    TLine* lowStem = new TLine(x,stats.lowWhisker,x,stats.q1);
+    TLine* highStem = new TLine(x,stats.q3,x,stats.highWhisker);
+    TLine* lowCap = new TLine(x-0.12,stats.lowWhisker,x+0.12,stats.lowWhisker);
+    TLine* highCap = new TLine(x-0.12,stats.highWhisker,x+0.12,stats.highWhisker);
     lowStem->Draw("same"); highStem->Draw("same");
     lowCap->Draw("same"); highCap->Draw("same");
-  }
 
+    outliers->SetName(Form("gAri%sRF%.4g%sOutliers",AriMetricName(metric),setting.first,view));
+    outliers->SetMarkerStyle(27); // open diamond, distinguishable without color
+    outliers->SetMarkerSize(0.95);
+    outliers->SetMarkerColor(kOrange+7);
+    outliers->SetLineColor(kOrange+7);
+    if (outliers->GetN()) outliers->Draw("P SAME");
+    const auto counts = AriBoxPlot::CountOffScale(values,range);
+    for (int direction : {-1,1}){
+      const auto count = direction > 0 ? counts.above : counts.below;
+      if (!count) continue;
+      const double tip = direction > 0 ? yMax-.02*span : yMin+.02*span;
+      const double tail = direction > 0 ? yMax-.12*span : yMin+.12*span;
+      TArrow* arrow = new TArrow(x,tail,x,tip,.010,"|>");
+      arrow->SetLineColor(kOrange+7); arrow->SetFillColor(kOrange+7);
+      arrow->SetLineWidth(2); arrow->Draw();
+      TLatex* countText = new TLatex(x+.20,(tip+tail)/2.,Form("%lu",static_cast<unsigned long>(count)));
+      countText->SetTextFont(42); countText->SetTextSize(.040); countText->SetTextAlign(12);
+      countText->SetTextColor(kOrange+7); countText->Draw();
+    }
+  }
   TLatex* note = new TLatex();
-  note->SetNDC();
-  note->SetTextSize(0.030);
-  note->SetTextColor(kGray+2);
-  note->DrawLatex(0.12,0.92,
-    "points = all valid channels; box = IQR; whiskers = full valid range; line = median");
+  note->SetNDC(); note->SetTextFont(42); note->SetTextSize(.033); note->SetTextColor(kGray+2);
+  note->DrawLatex(.12,.975,Form("Ari %s - %s",AriMetricName(metric),zoom ? "main distribution" : "full range"));
+  note->DrawLatex(.12,.925,
+    "box = unbinned IQR; line = median; whiskers = observed values within 1.5 IQR fences");
+  note->DrawLatex(.12,.870,zoom ?
+    "diamonds = outliers; arrows count off-scale points; axis = box/whisker envelope + padding (see full range)" :
+    "all valid values shown; diamonds = outliers, not rejected channels; statistics unchanged");
+  if (metric == AriMetric::FWHM){
+    TString coverage("extracted widths (RF: n/64): ");
+    int coverageIndex = 0;
+    note->SetTextSize(.027);
+    for (const auto& setting : data){
+      coverage += Form("%d: %lu/64  ",setting.second.rfCode,
+                       static_cast<unsigned long>(setting.second.fwhm.size()));
+      if (++coverageIndex == 7){ note->DrawLatex(.12,.815,coverage); coverage = ""; }
+    }
+    if (!coverage.IsNull()) note->DrawLatex(.12,.770,coverage);
+    note->SetTextSize(.027); note->DrawLatex(.12,.725,
+      "width distribution is conditional on successful extraction; no additional quality cuts");
+  }
 }
 
 void DrawAriSummary(const AriRFData& data, AriMetric metric, TFile* output){
@@ -214,6 +255,19 @@ void DrawAriSummary(const AriRFData& data, AriMetric metric, TFile* output){
   legend->AddEntry(mean,"mean #pm channel-to-channel SD","lp");
   legend->AddEntry(median,"median","lp");
   legend->Draw();
+  // Keep true resistance spacing; code labels are a key, not fictitious ticks.
+  if (metric == AriMetric::PeakAmplitude){
+    gPad->SetBottomMargin(0.25);
+    TLatex* key = new TLatex();
+    key->SetNDC(); key->SetTextSize(0.025);
+    TString row; int index = 0;
+    for (const auto& setting : data){
+      if (!row.IsNull()) row += "   ";
+      row += Form("RF%d: %.3g",setting.second.rfCode,setting.first);
+      if (++index == 7){ key->DrawLatex(0.12,0.075,row); row = ""; }
+    }
+    if (!row.IsNull()) key->DrawLatex(0.12,0.025,row+"  (k#Omega)");
+  }
   if (output){
     output->cd();
     mean->Write();
@@ -225,14 +279,18 @@ void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
                    const TString& suffix, TFile* output){
   if (data.empty()) return;
   TCanvas* canvas = new TCanvas("canvasAriRFMeasurements","",0,0,1450,1300);
-  canvas->Divide(1,3,0.001,0.001);
-  canvas->cd(1); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakAmplitude);
-  canvas->cd(2); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::FWHM);
-  canvas->cd(3); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakTime);
-  canvas->SaveAs(Form("%s/AriRF_WaveformMeasurements.%s",outputDirectory.Data(),suffix.Data()));
-  if (output){
-    output->cd();
-    canvas->Write("canvasAriRFWaveformMeasurements");
+  for (bool zoom : {true,false}){
+    canvas->Clear();
+    canvas->Divide(1,3,0.001,0.001);
+    canvas->cd(1); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakAmplitude,zoom);
+    canvas->cd(2); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::FWHM,zoom);
+    canvas->cd(3); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakTime,zoom);
+    canvas->SaveAs(Form("%s/AriRF_WaveformMeasurements%s.%s",outputDirectory.Data(),
+                        zoom ? "Main" : "",suffix.Data()));
+    if (output){
+      output->cd();
+      canvas->Write(zoom ? "canvasAriRFWaveformMeasurementsMain" : "canvasAriRFWaveformMeasurements");
+    }
   }
 
   canvas->Clear();
@@ -247,12 +305,12 @@ void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
   }
 
   TH2D* status = new TH2D("hAriRFWaveformMeasurementStatus",
-                          "Ari RF waveform extraction status;RF (k#Omega);status;channels",
+                          "Ari RF waveform extraction status;RF setting / resistance (k#Omega);status;channels",
                           data.size(),0.5,data.size()+0.5,10,-0.5,9.5);
   int settingIndex = 0;
   for (const auto& setting : data){
     ++settingIndex;
-    status->GetXaxis()->SetBinLabel(settingIndex,Form("%.3g",setting.first));
+    status->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
     for (int code = 0; code <= 8; ++code)
       status->SetBinContent(settingIndex,code+1,setting.second.statusCounts[code]);
     status->SetBinContent(settingIndex,10,setting.second.boundaryPeaks);
@@ -262,13 +320,37 @@ void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
       static_cast<WaveformMeasurementStatus>(code)));
   status->GetYaxis()->SetBinLabel(10,"peak at boundary");
   canvas->Clear();
+  canvas->SetLeftMargin(0.29);
+  canvas->SetRightMargin(0.17);
+  canvas->SetTopMargin(0.09);
+  canvas->SetBottomMargin(0.16);
+  status->GetXaxis()->SetLabelSize(0.022);
+  status->GetYaxis()->SetLabelSize(0.027);
+  status->GetXaxis()->SetLabelFont(42);
+  status->GetYaxis()->SetLabelFont(42);
+  status->GetXaxis()->SetTitleFont(42);
+  status->GetYaxis()->SetTitle("");
+  status->GetXaxis()->SetTitleSize(.035);
+  status->GetZaxis()->SetTitleSize(.035);
+  status->GetZaxis()->SetLabelSize(.030);
+  status->GetZaxis()->SetTitleFont(42);
+  status->GetZaxis()->SetLabelFont(42);
+  status->SetTitle("");
+  status->GetXaxis()->LabelsOption("h");
+  status->GetXaxis()->SetTitleOffset(1.6);
   status->SetStats(0);
+  const TString previousPaintFormat = gStyle->GetPaintTextFormat();
+  gStyle->SetPaintTextFormat(".0f");
   status->Draw("COLZ TEXT");
+  TLatex* statusTitle = new TLatex();
+  statusTitle->SetNDC(); statusTitle->SetTextFont(42); statusTitle->SetTextSize(.035);
+  statusTitle->DrawLatex(.29,.955,"Ari RF waveform extraction status");
   canvas->SaveAs(Form("%s/AriRF_WaveformStatus.%s",outputDirectory.Data(),suffix.Data()));
   if (output){
     output->cd();
     status->Write();
   }
+  gStyle->SetPaintTextFormat(previousPaintFormat);
 }
 }
 
@@ -433,6 +515,7 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
     std::cout <<calib.GetRunNumber() << "\t" << set_rf << "\t" << set_cf << "\t" << set_cc << "\t" << set_cfcomp << "\t" << set_injec<< std::endl;
     if (ariRFScan){
       AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+      rfData.rfCode = itRun->second.rf;
       rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)] += 64;
     }
     
@@ -489,6 +572,7 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
         entries = profCellWave->GetEntries();
       if (ariRFScan && IsAriRFCell(itcalib->first)){
         AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+        rfData.rfCode = itRun->second.rf;
         --rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)];
         const WaveformMeasurement measurement = TileSpectra::MeasureWaveform(profCellWave);
         const int statusCode = static_cast<int>(measurement.status);
