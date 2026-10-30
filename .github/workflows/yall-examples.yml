@@ -53,6 +53,7 @@ jobs:
           bash -n tools/bootstrap-yall-integration.sh
           bash -n tools/run-in-eic-shell.sh
           python3 -m unittest discover -s tools/tests -v
+          python3 -m unittest discover -s examples/yall/ari-rf-batch -p test_plot_all_scans.py -v
       - name: Expand and check all workflow graphs (no ROOT, data or submission)
         env:
           PYTHONPATH: ${{ github.workspace }}/.ci/yall-run/src
