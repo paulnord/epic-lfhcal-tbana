@@ -12,12 +12,14 @@ Native tcsh: first set `OTHER` to the completed other-settings workspace
 submission shell still has `B`, use `set OTHER = "$B/work"` before these commands.
 Check the original campaign has finished successfully before proceeding.
 
-Create a separate pinned plotting checkout; the code commit below contains both
-helpers. No submodule/build is needed for this plotting-only job:
+Create a separate plotting checkout and detach its fetched head. Record the
+printed commit; use an explicitly supplied tested commit when available.
+No submodule/build is needed for this plotting-only job:
 
 ```tcsh
 set P = /gpfs01/star/scratch/pnord/ari-all-scans-plots-`date -u +%Y%m%dT%H%M%SZ`
-git clone --branch ari-rf-condor-pipeline https://github.com/paulnord/epic-lfhcal-tbana.git "$P/source" && git -C "$P/source" checkout --detach 0ab79ec00f145205b8a7f0763bb030402303265a
+git clone --branch ari-rf-condor-pipeline https://github.com/paulnord/epic-lfhcal-tbana.git "$P/source" && git -C "$P/source" checkout --detach
+git -C "$P/source" rev-parse HEAD
 set REPO = "$P/source"
 set DEST = "$P/work"
 ```
@@ -33,9 +35,16 @@ Expect **one task with 22 waveform histogram inputs** (plus script, run database
 and provenance). After successful preparation/validation, submit explicitly:
 
 ```tcsh
-set C = `yall-run create --campaigns-dir "$P/campaigns"`
-yall-run start "$C"
-yall-run status "$C"
+set ALLC = `yall-run create --campaigns-dir "$P/campaigns"`
+echo "$ALLC"
+```
+
+Only after creation succeeds:
+
+```tcsh
+yall-run status "$ALLC"
+yall-run start "$ALLC"
+yall-run status "$ALLC"
 ```
 
 Stop on any error; do not run `start` after failed `create`. The worker refuses input
@@ -45,7 +54,10 @@ saved finite measurements fail rather than silently producing plausible plots.
 
 ## Contents
 
-`results/HGCROC_AllScans.pdf`, `.png`, and `.root` contain three metric rows
+`results/HGCROC_AllScansMain.pdf` and `.png` show the main distribution;
+`results/HGCROC_AllScans.pdf` and `.png` are the full-range companion. The
+original `HGCROC_AllScans.root` contains both canvases and retains every original
+full-range channel graph. Each view contains three metric rows
 (amplitude, bin-center FWHM, peak-bin time) and four separate scan columns
 (RF, CC, CF, CFComp). Each column identifies varied/fixed settings below the plots.
 RF codes and their resistance conversion (80/code kOhm) are shown. The RF column
@@ -62,10 +74,25 @@ The plotter reads `hWaveformPeakAmplitudeVsCellID`,
 reimplement waveform extraction or alter timing, clock shifts, fits, or cuts.
 The same 64 Ari cells are selected. Widths require successful extraction;
 amplitude/time remain available when a peak exists but width extraction fails.
-Boxes are interpolated 25th/75th percentiles, center lines medians, whiskers full
-included ranges, and dots channels. These describe channel spread, not statistical
-uncertainty on a mean. Distinct scan columns have independently scaled vertical
-axes, so compare their numerical axes rather than visual box heights alone.
+Boxes retain unbinned linear `q*(n-1)` 25th/75th percentiles and median lines.
+Tukey whiskers end at the furthest **observed** values within the inclusive
+`Q1 - 1.5 IQR` / `Q3 + 1.5 IQR` fences. Orange open diamonds identify statistical
+outliers, not rejected channels. The deterministic channel jitter is unchanged.
+
+For each scan/metric, the main axis encloses every box and observed whisker,
+including sparse interpolated quartiles, with 8% lower/12% upper padding.
+Nonnegative amplitude/FWHM axes start at zero; negative data are never clamped
+away. Arrows count actual below/above-axis points at each setting, not assumed
+counts or relocated measurements. The full-range companion retains their actual
+values. A broad distribution may therefore remain broad; no extra crop is made.
+
+FWHM panels give extracted-width counts per64cells in x-axis setting order.
+Missing widths remain missing, not zero or statistical outliers. Distributions
+are conditional on extraction success, not complete detector performance; a
+valid extraction is not a physics-quality guarantee. No measurements, masks,
+extraction definitions or CSV/provenance content change. These plots show channel
+spread, not uncertainty on a mean. Columns have independent axes: compare their
+numbers rather than apparent box heights.
 
 `measurements.csv` retains per-run/per-cell metrics and the original status enum
 (-1 means the histogram bin was unfilled). Undefined metrics are blank, not zero.
@@ -74,6 +101,14 @@ from `hWaveformMeasurementStatusCounts`. Those aggregate counts describe the
 source histogram's population, not necessarily only the selected 64 cells.
 No nonexistent per-cell boundary histogram is assumed or reconstructed.
 
-Local validation uses synthetic ROOT files for all22 distinct inputs and the
-real yall loader for the single-task graph. Actual combined scientific results
-remain unverified until the new scans complete and the plots are reviewed.
+Run display checks without ROOT (native reader cases explicitly skip):
+
+```sh
+python3 -m unittest discover -s examples/yall/ari-rf-batch -p test_plot_all_scans.py -v
+```
+
+With PyROOT installed the saved-histogram checks also run. Native validation uses
+22 synthetic inputs, including missing widths, empty/sparse samples, negative
+peak times and narrow positive widths, and compares the old/new full channel
+graphs and unchanged measurements/provenance. Synthetic output is not the actual
+combined scientific result; review the real BNL output after the plotting job.
