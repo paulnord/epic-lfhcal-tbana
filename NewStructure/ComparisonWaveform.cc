@@ -18,6 +18,287 @@
 #include "CommonHelperFunctions.h"
 #include "PlotHelper.h"
 
+#include "TBox.h"
+#include "TGraph.h"
+#include "TGraphErrors.h"
+#include "TLatex.h"
+#include "TLine.h"
+#include "TLegend.h"
+
+#include <array>
+#include <cmath>
+#include <numeric>
+
+namespace {
+enum class AriMetric { PeakAmplitude, FWHM, PeakTime };
+
+struct AriRFSettingData {
+  int rfCode = -1;
+  std::vector<std::pair<int,double> > peakAmplitude;
+  std::vector<std::pair<int,double> > fwhm;
+  std::vector<std::pair<int,double> > peakTime;
+  std::array<int,9> statusCounts{};
+  int boundaryPeaks = 0;
+};
+
+using AriRFData = std::map<double,AriRFSettingData>;
+
+TString AriRFLabel(double resistance, const AriRFSettingData& setting){
+  return Form("#splitline{RF %d}{(%.3g k#Omega)}",setting.rfCode,resistance);
+}
+
+bool IsAriRFCell(int cellID){
+  static const int cells[] = {
+    1152,1153,1154,1155,1156,1157,1158,1159,
+    1216,1217,1218,1219,1220,1221,1222,1223,
+    1408,1409,1410,1411,1412,1413,1414,1415,
+    1472,1473,1474,1475,1476,1477,1478,1479,
+    1536,1537,1538,1539,1540,1541,1542,1543,
+    1600,1601,1602,1603,1604,1605,1606,1607,
+    1792,1793,1794,1795,1796,1797,1798,1799,
+    1856,1857,1858,1859,1860,1861,1862,1863
+  };
+  return std::find(std::begin(cells),std::end(cells),cellID) != std::end(cells);
+}
+
+const std::vector<std::pair<int,double> >& AriValues(const AriRFSettingData& data,
+                                                     AriMetric metric){
+  if (metric == AriMetric::PeakAmplitude) return data.peakAmplitude;
+  if (metric == AriMetric::FWHM) return data.fwhm;
+  return data.peakTime;
+}
+
+const char* AriMetricName(AriMetric metric){
+  if (metric == AriMetric::PeakAmplitude) return "PeakAmplitude";
+  if (metric == AriMetric::FWHM) return "FWHM";
+  return "PeakTime";
+}
+
+const char* AriMetricTitle(AriMetric metric){
+  if (metric == AriMetric::PeakAmplitude) return "Peak amplitude (arb. units)";
+  if (metric == AriMetric::FWHM) return "FWHM (ns)";
+  return "Peak time (ns)";
+}
+
+double Quantile(std::vector<double> values, double q){
+  std::sort(values.begin(),values.end());
+  if (values.empty()) return std::numeric_limits<double>::quiet_NaN();
+  if (values.size() == 1) return values.front();
+  const double position = q*(values.size()-1);
+  const size_t low = static_cast<size_t>(std::floor(position));
+  const size_t high = static_cast<size_t>(std::ceil(position));
+  const double fraction = position-low;
+  return values[low]*(1.-fraction)+values[high]*fraction;
+}
+
+std::vector<double> PlainValues(const std::vector<std::pair<int,double> >& values){
+  std::vector<double> result;
+  result.reserve(values.size());
+  for (const auto& value : values) result.push_back(value.second);
+  return result;
+}
+
+void DrawAriBoxes(const AriRFData& data, AriMetric metric){
+  const int nSettings = static_cast<int>(data.size());
+  double yMin = std::numeric_limits<double>::infinity();
+  double yMax = -std::numeric_limits<double>::infinity();
+  for (const auto& setting : data){
+    for (const auto& value : AriValues(setting.second,metric)){
+      yMin = std::min(yMin,value.second);
+      yMax = std::max(yMax,value.second);
+    }
+  }
+  if (!std::isfinite(yMin) || !std::isfinite(yMax)){
+    yMin = 0.;
+    yMax = 1.;
+  } else if (!(yMax > yMin)){
+    const double padding = std::max(1.,0.1*std::fabs(yMin));
+    yMin -= padding;
+    yMax += padding;
+  }
+  const double span = yMax-yMin;
+  yMin -= 0.08*span;
+  yMax += 0.12*span;
+  if (metric != AriMetric::PeakTime && yMin > 0.) yMin = 0.;
+
+  TH1D* frame = new TH1D(Form("hAri%sRFFrame",AriMetricName(metric)),
+                          Form("Ari %s by RF;RF setting (resistance);%s",
+                               AriMetricName(metric),AriMetricTitle(metric)),
+                          nSettings,0.5,nSettings+0.5);
+  frame->SetDirectory(nullptr);
+  frame->SetStats(0);
+  frame->SetMinimum(yMin);
+  frame->SetMaximum(yMax);
+
+  int settingIndex = 0;
+  for (const auto& setting : data){
+    ++settingIndex;
+    frame->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
+  }
+  gPad->SetBottomMargin(0.20);
+  frame->GetXaxis()->SetLabelSize(0.033);
+  frame->GetXaxis()->SetTitleOffset(1.6);
+  frame->Draw("AXIS");
+
+  settingIndex = 0;
+  for (const auto& setting : data){
+    ++settingIndex;
+    const auto& channelValues = AriValues(setting.second,metric);
+    if (channelValues.empty()) continue;
+    const std::vector<double> values = PlainValues(channelValues);
+
+    TGraph* points = new TGraph();
+    for (size_t i = 0; i < channelValues.size(); ++i){
+      const double jitter = 0.18*std::sin(0.37*channelValues[i].first);
+      points->SetPoint(static_cast<int>(i),settingIndex+jitter,channelValues[i].second);
+    }
+    points->SetName(Form("gAri%sRF%.4gAllChannels",AriMetricName(metric),setting.first));
+    points->SetMarkerStyle(20);
+    points->SetMarkerSize(0.45);
+    points->SetMarkerColorAlpha(kGray+2,0.40);
+    points->Draw("P SAME");
+
+    const double q1 = Quantile(values,0.25);
+    const double median = Quantile(values,0.50);
+    const double q3 = Quantile(values,0.75);
+    const auto minmax = std::minmax_element(values.begin(),values.end());
+    const double x = settingIndex;
+    const double boxWidth = 0.27;
+    TBox* box = new TBox(x-boxWidth,q1,x+boxWidth,q3);
+    box->SetFillColorAlpha(kAzure-9,0.45);
+    box->SetLineColor(kBlue+2);
+    box->SetLineWidth(2);
+    box->Draw("same");
+    TLine* medianLine = new TLine(x-boxWidth,median,x+boxWidth,median);
+    medianLine->SetLineWidth(3);
+    medianLine->Draw("same");
+    TLine* lowStem = new TLine(x,*minmax.first,x,q1);
+    TLine* highStem = new TLine(x,q3,x,*minmax.second);
+    TLine* lowCap = new TLine(x-0.12,*minmax.first,x+0.12,*minmax.first);
+    TLine* highCap = new TLine(x-0.12,*minmax.second,x+0.12,*minmax.second);
+    lowStem->Draw("same"); highStem->Draw("same");
+    lowCap->Draw("same"); highCap->Draw("same");
+  }
+
+  TLatex* note = new TLatex();
+  note->SetNDC();
+  note->SetTextSize(0.030);
+  note->SetTextColor(kGray+2);
+  note->DrawLatex(0.12,0.92,
+    "points = all valid channels; box = IQR; whiskers = full valid range; line = median");
+}
+
+void DrawAriSummary(const AriRFData& data, AriMetric metric, TFile* output){
+  TGraphErrors* mean = new TGraphErrors();
+  TGraph* median = new TGraph();
+  mean->SetName(Form("gAri%sRFMeanCellSpread",AriMetricName(metric)));
+  median->SetName(Form("gAri%sRFMedian",AriMetricName(metric)));
+  int point = 0;
+  for (const auto& setting : data){
+    const std::vector<double> values = PlainValues(AriValues(setting.second,metric));
+    if (values.empty()) continue;
+    const double average = std::accumulate(values.begin(),values.end(),0.)/values.size();
+    double sumSquares = 0.;
+    for (double value : values) sumSquares += (value-average)*(value-average);
+    const double spread = values.size() > 1 ? std::sqrt(sumSquares/(values.size()-1)) : 0.;
+    mean->SetPoint(point,setting.first,average);
+    mean->SetPointError(point,0.,spread);
+    median->SetPoint(point,setting.first,Quantile(values,0.5));
+    ++point;
+  }
+  mean->SetTitle(Form("Ari %s vs RF;RF (k#Omega);%s",
+                      AriMetricName(metric),AriMetricTitle(metric)));
+  mean->SetMarkerStyle(20);
+  mean->SetLineWidth(2);
+  mean->SetLineColor(kBlue+2);
+  mean->SetMarkerColor(kBlue+2);
+  mean->Draw("AP");
+  median->SetMarkerStyle(24);
+  median->SetLineWidth(2);
+  median->Draw("LP SAME");
+  TLegend* legend = new TLegend(0.55,0.74,0.88,0.88);
+  legend->SetBorderSize(0);
+  legend->SetFillStyle(0);
+  legend->AddEntry(mean,"mean #pm channel-to-channel SD","lp");
+  legend->AddEntry(median,"median","lp");
+  legend->Draw();
+  // Keep true resistance spacing; code labels are a key, not fictitious ticks.
+  if (metric == AriMetric::PeakAmplitude){
+    gPad->SetBottomMargin(0.25);
+    TLatex* key = new TLatex();
+    key->SetNDC(); key->SetTextSize(0.025);
+    TString row; int index = 0;
+    for (const auto& setting : data){
+      if (!row.IsNull()) row += "   ";
+      row += Form("RF%d: %.3g",setting.second.rfCode,setting.first);
+      if (++index == 7){ key->DrawLatex(0.12,0.075,row); row = ""; }
+    }
+    if (!row.IsNull()) key->DrawLatex(0.12,0.025,row+"  (k#Omega)");
+  }
+  if (output){
+    output->cd();
+    mean->Write();
+    median->Write();
+  }
+}
+
+void PlotAriRFScan(const AriRFData& data, const TString& outputDirectory,
+                   const TString& suffix, TFile* output){
+  if (data.empty()) return;
+  TCanvas* canvas = new TCanvas("canvasAriRFMeasurements","",0,0,1450,1300);
+  canvas->Divide(1,3,0.001,0.001);
+  canvas->cd(1); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakAmplitude);
+  canvas->cd(2); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::FWHM);
+  canvas->cd(3); gPad->SetGridy(); DrawAriBoxes(data,AriMetric::PeakTime);
+  canvas->SaveAs(Form("%s/AriRF_WaveformMeasurements.%s",outputDirectory.Data(),suffix.Data()));
+  if (output){
+    output->cd();
+    canvas->Write("canvasAriRFWaveformMeasurements");
+  }
+
+  canvas->Clear();
+  canvas->Divide(1,3,0.001,0.001);
+  canvas->cd(1); gPad->SetGrid(); DrawAriSummary(data,AriMetric::PeakAmplitude,output);
+  canvas->cd(2); gPad->SetGrid(); DrawAriSummary(data,AriMetric::FWHM,output);
+  canvas->cd(3); gPad->SetGrid(); DrawAriSummary(data,AriMetric::PeakTime,output);
+  canvas->SaveAs(Form("%s/AriRF_WaveformSummary.%s",outputDirectory.Data(),suffix.Data()));
+  if (output){
+    output->cd();
+    canvas->Write("canvasAriRFWaveformSummary");
+  }
+
+  TH2D* status = new TH2D("hAriRFWaveformMeasurementStatus",
+                          "Ari RF waveform extraction status;RF setting (resistance);status;channels",
+                          data.size(),0.5,data.size()+0.5,10,-0.5,9.5);
+  int settingIndex = 0;
+  for (const auto& setting : data){
+    ++settingIndex;
+    status->GetXaxis()->SetBinLabel(settingIndex,AriRFLabel(setting.first,setting.second));
+    for (int code = 0; code <= 8; ++code)
+      status->SetBinContent(settingIndex,code+1,setting.second.statusCounts[code]);
+    status->SetBinContent(settingIndex,10,setting.second.boundaryPeaks);
+  }
+  for (int code = 0; code <= 8; ++code)
+    status->GetYaxis()->SetBinLabel(code+1,TileSpectra::WaveformMeasurementStatusName(
+      static_cast<WaveformMeasurementStatus>(code)));
+  status->GetYaxis()->SetBinLabel(10,"peak at boundary");
+  canvas->Clear();
+  canvas->SetLeftMargin(0.23);
+  canvas->SetRightMargin(0.15);
+  canvas->SetBottomMargin(0.16);
+  status->GetXaxis()->SetLabelSize(0.020);
+  status->GetXaxis()->LabelsOption("h");
+  status->GetXaxis()->SetTitleOffset(1.6);
+  status->SetStats(0);
+  status->Draw("COLZ TEXT");
+  canvas->SaveAs(Form("%s/AriRF_WaveformStatus.%s",outputDirectory.Data(),suffix.Data()));
+  if (output){
+    output->cd();
+    status->Write();
+  }
+}
+}
+
 
 // ===========================================================================================
 // Check input files and global settings
@@ -143,6 +424,7 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
 
   std::map<int, CalibSummary> sumCalibs;
   std::map<int, CalibSummary>::iterator isumCalibs;
+  AriRFData ariRFData;
   
   double Xvalue;
   double Xmin= 9999.;
@@ -176,6 +458,11 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
     double set_cfcomp = (double)itRun->second.cfcomp;
     double set_injec  = -10000.;
     std::cout <<calib.GetRunNumber() << "\t" << set_rf << "\t" << set_cf << "\t" << set_cc << "\t" << set_cfcomp << "\t" << set_injec<< std::endl;
+    if (ariRFScan){
+      AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+      rfData.rfCode = itRun->second.rf;
+      rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)] += 64;
+    }
     
     // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     // Set X-values according to option
@@ -228,7 +515,22 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
       int entries = 0;
       if (profCellWave)
         entries = profCellWave->GetEntries();
-      
+      if (ariRFScan && IsAriRFCell(itcalib->first)){
+        AriRFSettingData& rfData = ariRFData[ReturnRFValue(itRun->second.rf)];
+        rfData.rfCode = itRun->second.rf;
+        --rfData.statusCounts[static_cast<int>(WaveformMeasurementStatus::NullProfile)];
+        const WaveformMeasurement measurement = TileSpectra::MeasureWaveform(profCellWave);
+        const int statusCode = static_cast<int>(measurement.status);
+        if (statusCode >= 0 && statusCode < static_cast<int>(rfData.statusCounts.size()))
+          ++rfData.statusCounts[statusCode];
+        if (measurement.peakAtSearchBoundary) ++rfData.boundaryPeaks;
+        if (measurement.hasPeak){
+          rfData.peakAmplitude.push_back({itcalib->first,measurement.amplitude});
+          rfData.peakTime.push_back({itcalib->first,measurement.peakTime});
+        }
+        if (measurement.hasFWHM)
+          rfData.fwhm.push_back({itcalib->first,measurement.fwhm});
+      }
       if (entries == 0) continue;
       // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       // fill calib summary object for specific cell
@@ -348,6 +650,9 @@ bool ComparisonWaveform::ProcessWaveformCompare(void){
                       Form("%s/HGPedSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), commonRunInfo,"", debug);
   PlotCalibRunOverlay( canvas1DRunsOverlay, 1, sumCalibs, textSizeRel, 
                       Form("%s/HGPedWidthSummary_RunOverlay.%s",OutputNameDirPlots.Data(),plotSuffix.Data()), commonRunInfo,"", debug);
+
+  if (ariRFScan)
+    PlotAriRFScan(ariRFData,OutputNameDirPlots,plotSuffix,RootOutput);
   
   // plotting individual layers/asics
   DetConf::Type detConf = DetConf::Type::Asic;
