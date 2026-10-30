@@ -68,57 +68,152 @@ def quantile(values,q):
     return v[low]*(high-p)+v[high]*(p-low) if high!=low else v[low]
 
 
+def box_summary(values):
+    """Unbinned q*(n-1) quartiles and observed, inclusive 1.5-IQR whiskers."""
+    if not values:
+        return None
+    if not all(math.isfinite(v) for v in values):
+        raise ValueError('Nonfinite box sample; never silently filter measurements')
+    q1, median, q3 = [quantile(values, q) for q in (.25, .5, .75)]
+    lower, upper = q1 - 1.5*(q3-q1), q3 + 1.5*(q3-q1)
+    inside = [v for v in values if lower <= v <= upper]
+    return dict(q1=q1, median=median, q3=q3, low=min(inside), high=max(inside),
+                lower_fence=lower, upper_fence=upper)
+
+
+def plot_range(summaries, values, metric, main):
+    """One transparent axis per scan/metric, never a cut on the stored sample."""
+    summaries = [s for s in summaries if s is not None]
+    if not values:
+        return 0., 1.
+    if main:
+        # Sparse interpolated quartiles can lie beyond observed whiskers.
+        lo = min(min(s['low'], s['q1']) for s in summaries)
+        hi = max(max(s['high'], s['q3']) for s in summaries)
+    else:
+        lo, hi = min(values), max(values)
+    if not hi > lo:
+        padding = max(1., .1*abs(lo))
+        lo, hi = lo-padding, hi+padding
+    span = hi-lo
+    lo, hi = lo-.08*span, hi+.12*span
+    if metric != 'peak_time' and min(values) >= 0.:
+        lo = 0.
+    return lo, hi
+
+
+def offscale_counts(values, lo, hi):
+    return sum(v < lo for v in values), sum(v > hi for v in values)
+
+
 def draw(ROOT,rows,settings,out):
-    ROOT.gROOT.SetBatch(True);ROOT.gStyle.SetOptStat(0)
-    ROOT.gStyle.SetPaperSize(22.67,32.)
+    ROOT.gROOT.SetBatch(True); ROOT.gStyle.SetOptStat(0)
+    ROOT.gStyle.SetPaperSize(25.33,32.)
     ROOT.gStyle.SetTitleFont(42,"XYZ"); ROOT.gStyle.SetLabelFont(42,"XYZ")
-    canvas=ROOT.TCanvas('all_hgcroc_scans','HGCROC settings scans',2400,1700)
-    objects=[canvas]
     root=ROOT.TFile(str(out/'HGCROC_AllScans.root'),'RECREATE')
+    objects=[]
     try:
-        for col,(parameter,runs) in enumerate(GROUPS):
-            for row,(key,title,name) in enumerate(METRICS):
-                top=1-row*.255; bottom=top-.255
-                pad=ROOT.TPad(f'pad_{col}_{row}','',col*.25,bottom,(col+1)*.25,top)
-                objects.append(pad);pad.Draw();pad.cd();pad.SetLeftMargin(.17);pad.SetBottomMargin(.17)
-                values=[[r[key] for r in rows[run] if r[key] is not None] for run in runs]
-                allvalues=[v for vv in values for v in vv]
-                lo=min(allvalues) if allvalues else 0.;hi=max(allvalues) if allvalues else 1.
-                span=max(hi-lo,1.);lo-=.08*span;hi+=.12*span
-                if key!='peak_time':lo=min(lo,0.)
-                frame=ROOT.TH1D(f'frame_{parameter}_{key}',f'{parameter} scan;{parameter} setting;{title}',len(runs),.5,len(runs)+.5)
-                frame.SetDirectory(0);frame.SetMinimum(lo);frame.SetMaximum(hi)
-                frame.GetXaxis().SetLabelSize(.035);frame.GetYaxis().SetTitleSize(.045);frame.GetYaxis().SetTitleOffset(1.7)
-                objects.append(frame)
-                for i,run in enumerate(runs,1):
-                    code=int(settings[run][parameter]);label=str(code)
-                    if parameter=='CF' and code==5:label=f'5 (R{run})'
-                    frame.GetXaxis().SetBinLabel(i,label)
-                frame.Draw('AXIS')
-                for i,(run,vv) in enumerate(zip(runs,values),1):
-                    if not vv:continue
-                    points=ROOT.TGraph();objects.append(points)
-                    for j,r in enumerate(r for r in rows[run] if r[key] is not None):
-                        points.SetPoint(j,i+.15*math.sin(.37*r['cell']),r[key])
-                    points.SetName(f'channels_{parameter}_{run}_{key}');points.SetMarkerStyle(20);points.SetMarkerSize(.3);points.SetMarkerColorAlpha(ROOT.kGray+2,.4);points.Draw('P SAME');root.cd();points.Write();pad.cd()
-                    q1,med,q3=[quantile(vv,q) for q in (.25,.5,.75)]
-                    box=ROOT.TBox(i-.25,q1,i+.25,q3);box.SetFillColorAlpha(ROOT.kAzure-9,.45);box.SetLineColor(ROOT.kBlue+2);box.Draw();objects.append(box)
-                    for x1,y1,x2,y2 in [(i-.25,med,i+.25,med),(i,min(vv),i,q1),(i,q3,i,max(vv)),(i-.1,min(vv),i+.1,min(vv)),(i-.1,max(vv),i+.1,max(vv))]:
-                        line=ROOT.TLine(x1,y1,x2,y2);line.Draw();objects.append(line)
+        # Keep the original full-range canvas and channel graph names intact.
+        for main in (False, True):
+            suffix='_main' if main else ''
+            canvas=ROOT.TCanvas('all_hgcroc_scans'+suffix,'HGCROC settings scans',2400,1900)
+            objects.append(canvas)
+            for col,(parameter,runs) in enumerate(GROUPS):
+                for row,(key,title,name) in enumerate(METRICS):
+                    top=1-row*.255; bottom=top-.255
+                    pad=ROOT.TPad(f'pad_{col}_{row}{suffix}','',col*.25,bottom,(col+1)*.25,top)
+                    objects.append(pad); pad.Draw(); pad.cd()
+                    pad.SetLeftMargin(.19); pad.SetRightMargin(.045)
+                    pad.SetBottomMargin(.18); pad.SetTopMargin(.15 if key=='fwhm' else .11)
+                    values=[[r[key] for r in rows[run] if r[key] is not None] for run in runs]
+                    summaries=[box_summary(vv) for vv in values]
+                    allvalues=[v for vv in values for v in vv]
+                    lo,hi=plot_range(summaries,allvalues,key,main)
+                    frame=ROOT.TH1D(f'frame_{parameter}_{key}{suffix}',f';{parameter} setting;{title}',len(runs),.5,len(runs)+.5)
+                    frame.SetDirectory(0); frame.SetMinimum(lo); frame.SetMaximum(hi)
+                    frame.GetXaxis().SetLabelSize(.045); frame.GetXaxis().SetTitleSize(.045)
+                    frame.GetYaxis().SetLabelSize(.04); frame.GetYaxis().SetTitleSize(.045)
+                    frame.GetYaxis().SetTitleOffset(1.8); objects.append(frame)
+                    for i,run in enumerate(runs,1):
+                        code=int(settings[run][parameter]); label=str(code)
+                        if parameter=='CF' and code==5: label=f'5 (R{run})'
+                        frame.GetXaxis().SetBinLabel(i,label)
+                    frame.Draw('AXIS')
+                    text=ROOT.TLatex(); text.SetNDC(); text.SetTextFont(42); text.SetTextSize(.047)
+                    text.DrawLatex(.19,.945,f'{parameter}: '+('main distribution' if main else 'full range'))
+                    objects.append(text)
+                    if key=='fwhm':
+                        text.SetTextSize(.031)
+                        # Same setting order as the x axis; missing widths remain missing.
+                        text.DrawLatex(.19,.875,'Widths /64: '+', '.join(str(len(vv)) for vv in values))
+                    if not allvalues:
+                        text.SetTextSize(.045); text.DrawLatex(.25,.55,'No valid measurements')
+                    for i,(run,vv,summary) in enumerate(zip(runs,values,summaries),1):
+                        if not vv: continue
+                        points=ROOT.TGraph(); outliers=ROOT.TGraph(); objects.extend([points,outliers])
+                        for r in (r for r in rows[run] if r[key] is not None):
+                            value=r[key]; x=i+.15*math.sin(.37*r['cell'])
+                            if not main or lo <= value <= hi:
+                                points.SetPoint(points.GetN(),x,value)
+                                if value < summary['lower_fence'] or value > summary['upper_fence']:
+                                    outliers.SetPoint(outliers.GetN(),x,value)
+                        points.SetName(f'{"visible_channels" if main else "channels"}_{parameter}_{run}_{key}')
+                        points.SetMarkerStyle(20); points.SetMarkerSize(.35)
+                        points.SetMarkerColorAlpha(ROOT.kGray+2,.4)
+                        if points.GetN(): points.Draw('P SAME')
+                        root.cd(); points.Write(); pad.cd()
+                        q1,med,q3=summary['q1'],summary['median'],summary['q3']
+                        low,high=summary['low'],summary['high']
+                        box=ROOT.TBox(i-.25,q1,i+.25,q3)
+                        box.SetFillColorAlpha(ROOT.kAzure-9,.45); box.SetLineColor(ROOT.kBlue+2)
+                        box.Draw(); objects.append(box)
+                        for x1,y1,x2,y2 in [(i-.25,med,i+.25,med),(i,low,i,q1),(i,q3,i,high),(i-.1,low,i+.1,low),(i-.1,high,i+.1,high)]:
+                            line=ROOT.TLine(x1,y1,x2,y2); line.Draw(); objects.append(line)
+                        outliers.SetName(f'outliers_{parameter}_{run}_{key}{suffix}')
+                        outliers.SetMarkerStyle(27); outliers.SetMarkerSize(.8)
+                        outliers.SetMarkerColor(ROOT.kOrange+7); outliers.SetLineColor(ROOT.kOrange+7)
+                        if outliers.GetN(): outliers.Draw('P SAME')
+                        root.cd(); outliers.Write(); pad.cd()
+                        if main:
+                            below,above=offscale_counts(vv,lo,hi)
+                            for count,up in ((below,False),(above,True)):
+                                if not count: continue
+                                span=hi-lo
+                                begin,end=(hi-.12*span,hi-.035*span) if up else (lo+.12*span,lo+.035*span)
+                                arrow=ROOT.TArrow(i,begin,i,end,.006,'|>')
+                                arrow.SetLineColor(ROOT.kOrange+7); arrow.SetFillColor(ROOT.kOrange+7)
+                                arrow.Draw(); objects.append(arrow)
+                                label=ROOT.TLatex(i+.12,hi-.08*span if up else lo+.07*span,str(count))
+                                label.SetTextFont(42); label.SetTextColor(ROOT.kOrange+7); label.SetTextSize(.038)
+                                label.Draw(); objects.append(label)
+                    canvas.cd()
+                footer=ROOT.TPad(f'footer_{col}{suffix}','',col*.25,0,(col+1)*.25,.23)
+                footer.Draw(); footer.cd(); objects.append(footer)
+                text=ROOT.TLatex(); text.SetNDC(); text.SetTextFont(42); text.SetTextSize(.060); objects.append(text)
+                fixed={'RF':['CF7, CC5, CFComp1'],'CC':['RF9 (8.89 k#Omega), CF7, CFComp1'],'CF':['RF9 (8.89 k#Omega), CC5, CFComp1','CF5 repeats: R355 and R363 kept separate'],'CFComp':['RF9 (8.89 k#Omega), CF5, CC5']}[parameter]
+                labels=[f'Varied: {parameter}; fixed: '+fixed[0]]+fixed[1:]
+                if parameter=='RF':
+                    labels+=['RF code #rightarrow resistance (k#Omega):']
+                    mapping=[f'{settings[r]["RF"]}: {80/int(settings[r]["RF"]):.3g}' for r in runs]
+                    labels+=['; '.join(mapping[i:i+4]) for i in range(0,len(mapping),4)]
+                labels+=['Box: unbinned IQR; line: median',
+                         'Whiskers: observed within 1.5 IQR fences',
+                         'Orange diamonds: outliers, NOT exclusions']
+                if main:
+                    labels+=['Arrows: actual off-scale counts (see full range)',
+                             'Axis: boxes/whiskers + 8%/12% padding']
+                else:
+                    labels+=['Every valid value retained; no extra cuts']
+                labels+=['Widths conditional on extraction success',
+                         'Axes independent; compare numeric values']
+                # RF has the longest footer; scale all four consistently to fit.
+                for i,label in enumerate(labels): text.DrawLatex(.04,.95-i*.073,label)
                 canvas.cd()
-            footer=ROOT.TPad(f'footer_{col}','',col*.25,0,(col+1)*.25,.23);footer.Draw();footer.cd();objects.append(footer)
-            text=ROOT.TLatex();text.SetNDC();text.SetTextSize(.065);objects.append(text)
-            fixed={'RF':['CF7, CC5, CFComp1'],'CC':['RF9 (8.89 k#Omega), CF7, CFComp1'],'CF':['RF9 (8.89 k#Omega), CC5, CFComp1','CF5 repeats shown separately: R355, R363'],'CFComp':['RF9 (8.89 k#Omega), CF5, CC5']}[parameter]
-            labels=[f'Varied: {parameter}','Fixed: '+fixed[0]]+fixed[1:]
-            if parameter=='RF':
-                labels+=['RF code #rightarrow resistance (k#Omega):']
-                mapping=[f'{settings[r]["RF"]}: {80/int(settings[r]["RF"]):.3g}' for r in runs]
-                labels+=['; '.join(mapping[i:i+4]) for i in range(0,len(mapping),4)]
-            labels+=['Box: IQR; line: median; whiskers: full range','Points: channels; invalid widths omitted']
-            for i,label in enumerate(labels):text.DrawLatex(.05,.95-i*.10,label)
-            canvas.cd()
-        root.cd();canvas.Write();canvas.SaveAs(str(out/'HGCROC_AllScans.pdf'));canvas.SaveAs(str(out/'HGCROC_AllScans.png'))
-    finally:root.Close()
+            root.cd(); canvas.Write()
+            basename='HGCROC_AllScansMain' if main else 'HGCROC_AllScans'
+            canvas.SaveAs(str(out/(basename+'.pdf'))); canvas.SaveAs(str(out/(basename+'.png')))
+    finally:
+        root.Close()
 
 
 def main():
