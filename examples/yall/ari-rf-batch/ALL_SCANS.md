@@ -31,7 +31,7 @@ python3 "$REPO/examples/yall/ari-rf-batch/prepare_all_scans.py" --rf-workspace /
 cd "$DEST" && yall-run validate && yall-run plan
 ```
 
-Expect **one task with 22 waveform histogram inputs** (plus script, run database,
+Expect **one task with 22 waveform histogram inputs** (23 when run302 is present) (plus script, run database,
 and provenance). After successful preparation/validation, submit explicitly:
 
 ```tcsh
@@ -61,7 +61,11 @@ full-range channel graph. Each view contains three metric rows
 (amplitude, bin-center FWHM, peak-bin time) and four separate scan columns
 (RF, CC, CF, CFComp). Each column identifies varied/fixed settings below the plots.
 RF codes and their resistance conversion (80/code kOhm) are shown. The RF column
-preserves the original 13 selected codes; it does not add recorded codes 2 or 7.
+preserves the original 13 selected codes when no additional result is supplied.
+An existing run302 (code2) is now automatically included when present in the RF
+workspace, or can be supplied with `--run302-input`. Code7 is not added. See
+[Native ROOT diagnostics](ROOT_DIAGNOSTICS.md) for numeric-resistance mean/median
+plots, nominal channel maps, paired comparisons and optional `--rf-diagnostics`.
 
 CC varies at RF9/CF7/CFComp1; CF varies at RF9/CC5/CFComp1; CFComp varies at
 RF9/CF5/CC5. Existing run298 is reused as the CC/CF baseline. Run355 is shared
