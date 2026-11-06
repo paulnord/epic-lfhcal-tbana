@@ -16,6 +16,7 @@
 #include "TChain.h"
 #include "CommonHelperFunctions.h"
 #include "TileSpectra.h"
+#include "WaveformAnnotations.h"
 #include "PlotHelper.h"
 #include "MultiCanvas.h"
 #include "TRandom3.h"
@@ -501,9 +502,11 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
     }
   }
 
+  std::map<int,WaveformMeasurement> waveformMeasurements;
   for (ithSpectra=hSpectra.begin(); ithSpectra!=hSpectra.end(); ++ithSpectra){
     const int cellID = ithSpectra->first;
     const WaveformMeasurement measurement = ithSpectra->second.MeasureWaveform();
+    waveformMeasurements.emplace(cellID,measurement);
     const int statusCode = static_cast<int>(measurement.status);
     hWaveformMeasurementStatusVsCellID->SetBinContent(cellID+1,statusCode+1);
     hWaveformMeasurementStatusCounts->Fill(statusCode);
@@ -693,6 +696,26 @@ bool HGCROC_Waveform_Analysis::AnalyseWaveForm(void){
   }
     
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+  // Selected-cell waveform companions are part of this native analysis stage.
+  // Reuse the exact objects already written to the summary histograms above.
+  // The normal -w -E 1 -l Ari workflow enables these without another data pass.
+  if (ExtPlot > 0 && !cellVec.empty()) {
+    try {
+      std::vector<lfhcal::WaveformAnnotationCell> selected;
+      for (int cell : cellVec) {
+        const auto profile = hSpectra.find(cell);
+        const auto measurement = waveformMeasurements.find(cell);
+        selected.push_back({cell, profile == hSpectra.end() ? nullptr : profile->second.GetWave1D(),
+          measurement == waveformMeasurements.end() ? WaveformMeasurement{} : measurement->second});
+      }
+      lfhcal::WriteWaveformAnnotationGrid(selected,runNr,
+        Form("%s/WaveformGrid_Run%d",outputDirPlotsMore.Data(),runNr),RootInputName.Data());
+    } catch (const std::exception& error) {
+      std::cerr << "WARNING: waveform annotation report failed: " << error.what()
+                << "; original plots and histogram output are retained.\n";
+    }
+  }
+
   // Saving histo putput
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
   std::cout << "Writing output hist file" << std::endl;

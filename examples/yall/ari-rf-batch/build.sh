@@ -16,6 +16,6 @@ mkdir -p "$build"
   cmake --version
 } > "$build/environment.txt"
 cmake -S "$repo/NewStructure" -B "$build" -DBUILD_TESTING=ON -DLFHCAL_USE_ADAPTIVE_LANGAU=OFF
-cmake --build "$build" --parallel 2 --target Convert DataPrep HGCROCStudy CompareWaveform test_waveform_measurement test_fit_curve_legend
-ctest --test-dir "$build" --output-on-failure -R '^(waveform_measurement|fit_curve_legend_lifetime)$'
-printf 'build, waveform and fit-legend lifetime tests passed\n' > "$ready"
+cmake --build "$build" --parallel 2 --target Convert DataPrep HGCROCStudy CompareWaveform test_waveform_measurement test_waveform_annotations test_fit_curve_legend
+ctest --test-dir "$build" --output-on-failure -R '^(waveform_measurement|waveform_annotations|fit_curve_legend_lifetime)$'
+printf 'build, waveform measurement/annotation and fit-legend lifetime tests passed\n' > "$ready"
