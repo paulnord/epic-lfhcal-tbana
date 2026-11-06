@@ -14,7 +14,143 @@
 #include "TFitResultPtr.h"
 #include "Math/MinimizerOptions.h"
 
+#include <algorithm>
+#include <cmath>
+
 ClassImp(TileSpectra);
+
+namespace {
+double InterpolateWaveformCrossing(double x1, double y1,
+                                   double x2, double y2,
+                                   double level){
+  if (std::fabs(y2-y1) < 1e-12) return 0.5*(x1+x2);
+  return x1+(level-y1)*(x2-x1)/(y2-y1);
+}
+}
+
+WaveformMeasurement TileSpectra::MeasureWaveform(const TProfile* waveform,
+                                                 double peakSearchMax,
+                                                 bool interpolateFWHM){
+  WaveformMeasurement result;
+  if (!waveform) return result;
+
+  const int nBins = waveform->GetNbinsX();
+  if (nBins < 3){
+    result.status = WaveformMeasurementStatus::TooFewBins;
+    return result;
+  }
+
+  int maxBinBoundary = waveform->GetXaxis()->FindBin(peakSearchMax);
+  maxBinBoundary = std::max(1,std::min(nBins,maxBinBoundary));
+
+  int maxBin = -1;
+  double maxValue = -std::numeric_limits<double>::infinity();
+  for (int bin = 1; bin <= maxBinBoundary; ++bin){
+    const double value = waveform->GetBinContent(bin);
+    if (std::isfinite(value) && (maxBin < 0 || value > maxValue)){
+      maxBin = bin;
+      maxValue = value;
+    }
+  }
+  if (maxBin < 0 || maxValue <= 0.){
+    result.status = WaveformMeasurementStatus::NoFinitePositivePeak;
+    return result;
+  }
+
+  result.hasPeak = true;
+  result.peakBin = maxBin;
+  result.amplitude = maxValue;
+  result.peakTime = waveform->GetXaxis()->GetBinCenter(maxBin);
+  result.halfMaximum = 0.5*maxValue;
+  result.peakAtSearchBoundary = maxBin >= maxBinBoundary-1;
+
+  int leftBin = maxBin;
+  while (leftBin > 1){
+    const double value = waveform->GetBinContent(leftBin);
+    if (!std::isfinite(value)){
+      result.status = WaveformMeasurementStatus::NonFiniteCrossing;
+      return result;
+    }
+    if (value <= result.halfMaximum) break;
+    --leftBin;
+  }
+
+  int rightBin = maxBin;
+  while (rightBin < maxBinBoundary){
+    const double value = waveform->GetBinContent(rightBin);
+    if (!std::isfinite(value)){
+      result.status = WaveformMeasurementStatus::NonFiniteCrossing;
+      return result;
+    }
+    if (value <= result.halfMaximum) break;
+    ++rightBin;
+  }
+
+  const double leftValue = waveform->GetBinContent(leftBin);
+  const double rightValue = waveform->GetBinContent(rightBin);
+  if (!std::isfinite(leftValue) || !std::isfinite(rightValue)){
+    result.status = WaveformMeasurementStatus::NonFiniteCrossing;
+    return result;
+  }
+  const bool haveLeft = !(leftBin == 1 && leftValue > result.halfMaximum);
+  const bool haveRight = !(rightBin == maxBinBoundary && rightValue > result.halfMaximum);
+  if (!haveLeft || !haveRight){
+    if (!haveLeft && !haveRight)
+      result.status = WaveformMeasurementStatus::MissingBothCrossings;
+    else if (!haveLeft)
+      result.status = WaveformMeasurementStatus::MissingLeftCrossing;
+    else
+      result.status = WaveformMeasurementStatus::MissingRightCrossing;
+    return result;
+  }
+
+  result.leftBin = leftBin;
+  result.rightBin = rightBin;
+  if (interpolateFWHM){
+    const int leftInside = std::min(leftBin+1,nBins);
+    const int rightInside = std::max(rightBin-1,1);
+    result.leftCrossing = InterpolateWaveformCrossing(
+      waveform->GetXaxis()->GetBinCenter(leftBin),leftValue,
+      waveform->GetXaxis()->GetBinCenter(leftInside),waveform->GetBinContent(leftInside),
+      result.halfMaximum);
+    result.rightCrossing = InterpolateWaveformCrossing(
+      waveform->GetXaxis()->GetBinCenter(rightInside),waveform->GetBinContent(rightInside),
+      waveform->GetXaxis()->GetBinCenter(rightBin),rightValue,
+      result.halfMaximum);
+  } else {
+    result.leftCrossing = waveform->GetXaxis()->GetBinCenter(leftBin);
+    result.rightCrossing = waveform->GetXaxis()->GetBinCenter(rightBin);
+  }
+  result.fwhm = result.rightCrossing-result.leftCrossing;
+  if (!std::isfinite(result.fwhm) || result.fwhm <= 0.){
+    result.status = WaveformMeasurementStatus::NonPositiveWidth;
+    return result;
+  }
+
+  result.status = WaveformMeasurementStatus::Valid;
+  result.hasFWHM = true;
+  return result;
+}
+
+WaveformMeasurement TileSpectra::MeasureWaveform(double peakSearchMax,
+                                                 bool interpolateFWHM) const{
+  return MeasureWaveform(&hWaveForm,peakSearchMax,interpolateFWHM);
+}
+
+const char* TileSpectra::WaveformMeasurementStatusName(WaveformMeasurementStatus status){
+  switch (status){
+    case WaveformMeasurementStatus::Valid: return "valid";
+    case WaveformMeasurementStatus::NullProfile: return "null profile";
+    case WaveformMeasurementStatus::TooFewBins: return "too few bins";
+    case WaveformMeasurementStatus::NoFinitePositivePeak: return "no finite positive peak";
+    case WaveformMeasurementStatus::NonFiniteCrossing: return "non-finite crossing sample";
+    case WaveformMeasurementStatus::MissingLeftCrossing: return "missing left crossing";
+    case WaveformMeasurementStatus::MissingRightCrossing: return "missing right crossing";
+    case WaveformMeasurementStatus::MissingBothCrossings: return "missing both crossings";
+    case WaveformMeasurementStatus::NonPositiveWidth: return "non-positive width";
+  }
+  return "unknown";
+}
 
 /**
  * @brief Return the cell identifier attached to this spectrum collection.

@@ -39,6 +39,7 @@ void PrintHelp(char* exe){
   std::cout<<"-f       Force to write output if already exist"<<std::endl;
   std::cout<<"-F fff   set explicit plot extension explicitly, default is pdf "<<std::endl;
   std::cout<<"-H       switch to HGCROC output" << std::endl;
+  std::cout<<"-A       make Ari RF waveform measurement plots (64 RF-scan cells)" << std::endl;
   std::cout<<"-i uuu   Input file list"<<std::endl;
   std::cout<<"-I uuu   expanded input file list"<<std::endl;
   std::cout<<"-L [1-63]restrict max layer plotting"<<std::endl;
@@ -69,8 +70,14 @@ int main(int argc, char* argv[]){
   CompAnalysis.SetIsHGCROC(true);
       
   int c;
-  while((c=getopt(argc,argv,"c:d:e:E:fF:i:I:L:o:O:r:RVth"))!=-1){
+  while((c=getopt(argc,argv,"Ac:d:e:E:fF:i:I:L:o:O:r:RVth"))!=-1){
     switch(c){
+    case 'A':
+      std::cout<<"Compare: enable Ari RF waveform scan plots"<<std::endl;
+      CompAnalysis.EnableAriRFScan(true);
+      it=std::find(RootRegexp.begin(),RootRegexp.end(),"-A");
+      RootRegexp.erase(it);
+      break;
     case 'c':
       std::cout<<"Compare: set list of cells for detailed plotting " << optarg <<std::endl;
       CompAnalysis.SetCellList(optarg);
