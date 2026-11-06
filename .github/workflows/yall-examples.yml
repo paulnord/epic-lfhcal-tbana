@@ -52,6 +52,7 @@ jobs:
         run: |
           bash -n tools/bootstrap-yall-integration.sh
           bash -n tools/run-in-eic-shell.sh
+          bash -n examples/yall/ari-rf-batch/launch_waveform_annotations.sh
           python3 -m unittest discover -s tools/tests -v
           python3 -m unittest discover -s examples/yall/ari-rf-batch -p test_plot_all_scans.py -v
           python3 -m unittest discover -s examples/yall/ari-rf-batch -p 'test_root_rf_*.py' -v
@@ -60,4 +61,5 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/.ci/yall-run/src
         run: |
           python3 examples/yall/check_shared_conversions.py -v
+          python3 -m unittest discover -s examples/yall/ari-rf-batch -p test_prepare_waveform_annotations.py -v
           python3 -m unittest discover -s examples/yall/ari-rf-batch -p test_rf_diagnostics_pipeline.py -v

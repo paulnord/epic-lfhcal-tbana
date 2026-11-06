@@ -97,3 +97,72 @@ An annotation/export failure is logged as a warning so the normal histogram
 output is still saved. Check that all three new files exist and that both PDFs
 open fully; overall analysis success alone does not establish report completion.
 No BNL build, analysis run or submission was executed for this handoff.
+
+## Existing parameter scans: waveform-only campaign
+
+Use `launch_waveform_annotations.sh` from a **fresh pinned checkout** to prepare
+one new build plus 23 waveform jobs, reusing completed calibrated event files.
+This covers RF runs 298, 300, **302**, 304, 306, 310, 329, 333, 335, 337, 339,
+341, 343 and 345, and other-setting runs 347, 349, 351, 353, 355, 357, 359,
+361 and 363. Shared baseline run298 and shared run355 are each processed once.
+No conversion, pedestal processing, calibration or summary node is included.
+This is waveform processing, not the separate histogram-only combined display.
+
+From normal host tcsh, after creating the fresh checkout and initializing its
+pinned decoder submodule, invoke Bash explicitly (an error exits the child
+process, not the interactive tcsh session):
+
+```tcsh
+/bin/bash "$BASE/source/examples/yall/ari-rf-batch/launch_waveform_annotations.sh" "$BASE"
+```
+
+The launcher uses the existing host `yall-run` (at least 0.12.0a7), records its
+version and the source/submodule commits, and uses `$EIC_SHELL` when set.
+Otherwise it checks the documented `/star/u/pnord/bin/eic-shell`; a nonexistent
+or nonexecutable launcher stops preparation. It does not install or change yall.
+
+The default discovery root is `/gpfs01/star/scratch/pnord`; an existing alternate
+root can be supplied through `ARI_ANNOTATION_SEARCH_ROOT`. Discovery is bounded
+to five directory levels and 10,000 directories, skips source/build/data/attempt
+subtrees and symlink directories, and reads only campaign metadata and file
+stats. It does not search ROOT contents on the login host. If campaigns are
+elsewhere, supply their exact directories directly:
+
+```tcsh
+python3 "$REPO/examples/yall/ari-rf-batch/prepare_waveform_annotations.py" --destination "$DEST" --eic-shell "$EIC_SHELL" --campaign "$RF_CAMPAIGN" --campaign "$OTHER_CAMPAIGN" --campaign "$RUN302_CAMPAIGN"
+```
+
+These are **campaign directories containing `campaign.json`**, not workspaces.
+Paths must be absolute and use only letters, digits, slash, underscore, dot and
+hyphen. The destination must be new, outside the source and input workspaces,
+and must not contain `.root` because native output naming replaces that text.
+
+For each run, preparation requires a completed latest calibration attempt, an
+unchanged recorded event ROOT file, a matching archived waveform command and
+unchanged May run database/active-cell configurations. A histogram-only run302
+result is insufficient: its calibrated event input and successful calibration
+record must be available. Missing runs produce a full error list; none are
+silently skipped. If multiple proven inputs exist (for example, a historical
+pilot and a full campaign), the launcher lists campaign paths and run inventories
+and asks which completed source campaigns to reuse. It never picks the newest
+or assumes a full campaign supersedes a corrected single run.
+
+After preparation, the launcher runs `yall-run validate` and `yall-run plan`.
+Review the printed input paths and 24-node plan. Only typing **SUBMIT 23** creates
+and submits the new campaign; Enter leaves preparation only. There is no
+`--accept-repo-scan-recipe` because this workflow does not repeat calibration.
+
+The build worker compiles and tests the new source, then checks all 23 input
+ROOT files read-only for nonempty Setup/Data/Calib trees and required branches.
+Every waveform job rechecks source/config/input provenance, uses the unchanged
+`-d 1 -E 1 -w -r ... -l ...` command, and refuses existing outputs. Native `-w`
+writes the derived `_Hists.root`, not necessarily the nominal `-o` event file.
+The wrapper requires that histogram and all three paired report products, since
+native export warnings alone do not fail analysis. It never adds `-f`, an event
+limit or new cuts. Automatic retries remain disabled.
+
+Products are under `work/products/plots/waveform/Run<RUN>/`, with native
+`nTOA_<sample>` subdirectories where applicable. Inspect the worker logs, open
+both PDFs fully and review their CSVs. Structural checks and synthetic tests do
+not establish BNL execution, detector-data validity or scientific correctness.
+No BNL task was run to develop this helper.
