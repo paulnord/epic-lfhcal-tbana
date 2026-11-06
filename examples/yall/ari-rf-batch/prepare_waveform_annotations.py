@@ -186,7 +186,10 @@ def select_inputs(campaigns):
             problems.append(f'run{run}: '+('missing verified calibrated event input' if not matches else
                               'ambiguous calibrated inputs: '+', '.join(x['path'] for x in matches)))
     if problems:
-        raise ValueError('\n'.join(problems + ['Supply explicit --campaign paths to narrow discovery. No runs were skipped.'] + diagnostics))
+        # Old failed campaigns commonly lack outputs. Do not present their
+        # irrelevant errors as lost data when every requested run is verified.
+        details = diagnostics if any('missing verified' in p for p in problems) else []
+        raise ValueError('\n'.join(problems + ['Supply explicit --campaign paths to narrow discovery. No runs were skipped.'] + details))
     return [selected[r] for r in RUNS]
 
 
@@ -198,6 +201,7 @@ def choose_campaigns(campaigns):
     except ValueError as exc:
         if 'missing verified' in str(exc):
             raise
+        print('All 23 runs have verified calibrated inputs; source campaigns overlap.')
         print(str(exc))
     eligible = []
     for campaign in sorted(set(p.resolve() for p in campaigns)):
@@ -208,10 +212,12 @@ def choose_campaigns(campaigns):
                 print(f'{len(eligible)}. {campaign} | runs: '+','.join(map(str, sorted(items))))
         except (ValueError, OSError, KeyError, TypeError):
             continue
-    with open('/dev/tty', 'r+') as tty:
-        tty.write('Choose the completed source campaigns to reuse (comma-separated numbers), or Enter to stop: ')
-        tty.flush()
-        answer = tty.readline().strip()
+    # A tty is not seekable: Python's buffered r+ stream fails before reading.
+    # Separate one-way streams also work when stdout is piped through tee.
+    with open('/dev/tty', 'r') as tty_in, open('/dev/tty', 'w') as tty_out:
+        tty_out.write('Choose the completed source campaigns to reuse (comma-separated numbers), or Enter to stop: ')
+        tty_out.flush()
+        answer = tty_in.readline().strip()
     if not re.fullmatch(r'[1-9][0-9]*(,[1-9][0-9]*)*', answer):
         raise ValueError('No valid campaign selection; nothing prepared or submitted')
     indices = list(map(int, answer.split(',')))

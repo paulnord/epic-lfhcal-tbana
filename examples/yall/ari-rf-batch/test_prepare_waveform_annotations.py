@@ -150,8 +150,65 @@ class AnnotationPreparationTest(unittest.TestCase):
         with patch('builtins.open', tty), contextlib.redirect_stdout(io.StringIO()):
             chosen = a.choose_campaigns(campaigns)
         self.assertEqual(chosen, [self.campaign])
-        tty.assert_called_once_with('/dev/tty', 'r+')
+        self.assertEqual(tty.call_count, 2)
+        self.assertEqual([call.args for call in tty.call_args_list], [('/dev/tty', 'r'), ('/dev/tty', 'w')])
         self.assertEqual(len(a.select_inputs(chosen)), 23)
+        self.assertFalse(self.destination.exists())
+
+    @unittest.skipUnless(os.name == 'posix', 'requires a POSIX pseudo-terminal')
+    def test_interactive_choice_uses_real_nonseekable_terminal(self):
+        import pty
+        import select
+        import signal
+        import sys
+        import time
+        pilot = self.make_campaign('pilot', [298])
+        campaigns = [self.campaign, pilot]
+        answer = str(sorted(campaigns).index(self.campaign)+1)+'\n'
+        sys.stdout.flush()
+        pid, fd = pty.fork()
+        if pid == 0:
+            try:
+                # The launcher pipes stdout through tee, so the prompt must use
+                # the controlling tty, not seek/read the output stream.
+                with open(os.devnull, 'w') as sink, contextlib.redirect_stdout(sink):
+                    chosen = a.choose_campaigns(campaigns)
+                os._exit(0 if chosen == [self.campaign] else 3)
+            except BaseException as exc:
+                os.write(2, (type(exc).__name__+': '+str(exc)+'\n').encode())
+                os._exit(2)
+        output = bytearray()
+        answered = False
+        status = None
+        deadline = time.monotonic()+10
+        try:
+            while time.monotonic() < deadline:
+                ready, _, _ = select.select([fd], [], [], .1)
+                if ready:
+                    try:
+                        chunk = os.read(fd, 65536)
+                    except OSError:
+                        chunk = b''
+                    if not chunk:
+                        break
+                    output.extend(chunk)
+                    if b'Enter to stop:' in output and not answered:
+                        os.write(fd, answer.encode())
+                        answered = True
+                waited, result = os.waitpid(pid, os.WNOHANG)
+                if waited:
+                    status = result
+                    break
+        finally:
+            os.close(fd)
+            if status is None:
+                waited, result = os.waitpid(pid, os.WNOHANG)
+                if not waited:
+                    os.kill(pid, signal.SIGKILL)
+                    _, result = os.waitpid(pid, 0)
+                status = result
+        self.assertTrue(answered, output.decode(errors='replace'))
+        self.assertEqual(status, 0, output.decode(errors='replace'))
         self.assertFalse(self.destination.exists())
 
     def test_interactive_choice_revalidates_and_cancels_safely(self):
