@@ -50,4 +50,16 @@ emit_command() {
     printf '\n'
 }
 
-emit_command /usr/bin/env ARI_RF_BATCH_WORKER=1 "$@" | "$EIC_SHELL"
+# Condor's inherited TMPDIR can name a host-only scratch directory that is not
+# mounted inside EIC. Create a private directory *after* container entry, using
+# an explicit container path rather than any inherited TMPDIR/TMP/TEMP value.
+# Keep this as one transported shell line: eic-shell reads commands linewise.
+# The archived wrapper remains self-contained and retains the payload exit code.
+container_entry=(
+    'set -euo pipefail;'
+    'tmp=$(/usr/bin/mktemp -d /tmp/ari-rf-worker.XXXXXXXXXX);'
+    'trap '\''rc=$?; /bin/rm -rf -- "$tmp" || true; exit "$rc"'\'' EXIT;'
+    'export TMPDIR="$tmp" TMP="$tmp" TEMP="$tmp";'
+    '"$@"'
+)
+emit_command /usr/bin/env ARI_RF_BATCH_WORKER=1 /bin/bash -c "${container_entry[*]}" ari-rf-worker "$@" | "$EIC_SHELL"

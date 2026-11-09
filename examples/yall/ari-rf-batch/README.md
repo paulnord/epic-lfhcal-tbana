@@ -91,6 +91,14 @@ Full has 145 nodes: one build, 26 unique conversions, 13 pedestal extractions, 1
 
 ## Safety, provenance, logs, retries
 
+The archived worker creates a private temporary directory inside the EIC
+container and sets `TMPDIR`, `TMP` and `TEMP` for its payload. This avoids
+inheriting a submit/execute-host temporary path that the container cannot see.
+The directory is removed when the payload exits normally or with an error;
+a forced kill may prevent cleanup. Prepare a fresh campaign after updating the
+wrapper: an existing campaign keeps its archived copy. Do not disable CTest or
+manually create a build-ready marker to work around a temporary-path failure.
+
 Keep source, config, scripts, raw files and container image immutable from preparation until completion. `preparation.json` records source HEAD/diff, small-input SHA256 hashes and raw size/mtime (not a huge login-host hash pass). Build records compiler environment and decoder SHA in `build/environment.txt`; yall campaign captures expanded commands/graph and attempt logs/provenance. Preserve all of these with results. Pin/record the actual EIC image on BNL; its identity is not available here.
 
 Defaults mirror existing scan examples: 1 CPU, 4GB RAM, 8GB disk, 2h; conversion 2GB RAM; build 2 CPUs. They are starting requests, not measured bounds. `%time` is a site-specific MaxRuntime convention; confirm BNL policy and tune after pilot. `%retry 0` intentionally avoids destructive automatic retries against partially written ROOT outputs. Inspect failed-node logs before recovery; safest retry is a fresh isolated workspace. Never add `-f`, erase outputs, or resume blindly. Generator refuses an existing destination. No job is submitted by `prepare.py`.
