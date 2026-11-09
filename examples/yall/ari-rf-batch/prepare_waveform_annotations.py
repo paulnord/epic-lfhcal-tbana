@@ -15,7 +15,8 @@ import shutil
 import subprocess
 import tempfile
 
-REPO = Path(__file__).resolve().parents[3]
+SCRIPT = Path(os.path.abspath(__file__))
+REPO = SCRIPT.parents[3]
 RF_RUNS = (298, 300, 304, 306, 310, 329, 333, 335, 337, 339, 341, 343, 345)
 OTHER_RUNS = (347, 349, 351, 353, 355, 357, 359, 361, 363)
 GROUPS = (RF_RUNS, OTHER_RUNS, (302,))
@@ -51,13 +52,24 @@ def record(path):
 
 def unchanged(item):
     now = record(Path(item['path']))
-    if any(now[k] != item[k] for k in ('realpath', 'size_bytes', 'mtime_ns')):
-        raise ValueError(f'Input changed since preparation: {item["path"]}')
+    changed = [k for k in ('realpath', 'size_bytes', 'mtime_ns') if now[k] != item[k]]
+    if changed:
+        details = '; '.join(f'{k}: recorded={item[k]!r}, current={now[k]!r}' for k in changed)
+        raise ValueError(f'Input changed since preparation: {item["path"]}; {details}')
+
+
+def unique_campaigns(campaigns):
+    """Deduplicate real directories, but retain the first supplied shared path."""
+    selected = {}
+    for campaign in campaigns:
+        logical = Path(os.path.abspath(campaign))
+        selected.setdefault(logical.resolve(), logical)
+    return sorted(selected.values())
 
 
 def discover(roots, max_depth=5, max_directories=10000):
     """Look only for small campaign metadata, never enumerate data/source trees."""
-    found = set()
+    found = []
     count = 0
     def walk_error(error):
         raise error
@@ -76,9 +88,9 @@ def discover(roots, max_depth=5, max_directories=10000):
             if depth >= max_depth:
                 dirs[:] = []
             if 'campaign.json' in files:
-                found.add(Path(here).resolve())
+                found.append(Path(os.path.abspath(here)))
                 dirs[:] = []
-    return sorted(found)
+    return unique_campaigns(found)
 
 
 def completed(campaign, name, task):
@@ -168,7 +180,7 @@ def campaign_inputs(campaign):
 
 def select_inputs(campaigns):
     candidates, diagnostics = [], []
-    for campaign in sorted(set(p.resolve() for p in campaigns)):
+    for campaign in unique_campaigns(campaigns):
         try:
             items, errors = campaign_inputs(campaign)
             diagnostics.extend(errors)
@@ -204,7 +216,7 @@ def choose_campaigns(campaigns):
         print('All 23 runs have verified calibrated inputs; source campaigns overlap.')
         print(str(exc))
     eligible = []
-    for campaign in sorted(set(p.resolve() for p in campaigns)):
+    for campaign in unique_campaigns(campaigns):
         try:
             items, _ = campaign_inputs(campaign)
             if items:
@@ -242,7 +254,7 @@ def prepare(destination, campaigns, eic):
     for p in protected:
         if destination.resolve() == p.resolve() or p.resolve() in destination.resolve().parents:
             raise ValueError(f'Destination must be outside source/input workspace/campaign: {p}')
-    script = Path(__file__).resolve()
+    script = SCRIPT
     wrapper = script.with_name('worker.sh')
     build = script.with_name('build.sh')
     tracked = [script, wrapper, build, REPO/'NewStructure/WaveformAnnotations.h',

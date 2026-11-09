@@ -13,7 +13,11 @@ import shutil
 PAIRS = [(296,298,1),(299,300,1),(303,304,1),(305,306,1),(309,310,1),
          (328,329,2),(332,333,2),(334,335,2),(336,337,2),(338,339,2),
          (340,341,2),(342,343,2),(344,345,2)]
-REPO = Path(__file__).resolve().parents[3]
+# Preserve the shared path used to invoke preparation (for example /gpfs01).
+# Resolving a submit-host symlink here can render worker commands with a
+# host-internal prefix that is not mounted in every execution environment.
+SCRIPT = Path(os.path.abspath(__file__))
+REPO = SCRIPT.parents[3]
 
 def prepare(destination, raw, eic_shell, mode, acknowledge, *, pairs_override=None,
             campaign_name=None, include_summary=True, extra_metadata=None):
@@ -71,7 +75,7 @@ def prepare(destination, raw, eic_shell, mode, acknowledge, *, pairs_override=No
     python3 @input.driver {{BUILD}}/CompareWaveform @input.rundb @output.root @output.plots --calibrated @input.calibrated --hists @input.hists
 '''
     template = re.sub(r'(^[^#@% \n][^\n]*:\s*[^\n]*\n)', r'\1    %retry 0\n', template, flags=re.MULTILINE)
-    tracked = list((REPO/'configs/TB2026').glob('*')) + list(Path(__file__).resolve().parent.glob('*.py')) + list(Path(__file__).resolve().parent.glob('*.sh')) + [REPO/'tools/run-in-eic-shell.sh', REPO/'examples/yall/scan-set-1/Yallfile']
+    tracked = list((REPO/'configs/TB2026').glob('*')) + list(SCRIPT.parent.glob('*.py')) + list(SCRIPT.parent.glob('*.sh')) + [REPO/'tools/run-in-eic-shell.sh', REPO/'examples/yall/scan-set-1/Yallfile']
     hashes = {str(f.relative_to(REPO)):hashlib.sha256(f.read_bytes()).hexdigest() for f in tracked if f.is_file()}
     raw_stats = {str(raw/f'Run{r}.h2g'):{'size':(raw/f'Run{r}.h2g').stat().st_size,'mtime_ns':(raw/f'Run{r}.h2g').stat().st_mtime_ns} for r in sorted({r for p in pairs for r in p[:2]})}
     metadata = {'input_sha256':hashes, 'raw_stat_not_hash':raw_stats, 'git_diff':subprocess.check_output(['git','-C',str(REPO),'diff','HEAD'],text=True), 'mode':mode, 'recipe':'recovered Ari reduced-tree three-pass/fullMuon sequence; existing scan-set-1 template', 'pairs':pairs,

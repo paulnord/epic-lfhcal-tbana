@@ -73,7 +73,20 @@ class PreparationTest(unittest.TestCase):
                        check=True,capture_output=True,text=True)
         metadata=json.loads((destination/'preparation.json').read_text())
         self.assertIn('examples/yall/ari-rf-batch/compare.py',metadata['input_sha256'])
-        self.assertEqual(metadata['repo'],str(p.REPO))
+        self.assertEqual(metadata['repo'],str(alias))
+        source=(destination/'Yallfile').read_text()
+        self.assertIn(str(alias/'examples/yall/ari-rf-batch/worker.sh'),source)
+        self.assertIn(str(alias/'configs/TB2026'),source)
+        self.assertNotIn(str(p.REPO),source)
+
+    def test_annotation_launcher_retains_logical_checkout_path(self):
+        alias=self.base/'alias-source';alias.symlink_to(p.REPO,target_is_directory=True)
+        launcher=p.REPO/'examples/yall/ari-rf-batch/launch_waveform_annotations.sh'
+        assignment=next(line for line in launcher.read_text().splitlines() if line.startswith('repo='))
+        result=subprocess.run(['/bin/bash','-c',assignment+'; printf "%s\\n" "$repo"',
+                               str(alias/'examples/yall/ari-rf-batch/launch_waveform_annotations.sh')],
+                              capture_output=True,text=True,check=True)
+        self.assertEqual(result.stdout.strip(),str(alias))
     def test_provenance_failure_leaves_no_destination(self):
         with patch.object(p.subprocess,'check_output',side_effect=RuntimeError('provenance failed')):
             with self.assertRaises(RuntimeError): self.generate()

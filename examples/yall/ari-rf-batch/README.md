@@ -91,6 +91,14 @@ Full has 145 nodes: one build, 26 unique conversions, 13 pedestal extractions, 1
 
 ## Safety, provenance, logs, retries
 
+Preparation keeps the logical absolute checkout and campaign paths supplied by
+the operator. In particular, invoking through `/gpfs01/...` must not introduce
+a submit-host `/gpfs/mnt/gpfs01/...` prefix into new worker commands. Resolved
+paths still participate in destination-isolation and input-identity checks;
+path spelling alone is not evidence that a file is equivalent or unchanged.
+Annotation input errors list the changed fields (resolved path, size, mtime).
+Do not rewrite an existing campaign or its provenance to hide a mismatch.
+
 The archived worker creates a private temporary directory inside the EIC
 container and sets `TMPDIR`, `TMP` and `TEMP` for its payload. This avoids
 inheriting a submit/execute-host temporary path that the container cannot see.

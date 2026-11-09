@@ -96,6 +96,44 @@ class AnnotationPreparationTest(unittest.TestCase):
         self.assertEqual(before, {name:Path(name).read_bytes() for name in before})
         self.assertEqual((self.destination/'Yallfile').read_text().count('%retry 0'), 24)
 
+    def test_logical_source_and_campaign_paths_survive_preparation(self):
+        alias = self.base/'source-alias'
+        alias.symlink_to(a.REPO, target_is_directory=True)
+        spec = importlib.util.spec_from_file_location('annotation_logical',
+                   alias/'examples/yall/ari-rf-batch/prepare_waveform_annotations.py')
+        logical = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(logical)
+        campaign_alias = self.base/'campaign-alias'
+        campaign_alias.symlink_to(self.campaign.parent, target_is_directory=True)
+        selected = campaign_alias/self.campaign.name
+        with contextlib.redirect_stdout(io.StringIO()):
+            logical.prepare(self.destination, [selected, self.campaign], self.eic)
+        data = logical.read_json(self.destination/'preparation.json')
+        self.assertEqual(data['repo'], str(alias))
+        self.assertEqual({x['campaign'] for x in data['inputs']}, {str(selected)})
+        self.assertTrue(all(str(selected/'campaign.json') in x['proofs'] for x in data['inputs']))
+        self.assertTrue(all(path.startswith(str(alias)+'/') for path in data['code_sha256']))
+        text = (self.destination/'Yallfile').read_text()
+        self.assertIn(str(alias/'examples/yall/ari-rf-batch/prepare_waveform_annotations.py'), text)
+        self.assertIn(str(alias/'examples/yall/ari-rf-batch/worker.sh'), text)
+        self.assertNotIn(str(a.REPO), text)
+        self.assertEqual(len(load_spec(self.destination/'Yallfile').tasks), 24)
+
+    def test_input_identity_checks_still_reject_resolved_path_change(self):
+        item = a.record(self.base/'original/products/calibrated/calibratedHGCROC_Run_302.root')
+        changed = dict(item, realpath='/different/mount/or/target.root')
+        with patch.object(a, 'record', return_value=changed):
+            with self.assertRaisesRegex(ValueError, 'realpath: recorded=.*current='):
+                a.unchanged(item)
+
+    def test_protected_destination_is_checked_through_alias(self):
+        alias = self.base/'workspace-alias'
+        alias.symlink_to(self.base/'original', target_is_directory=True)
+        self.destination = alias/'new-annotations'
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            self.prepare()
+        self.assertFalse(self.destination.exists())
+
     def test_missing_302_fails_without_destination(self):
         (self.base/'original/products/calibrated/calibratedHGCROC_Run_302.root').unlink()
         with self.assertRaisesRegex(ValueError, 'run302.*missing'):
@@ -300,6 +338,23 @@ class AnnotationPreparationTest(unittest.TestCase):
         (root/'visible/campaign.json').write_text('{}')
         (root/'alias').symlink_to(self.campaign, target_is_directory=True)
         self.assertEqual(a.discover([root]), [(root/'visible').resolve()])
+
+    def test_discovery_preserves_supplied_root_alias(self):
+        root = self.base/'discovery'
+        (root/'visible').mkdir(parents=True)
+        (root/'visible/campaign.json').write_text('{}')
+        alias = self.base/'discovery-alias'
+        alias.symlink_to(root, target_is_directory=True)
+        self.assertEqual(a.discover([alias]), [alias/'visible'])
+
+    def test_discovery_alias_dedup_keeps_first_supplied_root(self):
+        root = self.base/'a-internal-storage'
+        (root/'visible').mkdir(parents=True)
+        (root/'visible/campaign.json').write_text('{}')
+        alias = self.base/'z-worker-visible'
+        alias.symlink_to(root, target_is_directory=True)
+        self.assertEqual(a.discover([alias, root]), [alias/'visible'])
+        self.assertEqual(a.discover([root, alias]), [root/'visible'])
 
     def test_discovery_directory_bound(self):
         with self.assertRaisesRegex(ValueError, 'limit'):

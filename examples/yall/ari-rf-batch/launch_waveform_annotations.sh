@@ -4,7 +4,7 @@
 set -euo pipefail
 [[ $# == 1 ]] || { echo 'Usage: /bin/bash launch_waveform_annotations.sh FRESH_BASE' >&2; exit 2; }
 base=$1
-repo=$(cd "$(dirname "$0")/../../.." && pwd -P)
+repo=$(cd -L "$(dirname "$0")/../../.." && pwd -L)
 [[ -d "$base" && ! -e "$base/work" ]] || { echo 'Base must exist and work must be fresh.' >&2; exit 2; }
 [[ -z ${ARI_RF_BATCH_WORKER:-} && -z ${_CONDOR_JOB_AD:-} ]] || { echo 'Submit from the normal host shell, not a worker.' >&2; exit 2; }
 for command in python3 git yall-run condor_submit condor_submit_dag; do
