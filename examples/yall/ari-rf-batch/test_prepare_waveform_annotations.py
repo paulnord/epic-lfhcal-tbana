@@ -81,6 +81,23 @@ class AnnotationPreparationTest(unittest.TestCase):
         change(data)
         path.write_text(json.dumps(data))
 
+    def test_run302_only_reuses_calibration_and_builds_two_node_graph(self):
+        only = self.make_campaign('only302', (302,))
+        with contextlib.redirect_stdout(io.StringIO()):
+            a.prepare(self.destination, [only], self.eic, runs=(302,))
+        data = a.read_json(self.destination/'preparation.json')
+        self.assertEqual([x['run'] for x in data['inputs']], [302])
+        tasks = {t.name:t for t in load_spec(self.destination/'Yallfile').tasks}
+        self.assertEqual(set(tasks), {'build', 'waveform-302'})
+        self.assertEqual(tasks['waveform-302'].parents, ('build',))
+
+    def test_subset_still_rejects_changed_input(self):
+        only = self.make_campaign('only302', (302,))
+        (self.base/'only302/products/calibrated/calibratedHGCROC_Run_302.root').write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'Calibration changed'):
+            a.prepare(self.destination, [only], self.eic, runs=(302,))
+        self.assertFalse(self.destination.exists())
+
     def test_complete_graph_and_no_old_mutation(self):
         before = {str(f):f.read_bytes() for root in (self.base/'original', self.campaign)
                   for f in root.rglob('*') if f.is_file()}

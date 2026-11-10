@@ -178,7 +178,7 @@ def campaign_inputs(campaign):
     return results, errors
 
 
-def select_inputs(campaigns):
+def select_inputs(campaigns, runs=RUNS):
     candidates, diagnostics = [], []
     for campaign in unique_campaigns(campaigns):
         try:
@@ -190,7 +190,7 @@ def select_inputs(campaigns):
             diagnostics.append(f'{campaign}: {exc}')
     selected = {}
     problems = []
-    for run in RUNS:
+    for run in runs:
         matches = [x[run] for _, x in candidates if run in x]
         if len(matches) == 1:
             selected[run] = matches[0]
@@ -202,18 +202,18 @@ def select_inputs(campaigns):
         # irrelevant errors as lost data when every requested run is verified.
         details = diagnostics if any('missing verified' in p for p in problems) else []
         raise ValueError('\n'.join(problems + ['Supply explicit --campaign paths to narrow discovery. No runs were skipped.'] + details))
-    return [selected[r] for r in RUNS]
+    return [selected[r] for r in runs]
 
 
-def choose_campaigns(campaigns):
+def choose_campaigns(campaigns, runs=RUNS):
     """Ask the operator only when history contains competing completed inputs."""
     try:
-        select_inputs(campaigns)
+        select_inputs(campaigns, runs)
         return campaigns
     except ValueError as exc:
         if 'missing verified' in str(exc):
             raise
-        print('All 23 runs have verified calibrated inputs; source campaigns overlap.')
+        print(f'All {len(runs)} requested runs have verified calibrated inputs; source campaigns overlap.')
         print(str(exc))
     eligible = []
     for campaign in unique_campaigns(campaigns):
@@ -236,11 +236,11 @@ def choose_campaigns(campaigns):
     if len(indices) != len(set(indices)) or any(i > len(eligible) for i in indices):
         raise ValueError('Invalid campaign selection; nothing prepared or submitted')
     chosen = [eligible[i-1] for i in indices]
-    select_inputs(chosen)  # Exactly one proven calibration per requested run.
+    select_inputs(chosen, runs)  # Exactly one proven calibration per requested run.
     return chosen
 
 
-def prepare(destination, campaigns, eic):
+def prepare(destination, campaigns, eic, runs=RUNS):
     for p in (destination, REPO, eic, *campaigns):
         safe(p)
     if destination.exists() or destination.is_symlink():
@@ -249,7 +249,7 @@ def prepare(destination, campaigns, eic):
         raise ValueError('Destination must not contain .root (native histogram naming replaces it)')
     if not eic.is_file() or not os.access(eic, os.X_OK):
         raise ValueError('EIC launcher is not executable')
-    inputs = select_inputs(campaigns)
+    inputs = select_inputs(campaigns, runs)
     protected = [REPO, *campaigns, *(Path(x['path']).parent.parent.parent for x in inputs)]
     for p in protected:
         if destination.resolve() == p.resolve() or p.resolve() in destination.resolve().parents:
@@ -264,7 +264,7 @@ def prepare(destination, campaigns, eic):
                 'git_diff': subprocess.check_output(['git', '-C', str(REPO), 'diff', 'HEAD'], text=True),
                 'inputs': inputs, 'destination': str(destination), 'eic_shell': str(eic),
                 'code_sha256': {str(p): sha(p) for p in tracked},
-                'note': '23 parameter-scan runs, including 302; reuse calibrated event inputs read-only. No calibration, raw conversion, fits or cuts are added. ROOT checks and waveform processing are worker-only.'}
+                'note': f'{len(runs)} requested parameter-scan runs; reuse calibrated event inputs read-only. No calibration, raw conversion, fits or cuts are added. ROOT checks and waveform processing are worker-only.'}
     source = f'''campaign ari-waveform-annotations
 backend condor
 %account-provenance off
@@ -310,8 +310,8 @@ waveform-{run}: build
             subprocess.run(['yall-run', 'validate', str(stage/'Yallfile')], check=True)
         else:
             spec = load_spec(stage/'Yallfile')
-            if len(spec.tasks) != 24 or any(t.parents != ('build',) for t in spec.tasks if t.name != 'build'):
-                raise ValueError('Expected exactly one build plus 23 waveform nodes')
+            if len(spec.tasks) != len(inputs) + 1 or any(t.parents != ('build',) for t in spec.tasks if t.name != 'build'):
+                raise ValueError('Expected exactly one build plus the requested waveform nodes')
         if destination.exists() or destination.is_symlink():
             raise ValueError('Destination appeared during preparation')
         stage.rename(destination)
@@ -320,7 +320,7 @@ waveform-{run}: build
             shutil.rmtree(stage)
     for item in inputs:
         print(f"run{item['run']}: {item['path']} (completed {item['producer']})")
-    print(f'Prepared 24 tasks at {destination}; no jobs submitted.')
+    print(f'Prepared {len(inputs)+1} tasks at {destination}; no jobs submitted.')
 
 
 def worker_metadata(path):
@@ -365,7 +365,7 @@ def worker_build(path):
     subprocess.run(['/bin/bash', str(repo/'examples/yall/ari-rf-batch/build.sh'), str(repo), str(build), str(build/'READY')], check=True)
     for item in data['inputs']:
         verify_root(item)
-    (build/'ANNOTATIONS_READY').write_text('Build/tests and all 23 structural input checks passed.\n')
+    (build/'ANNOTATIONS_READY').write_text(f'Build/tests and all {len(data["inputs"])} structural input checks passed.\n')
 
 
 def worker_run(path, run):
@@ -404,6 +404,8 @@ def worker_run(path, run):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--destination', type=Path)
+    p.add_argument('--runs', nargs='+', type=int, choices=RUNS, default=list(RUNS),
+                   help='Only these scan runs (default: all 23); for example --runs 302')
     p.add_argument('--search-root', action='append', type=Path, default=[])
     p.add_argument('--campaign', action='append', type=Path, default=[])
     p.add_argument('--eic-shell', type=Path)
@@ -418,10 +420,11 @@ def main():
         elif a.worker_run is not None and a.manifest:
             worker_run(a.manifest, a.worker_run)
         elif a.destination and a.eic_shell and (a.search_root or a.campaign):
+            runs = tuple(sorted(set(a.runs)))
             campaigns = a.campaign + discover(a.search_root)
             if a.interactive:
-                campaigns = choose_campaigns(campaigns)
-            prepare(a.destination, campaigns, a.eic_shell)
+                campaigns = choose_campaigns(campaigns, runs)
+            prepare(a.destination, campaigns, a.eic_shell, runs)
         else:
             p.error('Required: --destination --eic-shell and --search-root or --campaign')
     except (ValueError, OSError, KeyError, StopIteration, subprocess.CalledProcessError) as exc:
@@ -429,3 +432,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
