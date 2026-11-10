@@ -136,6 +136,29 @@ class AnnotationPreparationTest(unittest.TestCase):
         self.assertNotIn(str(a.REPO), text)
         self.assertEqual(len(load_spec(self.destination/'Yallfile').tasks), 24)
 
+    def test_worker_accepts_only_known_mount_alias_for_same_logical_file(self):
+        public = '/gpfs01/star/scratch/pnord/input.root'
+        internal = '/gpfs/mnt' + public
+        for old, new in ((internal, public), (public, internal)):
+            item = {'path':public, 'realpath':old, 'size_bytes':123, 'mtime_ns':456}
+            with patch.object(a, 'record', return_value=dict(item, realpath=new)):
+                a.unchanged(item)
+
+    def test_mount_alias_does_not_hide_content_stat_changes(self):
+        item = {'path':'/gpfs01/star/input.root', 'realpath':'/gpfs/mnt/gpfs01/star/input.root',
+                'size_bytes':123, 'mtime_ns':456}
+        for key in ('size_bytes', 'mtime_ns'):
+            now = dict(item, realpath=item['path'])
+            now[key] += 1
+            with patch.object(a, 'record', return_value=now):
+                with self.assertRaisesRegex(ValueError, key): a.unchanged(item)
+
+    def test_mount_alias_does_not_accept_different_target(self):
+        self.assertFalse(a.same_input_location('/gpfs01/star/input.root',
+            '/gpfs/mnt/gpfs01/star/input.root', '/gpfs01/star/other.root'))
+        self.assertFalse(a.same_input_location('/elsewhere/input.root',
+            '/gpfs/mnt/gpfs01/star/input.root', '/gpfs01/star/input.root'))
+
     def test_input_identity_checks_still_reject_resolved_path_change(self):
         item = a.record(self.base/'original/products/calibrated/calibratedHGCROC_Run_302.root')
         changed = dict(item, realpath='/different/mount/or/target.root')

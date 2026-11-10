@@ -50,9 +50,28 @@ def record(path):
             'size_bytes': st.st_size, 'mtime_ns': st.st_mtime_ns}
 
 
+def same_input_location(logical, recorded, current):
+    """Accept only the observed BNL host/container alias of the logical file.
+
+    Do not canonicalize arbitrary targets: an unrelated symlink retarget must
+    still fail, including one elsewhere on the same GPFS filesystem.
+    """
+    if recorded == current:
+        return True
+    public = str(logical)
+    if public.startswith('/gpfs/mnt/gpfs01/'):
+        public = public[len('/gpfs/mnt'):]
+    if not public.startswith('/gpfs01/'):
+        return False
+    aliases = {public, '/gpfs/mnt' + public}
+    return recorded in aliases and current in aliases
+
+
 def unchanged(item):
     now = record(Path(item['path']))
-    changed = [k for k in ('realpath', 'size_bytes', 'mtime_ns') if now[k] != item[k]]
+    changed = [k for k in ('size_bytes', 'mtime_ns') if now[k] != item[k]]
+    if not same_input_location(item['path'], item['realpath'], now['realpath']):
+        changed.insert(0, 'realpath')
     if changed:
         details = '; '.join(f'{k}: recorded={item[k]!r}, current={now[k]!r}' for k in changed)
         raise ValueError(f'Input changed since preparation: {item["path"]}; {details}')
