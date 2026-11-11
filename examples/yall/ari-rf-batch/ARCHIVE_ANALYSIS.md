@@ -13,9 +13,9 @@ Filesystem free space does NOT establish user/group/fileset quota. If quota is u
 
 ## 2. Inventory, with no copying
 
-    python3 archive_ari.py
+    python3 archive_ari.py --summary
 
-The JSON can be long; inspect or save terminal output without overwriting existing files.
+`--summary` prints concise coverage, size, Git validity and the first 20 issues. Omit it for the full read-only JSON inventory. Inspect all issues before deciding the archive is restorable.
 
 Default trees are the rebuild workspace, latest Run302 annotations workspace and original Run302 workspace. Add verified newer plot/source workspaces with `--source /absolute/path`. Review all `issues`, actual calibrated inputs, campaign status, symlink targets and references before copying. Missing historical references may be nonessential, but must be understood rather than silently dismissed. Manifest paths and command tokens are inventoried; this cannot infer every dependency hidden in arbitrary scripts or relative paths.
 
@@ -28,7 +28,9 @@ Choose a NEW directory under the existing PWG analysis parent. The timestamp com
 
 Repeat any `--source` options from inventory. These flags are your confirmation that writers are stopped and quota was checked, not automated checks. If copying fails, leave the partial directory for inspection and choose a different NEW destination for another attempt. No automatic resume or cleanup is performed.
 
-All files in selected trees are preserved except Git administrative directories (replaced by verified bundles and Git status/diffs) and raw .h2g files (references only). Exact external scratch file dependencies and referenced campaign metadata trees are included. External arbitrary directories and non-scratch files are reported rather than blindly copied. Do not pass a whole home directory. No environment dump is collected. Existing build configuration/logs and source trees are included; external launcher/container dependencies require review.
+All files in selected trees are preserved except valid Git administrative directories (replaced by verified bundles and Git status/diffs); invalid Git directories are preserved as existing bytes with unavailable provenance explicitly reported and raw .h2g files (references only). Exact external scratch file dependencies and referenced campaign metadata trees are included. External arbitrary directories and non-scratch files are reported rather than blindly copied. Do not pass a whole home directory. No environment dump is collected. Existing build configuration/logs and source trees are included; external launcher/container dependencies require review.
+
+All valid Git bundles are created and verified before any payload copy. A broken parent checkout does not prevent independently valid submodules from being bundled. Existing invalid Git administration is preserved without following external administrative symlinks; this does not repair or certify that history.
 
 ## 4. Interpret the result carefully
 

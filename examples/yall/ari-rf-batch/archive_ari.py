@@ -29,6 +29,7 @@ def within(p,root): return p==root or root in p.parents
 def main():
  ap=argparse.ArgumentParser(description=__doc__)
  ap.add_argument('--source',action='append',default=[],help='Additional verified workspace; defaults always included')
+ ap.add_argument('--summary',action='store_true',help='Print compact inventory summary instead of full JSON')
  ap.add_argument('--copy',action='store_true',help='Copy only after reviewing inventory, quiescing writers and quota')
  ap.add_argument('--destination',type=P,help='NEW direct child of verified PWG analysis parent')
  ap.add_argument('--sources-quiescent',action='store_true',help='User confirms no jobs/writers modifying these sources')
@@ -104,17 +105,47 @@ def main():
     if (p/'campaign.json').is_file() and '/star/scratch/pnord/' in str(p.resolve()):
      scan(p.resolve())
     else:issues.append('External directory reference needs review/additional --source: '+value)
+ for repo in repos:
+  for key,args in {'commit':['rev-parse','HEAD'],'status':['status','--porcelain=v1','--untracked-files=all'],
+   'diff':['diff','--binary','HEAD'],'staged_diff':['diff','--binary','--cached'],
+   'common_dir':['rev-parse','--git-common-dir'],'refs':['show-ref','--head'],'submodules':['submodule','status','--recursive']}.items():
+   repos[repo][key]=command(['git','-C',repo]+args)
+  metadata=repos[repo]
+  metadata['valid_for_bundle']=all(metadata[k]['returncode']==0 for k in ('commit','status','diff','staged_diff','common_dir','refs'))
+  if not metadata['valid_for_bundle']:
+   issues.append('Git provenance unavailable; preserving existing administrative bytes without claiming valid history: '+repo)
+   admin=P(repo)/'.git'
+   metadata['administrative_bytes_preserved']=str(admin)
+   # Preserve failed parent's admin data, including independently valid modules.
+   # Never dereference symlinks here or follow a gitdir pointer automatically.
+   entries=[]
+   if admin.is_symlink() or admin.is_file():entries=[admin]
+   elif admin.is_dir():
+    for d,ds,ns in os.walk(admin,followlinks=False):
+     directories[d]=fingerprint(P(d))
+     for n in ds[:]:
+      q=P(d)/n
+      if q.is_symlink():entries.append(q);ds.remove(n)
+     entries.extend(P(d)/n for n in ns)
+   for q in entries:
+    if q.is_symlink():
+     links[str(q)]={'target':os.readlink(q),'resolved':str(q.resolve()),'fingerprint':fingerprint(q)}
+     issues.append('Git admin symlink retained without following target: '+str(q))
+    elif q.is_file():files[str(q)]={'fingerprint':fingerprint(q)}
+    else:issues.append('Nonregular Git administrative entry: '+str(q))
+  # Initialized submodule worktrees are independently discovered and bundled.
+  if metadata['submodules']['returncode']:
+   issues.append('Submodule inventory unavailable; review discovered checkout list: '+repo)
+  elif metadata['submodules']['stdout'].strip():
+   for line in metadata['submodules']['stdout'].splitlines():
+    fields=line.split()
+    if len(fields)>1 and str((P(repo)/fields[1]).resolve()) not in repos:
+     issues.append('Submodule not independently discovered; review history: '+line)
  # Canonicalize aliases to prevent duplicate GPFS mount spellings.
  canonical={}
  for name,item in files.items():
   real=str(P(name).resolve());canonical.setdefault(real,{'fingerprint':fingerprint(P(real)),'aliases':[]})['aliases'].append(name)
  files=canonical
- for repo in repos:
-  for key,args in {'commit':['rev-parse','HEAD'],'status':['status','--porcelain=v1','--untracked-files=all'],
-   'diff':['diff','--binary','HEAD'],'staged_diff':['diff','--binary','--cached'],
-   'common_dir':['rev-parse','--git-common-dir'],'submodules':['submodule','status','--recursive']}.items():
-   repos[repo][key]=command(['git','-C',repo]+args)
-  if repos[repo]['submodules']['stdout'].strip():issues.append('Submodule histories require separate review: '+repo)
  readable_nonempty={name for name,x in files.items() if x['fingerprint'][3]>0 and os.access(name,os.R_OK)}
  present={int(m.group(1)) for name in readable_nonempty for m in [re.search(r'calibratedHGCROC_Run_(\d+)\.root$',name)] if m}
  hists={int(m.group(1)) for name in readable_nonempty for m in [re.search(r'calibratedHGCROC_wave_Run_(\d+)_Hists\.root$',name)] if m}
@@ -130,7 +161,15 @@ def main():
   'copy_bytes':sum(x['fingerprint'][3] for x in files.values()),
   'restorability':'NOT_CERTIFIED: review references, symlink relocation, campaign completion and scientific run coverage'}
  if not a.copy:
-  print(json.dumps(report,indent=2));return
+  if a.summary:
+   summary={k:report[k] for k in ('roots','coverage','copy_bytes','issues','restorability')}
+   summary['issue_count']=len(report['issues'])
+   summary['issues']=report['issues'][:20]
+   summary['issues_truncated']=len(report['issues'])>20
+   summary['git_checkouts']={r:{'valid_for_bundle':d['valid_for_bundle'],'commit':d['commit']['stdout'].strip(),'commit_error':d['commit']['stderr'].strip()} for r,d in repos.items()}
+   print(json.dumps(summary,indent=2))
+  else:print(json.dumps(report,indent=2))
+  return
  dest=a.destination.absolute()
  if dest.parent.resolve()!=PARENT.resolve() or not PARENT.is_dir():raise RuntimeError('Destination must be a new direct child of existing PWG analysis parent')
  if dest.exists() or dest.is_symlink():raise RuntimeError('Destination already exists; never overwrite or resume')
@@ -138,8 +177,20 @@ def main():
  if shutil.disk_usage(PARENT).free < report['copy_bytes']:raise RuntimeError('Insufficient filesystem space (quota still separately required)')
  dest.mkdir(mode=0o700) # exclusive; a failed snapshot is left in place for inspection
  (dest/'SNAPSHOT_STARTED').write_text('Snapshot started. Only COPY_VERIFIED_RESTORABILITY_REVIEW_REQUIRED indicates byte verification finished. No completeness claim.\n')
- payload=dest/'payload';payload.mkdir(); meta=dest/'metadata';meta.mkdir()
+ meta=dest/'metadata';meta.mkdir()
  (meta/'inventory-before.json').write_text(json.dumps(report,indent=2))
+ # Preflight EVERY valid Git bundle before creating/copying any payload.
+ for i,(repo,metadata) in enumerate(repos.items()):
+  if not metadata['valid_for_bundle']:continue
+  bundle=meta/('source-%03d.bundle'%i)
+  r=command(['git','-C',repo,'bundle','create',str(bundle),'--all','HEAD'])
+  if r['returncode']:raise RuntimeError('Git bundle failed: '+r['stderr'])
+  r=command(['git','-C',repo,'bundle','verify',str(bundle)])
+  if r['returncode']:raise RuntimeError('Git bundle verification failed: '+r['stderr'])
+  metadata['bundle']={'path':str(bundle.relative_to(dest)),'sha256':sha(bundle)}
+  for key,args in [('commit',['rev-parse','HEAD']),('status',['status','--porcelain=v1','--untracked-files=all']),('diff',['diff','--binary','HEAD']),('staged_diff',['diff','--binary','--cached']),('refs',['show-ref','--head'])]:
+   if command(['git','-C',repo]+args)!=metadata[key]:raise RuntimeError('Git source changed during preflight: '+repo)
+ payload=dest/'payload';payload.mkdir()
  # Original absolute paths represented beneath payload/. Symlinks retained and reported;
  # external file targets are copied separately, never silently dereferenced or overwritten.
  for name,item in files.items():
@@ -163,14 +214,9 @@ def main():
  for name,item in raw.items():
   p=P(name);item['integrity']='Path and stat recorded only; use existing raw archive checksum records if available'
   if fingerprint(p)!=item['fingerprint']:raise RuntimeError('Raw reference changed: '+name)
- for i,(repo,metadata) in enumerate(repos.items()):
-  bundle=meta/('source-%03d.bundle'%i)
-  r=command(['git','-C',repo,'bundle','create',str(bundle),'--all','HEAD'])
-  if r['returncode']:raise RuntimeError('Git bundle failed: '+r['stderr'])
-  r=command(['git','-C',repo,'bundle','verify',str(bundle)])
-  if r['returncode']:raise RuntimeError('Git bundle verification failed: '+r['stderr'])
-  metadata['bundle']={'path':str(bundle.relative_to(dest)),'sha256':sha(bundle)}
-  for key,args in [('commit',['rev-parse','HEAD']),('status',['status','--porcelain=v1','--untracked-files=all']),('diff',['diff','--binary','HEAD']),('staged_diff',['diff','--binary','--cached'])]:
+ for repo,metadata in repos.items():
+  if not metadata['valid_for_bundle']:continue
+  for key,args in [('commit',['rev-parse','HEAD']),('status',['status','--porcelain=v1','--untracked-files=all']),('diff',['diff','--binary','HEAD']),('staged_diff',['diff','--binary','--cached']),('refs',['show-ref','--head'])]:
    if command(['git','-C',repo]+args)!=metadata[key]:raise RuntimeError('Git source changed: '+repo)
  for name,item in files.items():
   if fingerprint(P(name))!=item['fingerprint']:raise RuntimeError('Source changed during snapshot: '+name)
@@ -182,7 +228,7 @@ def main():
   if fingerprint(P(name))!=fp:raise RuntimeError('Directory changed during snapshot: '+name)
  report['issues']=sorted(set(issues))
  (meta/'verified-inventory.json').write_text(json.dumps(report,indent=2))
- (meta/'SHA256SUMS').write_text(''.join(x['sha256']+'  '+x['archive_relative']+'\n' for x in files.values())+''.join(r['bundle']['sha256']+'  '+r['bundle']['path']+'\n' for r in repos.values()))
+ (meta/'SHA256SUMS').write_text(''.join(x['sha256']+'  '+x['archive_relative']+'\n' for x in files.values())+''.join(r['bundle']['sha256']+'  '+r['bundle']['path']+'\n' for r in repos.values() if 'bundle' in r))
  # Keep startup marker; final marker distinguishes byte verification.
  (dest/'COPY_VERIFIED_RESTORABILITY_REVIEW_REQUIRED').write_text('Payload files checksum verified. Original sources unchanged by recorded fingerprints. Review metadata issues; absolute symlinks and original manifest paths need relocation. This does NOT certify all analysis is complete.\n')
  print('Byte copy verified:',dest)
