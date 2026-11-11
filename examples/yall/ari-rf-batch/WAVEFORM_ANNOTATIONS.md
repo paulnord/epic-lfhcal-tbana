@@ -77,17 +77,67 @@ Under the waveform task's plot directory, each run gains:
 - `WaveformGrid_Run<run>_Annotated.pdf`
 - `WaveformGrid_Run<run>_Measurements.csv`
 
-The paired PDFs use matching channel order and pagination, with absolute and
-normalized views and up to 64 channels per page. Existing `Waveform_*` products
-remain unchanged. Compare each original page with its annotated counterpart.
+The paired PDFs use matching channel order, axes and pagination, with up to 64
+channels per page. Existing `Waveform_*` products remain unchanged. Compare each
+original page with its annotated counterpart. Each 64-cell block now has four
+pages, in this order:
+
+1. Absolute profiles with a shared y-axis **within each layer column**. This is
+   the original absolute-page position with the requested scale change.
+2. Profiles normalized by each cell's supplied peak, retaining the original
+   normalized-page position and fixed -0.08 to 1.12 y-range.
+3. Absolute profiles with a robust, per-layer upper range and explicit outlier
+   and clipping labels. This is an additional display, not a data selection.
+4. Absolute profiles with the full global search-window range, retaining the
+   former global-scale view for comparison and amplitude auditing.
+
+For the Ari 64-cell selection, column headers are the zero-based cell-ID layer
+indices, ascending left to right. Rows are ascending `(module, row, column)`
+positions; the current list produces rows M2/r0/c2, M2/r0/c3, M2/r1/c2, M2/r1/c3,
+M3/r0/c0, M3/r0/c1, M3/r1/c0 and M3/r1/c1. Every pad retains its cell ID. This
+layout is derived from the IDs even if the input list is shuffled. It is enabled
+only for the complete Cartesian product of eight layer indices and eight
+positions. Other selections keep input order and global absolute scaling with
+an explicit irregular-selection note, rather than inventing geometry columns.
+The CSV preserves its original input order and contains the same measurements.
+
+These headers describe encoded readout layer/segment indices, not equal physical
+depths or verified installed wiring. The May nominal sumV2 map has 5-layer sums
+at indices 0-3 and 10-layer sums at indices 4-7; no division by those counts is
+introduced. Module/row/column labels require no assumed ASIC mapping.
+
+### Robust view and clipping
+
+The robust page calculates a separate upper Tukey fence `Q3 + 1.5 * IQR` for
+each layer's supplied positive finite peak amplitudes. Quartiles use unbinned
+linear `q * (n - 1)` interpolation. With at least four peaks, a peak strictly
+above the fence is omitted **only from upper-range calculation**, together with
+that cell's positive profile samples. Equality is retained. With fewer than four
+peaks, the ordinary full layer range is used. A zero IQR retains equal peaks and
+can flag a larger one. With only eight cells per layer, multiple extremes may
+mask each other; this is a display aid, not a channel-quality decision.
+
+All cells' negative search-window excursions remain in the lower-range
+calculation. Every profile and measurement stays present; finite peaks with
+unavailable FWHM remain eligible. Purple arrows indicate actual clipped trace
+values, accompanied by the extreme displayed value and the unchanged measured
+peak `A` in ADC units. The separate `high peak: scale only` label identifies
+upper-range exclusions, even if padding happens to keep that peak on screen.
+Clipping and statistical flags are distinct: post-search noise can also clip in
+the full-range and normalized views. No off-scale amplitude guide is drawn at
+an invented boundary value. The full global companion shows all measured peaks.
+
 Fixed-TOA selections use the existing `nTOA_<sample>` subdirectory. Absolute
 scaling, like the saved 64-cell producer, excludes samples after the bin
 containing 200 ns so late noise does not flatten the pulses; late values can
 therefore extend outside the displayed y range.
-For a valid measurement, annotations contain exactly three vertical guides
+For an on-scale valid measurement, annotations contain exactly three vertical guides
 (left width endpoint, peak time, right width endpoint) and one horizontal
 peak-amplitude guide. Invalid widths omit the width guides, rather than
 inventing a zero width; measurement/status values remain available in the CSV.
+An off-scale peak omits the horizontal amplitude guide and uses the distinct
+clipping marker/numeric peak label instead. The timing and width guides are not
+repositioned or remeasured.
 
 This is a display/export addition: **zero new fits, cuts, waveform extractions,
 or changes to timing or baseline conventions**. It reuses Ari's peak-bin timing

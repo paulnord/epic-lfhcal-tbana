@@ -259,3 +259,12 @@ endif()
 # Set default build target
 set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT DataPrep)
 
+
+# Native display-only replay; no event processing or waveform extraction.
+add_executable(CombineWaveformBooks CombineWaveformBooks.cc)
+target_link_libraries(CombineWaveformBooks LFHCAL ${ROOT_LIBRARIES})
+if(BUILD_TESTING)
+  add_executable(test_waveform_books Tests/test_waveform_books.cc)
+  target_link_libraries(test_waveform_books LFHCAL ${ROOT_LIBRARIES})
+  add_test(NAME waveform_books COMMAND test_waveform_books)
+endif()
