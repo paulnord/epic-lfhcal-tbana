@@ -21,6 +21,36 @@
 #include "Calib.h"
 #include "Tile.h"
 
+#include <limits>
+
+enum class WaveformMeasurementStatus : int {
+  Valid = 0,
+  NullProfile = 1,
+  TooFewBins = 2,
+  NoFinitePositivePeak = 3,
+  NonFiniteCrossing = 4,
+  MissingLeftCrossing = 5,
+  MissingRightCrossing = 6,
+  MissingBothCrossings = 7,
+  NonPositiveWidth = 8
+};
+
+struct WaveformMeasurement {
+  WaveformMeasurementStatus status = WaveformMeasurementStatus::NullProfile;
+  bool hasPeak = false;
+  bool hasFWHM = false;
+  bool peakAtSearchBoundary = false;
+  int peakBin = -1;
+  int leftBin = -1;
+  int rightBin = -1;
+  double amplitude = std::numeric_limits<double>::quiet_NaN();
+  double peakTime = std::numeric_limits<double>::quiet_NaN();
+  double halfMaximum = std::numeric_limits<double>::quiet_NaN();
+  double leftCrossing = std::numeric_limits<double>::quiet_NaN();
+  double rightCrossing = std::numeric_limits<double>::quiet_NaN();
+  double fwhm = std::numeric_limits<double>::quiet_NaN();
+};
+
 /**
  * @class TileSpectra
  * @brief Accumulate and fit per-tile spectra for CAEN and HGCROC channels.
@@ -509,6 +539,21 @@ class TileSpectra: public TObject{
   TH2D* GetCorrADCTOT();
   TProfile* GetTOTProfile();
   TProfile* GetTOAProfile();
+
+  /**
+   * @brief Measure peak amplitude, peak time and FWHM from a waveform profile.
+   *
+   * The default uses Ari's RF-scan definition: search through FindBin(200 ns)
+   * and use the centers of the first bins at or below half maximum.  Linear
+   * crossing interpolation is available only as an explicit alternate mode.
+   * Undefined widths are returned as NaN with a non-Valid status.
+   */
+  static WaveformMeasurement MeasureWaveform(const TProfile* waveform,
+                                             double peakSearchMax = 200.,
+                                             bool interpolateFWHM = false);
+  WaveformMeasurement MeasureWaveform(double peakSearchMax = 200.,
+                                      bool interpolateFWHM = false) const;
+  static const char* WaveformMeasurementStatusName(WaveformMeasurementStatus status);
    
   TF1* GetBackModel(int);
   TF1* GetSignalModel(int);

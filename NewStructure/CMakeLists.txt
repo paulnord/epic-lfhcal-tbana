@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(LFHCAL VERSION 1.0 LANGUAGES CXX)
 
+include(CTest)
+
 # Attempt to extract -std=c++XX from root-config --cflags, default to 20 if not found
 execute_process(
     COMMAND root-config --cflags
@@ -119,6 +121,18 @@ message(STATUS "Adaptive HGCROC Langau: ${LFHCAL_USE_ADAPTIVE_LANGAU}")
 
 # Link against ROOT libraries
 target_link_libraries(LFHCAL PUBLIC ${ROOT_LIBRARIES})
+
+if(BUILD_TESTING)
+  add_executable(test_waveform_measurement Tests/test_waveform_measurement.cc)
+  target_link_libraries(test_waveform_measurement LFHCAL ${ROOT_LIBRARIES})
+  add_test(NAME waveform_measurement COMMAND test_waveform_measurement)
+  add_executable(test_waveform_annotations Tests/test_waveform_annotations.cc)
+  target_link_libraries(test_waveform_annotations LFHCAL ${ROOT_LIBRARIES})
+  add_test(NAME waveform_annotations COMMAND test_waveform_annotations)
+  add_executable(test_fit_curve_legend Tests/test_fit_curve_legend.cc)
+  target_link_libraries(test_fit_curve_legend ${ROOT_LIBRARIES})
+  add_test(NAME fit_curve_legend_lifetime COMMAND test_fit_curve_legend)
+endif()
 
 # Attach the ROOT dictionary to the library that contains it. This makes
 # ROOT autoload libLFHCAL.so rather than the nonexistent libCint.so.
@@ -245,3 +259,12 @@ endif()
 # Set default build target
 set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT DataPrep)
 
+
+# Native display-only replay; no event processing or waveform extraction.
+add_executable(CombineWaveformBooks CombineWaveformBooks.cc)
+target_link_libraries(CombineWaveformBooks LFHCAL ${ROOT_LIBRARIES})
+if(BUILD_TESTING)
+  add_executable(test_waveform_books Tests/test_waveform_books.cc)
+  target_link_libraries(test_waveform_books LFHCAL ${ROOT_LIBRARIES})
+  add_test(NAME waveform_books COMMAND test_waveform_books)
+endif()
