@@ -5,6 +5,7 @@
 // that it writes to the summary histograms; this code never extracts or fits.
 #include "TileSpectra.h"
 #include <TCanvas.h>
+#include <TBox.h>
 #include <TArrow.h>
 #include <TFile.h>
 #include <TLatex.h>
@@ -80,7 +81,7 @@ inline void ValidateWaveformAnnotationCells(const std::vector<WaveformAnnotation
 }
 
 struct WaveformDisplayRange { double xmin=-20.,xmax=220.,ymin=0.,ymax=1.; };
-enum class WaveformScale { Global, Layer, RobustLayer };
+enum class WaveformScale { Global, Layer, RobustLayer, IsolatedLayer };
 
 inline int WaveformLayer(int cell) { return cell&63; }
 using WaveformPosition=std::tuple<int,int,int>; // module, row, column
@@ -166,10 +167,30 @@ inline WaveformDisplayRange WaveformGridRange(const std::vector<WaveformAnnotati
   return range;
 }
 
+// Finite extrema across the displayed time window, independent of peak validity.
+inline WaveformDisplayRange WaveformVisibleRange(const WaveformAnnotationCell& c,
+                                                 WaveformDisplayRange frame,bool& finite) {
+  frame.ymin=0.;frame.ymax=0.;finite=false;
+  if(!c.profile)return frame;
+  const auto* axis=c.profile->GetXaxis();
+  int first=axis->FindFixBin(frame.xmin),last=axis->FindFixBin(frame.xmax);
+  // Match TAxis::SetRangeUser: a bin starting exactly at xmax is not visible.
+  if(axis->GetBinUpEdge(first)<=frame.xmin)++first;
+  if(axis->GetBinLowEdge(last)>=frame.xmax)--last;
+  first=std::max(1,first);last=std::min(c.profile->GetNbinsX(),last);
+  for(int b=first;b<=last;++b) {
+    const double y=c.profile->GetBinContent(b);
+    if(std::isfinite(y)){finite=true;frame.ymin=std::min(frame.ymin,y);frame.ymax=std::max(frame.ymax,y);}
+  }
+  return frame;
+}
+
 struct WaveformScalePlan {
   WaveformDisplayRange global;
   std::map<int,WaveformDisplayRange> layers;
   std::set<int> highPeakOutliers;
+  std::map<int,WaveformDisplayRange> independent;
+  std::map<int,std::string> outlierReasons;
 };
 inline WaveformScalePlan WaveformGridScalePlan(const std::vector<WaveformAnnotationCell>& cells,
                                                WaveformScale scale) {
@@ -177,9 +198,41 @@ inline WaveformScalePlan WaveformGridScalePlan(const std::vector<WaveformAnnotat
   std::map<int,std::vector<WaveformAnnotationCell>> groups;
   for(const auto& c:cells)groups[WaveformLayer(c.cell)].push_back(c);
   for(const auto& group:groups) {
-    const auto outliers=scale==WaveformScale::RobustLayer?WaveformHighPeakOutliers(group.second):std::set<int>{};
+    auto outliers=(scale==WaveformScale::RobustLayer||scale==WaveformScale::IsolatedLayer)?WaveformHighPeakOutliers(group.second):std::set<int>{};
     plan.highPeakOutliers.insert(outliers.begin(),outliers.end());
-    plan.layers[group.first]=WaveformGridRange(group.second,outliers);
+    if(scale==WaveformScale::IsolatedLayer) {
+      std::map<int,WaveformDisplayRange> visible;
+      std::vector<double> upper,lower;
+      for(const auto& c:group.second) {
+        bool finite=false;const auto local=WaveformVisibleRange(c,plan.global,finite);
+        if(finite){visible[c.cell]=local;upper.push_back(local.ymax);lower.push_back(-local.ymin);}
+        if(outliers.count(c.cell))plan.outlierReasons[c.cell]="high peak";
+      }
+      if(upper.size()>=4) {
+        const double upperFence=WaveformQuantile(upper,.75)+1.5*(WaveformQuantile(upper,.75)-WaveformQuantile(upper,.25));
+        const double lowerFence=WaveformQuantile(lower,.75)+1.5*(WaveformQuantile(lower,.75)-WaveformQuantile(lower,.25));
+        for(const auto& item:visible) {
+          const bool high=item.second.ymax>upperFence,low=-item.second.ymin>lowerFence;
+          if(high||low) {
+            outliers.insert(item.first);
+            auto& reason=plan.outlierReasons[item.first];
+            if(!reason.empty())reason+="; ";
+            reason+=high&&low?"visible +/- excursion":high?"visible + excursion":"visible - excursion";
+          }
+        }
+      }
+      std::vector<WaveformAnnotationCell> shared;
+      for(const auto& c:group.second) {
+        if(!outliers.count(c.cell)){shared.push_back(c);continue;}
+        bool finite=false;auto local=WaveformVisibleRange(c,plan.global,finite);
+        local.ymax=std::max(1.,local.ymax);
+        if(c.measurement.hasPeak)local.ymax=std::max(local.ymax,c.measurement.amplitude);
+        const double pad=.12*(local.ymax-local.ymin);
+        local.ymax+=pad;if(local.ymin<0.)local.ymin-=pad;
+        plan.independent[c.cell]=local;
+      }
+      plan.layers[group.first]=WaveformGridRange(shared);
+    } else plan.layers[group.first]=WaveformGridRange(group.second,outliers);
   }
   return plan;
 }
@@ -212,7 +265,7 @@ inline void DrawWaveformClipping(const TProfile& p,const WaveformMeasurement& m,
 inline void DrawWaveformGridPage(TCanvas& canvas,const std::vector<WaveformAnnotationCell>& cells,
                                 int run,size_t first,bool annotated,bool normalized,
                                 const TString& label="",WaveformScale scale=WaveformScale::Global,
-                                int scanColor=kBlack) {
+                                int scanColor=kBlack,const TString& scanIdentifier="",const TString& settings="",int pageNumber=0,int pageCount=0,const TString& notice="") {
   ValidateWaveformAnnotationCells(cells);
   auto layout=WaveformGridLayout(cells);
   if(first!=0) {
@@ -223,28 +276,42 @@ inline void DrawWaveformGridPage(TCanvas& canvas,const std::vector<WaveformAnnot
   const auto plan=WaveformGridScalePlan(cells,scale);
   const auto& range=plan.global;
   canvas.Clear();canvas.cd();
-  auto* header=new TPad("waveform_header","",0.,.91,1.,1.);
+  auto* header=new TPad("waveform_header","",0.,.87,1.,1.);
   header->SetBit(TObject::kCanDelete);header->SetMargin(0,0,0,0);header->Draw();header->cd();
   const char* view=normalized?"normalized mean profiles":scale==WaveformScale::Layer?"absolute: shared scale per layer":
+    scale==WaveformScale::IsolatedLayer?"absolute: shared layer axes; flagged cells use own ADC axes":
     scale==WaveformScale::RobustLayer?"absolute: robust scale per layer":"absolute: global full search-window range";
-  WaveformText(.015,.75,Form("%sRun %d | %s | %s | cells %zu-%zu",
-    label.IsNull()?"":(label+" | ").Data(),run,view,
-    annotated?"annotated":"unmarked",first+1,std::min(first+64,cells.size())),.19,scanColor);
-  WaveformText(.015,.48,annotated?
-    "Vertical: #color[418]{left half-max}, #color[633]{peak time}, #color[617]{right half-max}; horizontal: #color[807]{peak amplitude}":
-    "Same source profiles and axes as the annotated companion; no measurement guides",.16);
-  WaveformText(.015,.25,normalized?
-    "t (ns), amplitude / cell peak; maximum through bin containing 200 ns; bin-center boundaries; no fit":
-    "t (ns), ADC above pedestal; range uses bins through 200 ns; arrows flag clipped trace values; A is the unchanged measured peak",.135);
-  WaveformText(.015,.04,scale==WaveformScale::RobustLayer?
-    "Display only: peaks > Q3 + 1.5 IQR do not set the upper axis (n >= 4); all negative excursions retained; no data cuts":
-    layout.geometry?"Columns: cell-ID layer indices (not physical depth); rows: module/row/column; absolute column scales may differ":
-    "Irregular selection: input order retained; no geometry columns; absolute view uses the global range",.13);
+  if(!scanIdentifier.IsNull()) {
+    auto* banner=new TBox(0.,.48,1.,1.);banner->SetBit(TObject::kCanDelete);
+    banner->SetFillColor(scanColor);banner->SetLineColor(scanColor);banner->Draw();
+    WaveformText(.015,.65,scanIdentifier,.30,kWhite);
+    if(!notice.IsNull())WaveformText(.30,.84,notice,.12,kWhite);
+    WaveformText(.30,.66,Form("Run %d | %s",run,label.Data()),.13,kWhite);
+    WaveformText(.30,.51,settings,.12,kWhite);
+    TLatex meta;meta.SetNDC();meta.SetTextFont(42);meta.SetTextColor(kWhite);
+    meta.SetTextSize(.12);meta.SetTextAlign(31);
+    meta.DrawLatex(.98,.84,pageCount>0?Form("%s | %d/%d",normalized?"Normalized":"Unnormalized",pageNumber,pageCount):
+      normalized?"Normalized":"Unnormalized");
+  } else WaveformText(.015,.75,Form("%s | Run %d",label.Data(),run),.21,scanColor);
+  WaveformText(.015,.37,Form("%s | %s | cells %zu-%zu",view,annotated?"annotated":"unmarked",
+    first+1,std::min(first+64,cells.size())),.115);
+  WaveformText(.015,.20,annotated?
+    "t (ns); vertical: #color[418]{left half-max}, #color[633]{peak time}, #color[617]{right half-max}; horizontal: #color[807]{peak amplitude}; arrows = clipped samples":
+    "Same source profiles and axes as annotated companion; no measurement guides; arrows = clipped samples",.105);
+  WaveformText(.015,.04,normalized?
+    (scale==WaveformScale::IsolatedLayer?
+    "Amplitude / cell peak; OUTLIER uses own normalized axis; layer Tukey flags: saved peak or visible +/- excursion (n >= 4); no data cuts":
+    "Amplitude / cell peak; maximum through bin containing 200 ns; bin-center boundaries; no fit"):
+    scale==WaveformScale::IsolatedLayer?
+    "ADC above pedestal; OUTLIER: saved peak or visible +/- excursion > layer Q3 + 1.5 IQR (n >= 4); own axis; no data cuts":
+    scale==WaveformScale::RobustLayer?
+    "ADC above pedestal; peaks > layer Q3 + 1.5 IQR do not set upper axis (n >= 4); negatives retained; no data cuts":
+    "ADC above pedestal; range uses bins through 200 ns; columns = cell-ID layer index, not physical depth; rows = module/row/column",.10);
   canvas.cd();
-  const double left=layout.geometry?.09:0.,top=layout.geometry?.86:.90;
+  const double left=layout.geometry?.09:0.,top=layout.geometry?.82:.86;
   if(layout.geometry) {
     for(size_t col=0;col<8;++col)
-      WaveformText(left+(1.-left)*(col+.28)/8.,.875,Form("Layer %d",layout.layers[col]),.018);
+      WaveformText(left+(1.-left)*(col+.28)/8.,.835,Form("Layer %d",layout.layers[col]),.018);
     for(size_t row=0;row<8;++row) {
       const auto& pos=layout.positions[row];const double y=top*(1.-(row+.5)/8.);
       WaveformText(.008,y+.010,Form("Module %d",std::get<0>(pos)),.014);
@@ -257,11 +324,17 @@ inline void DrawWaveformGridPage(TCanvas& canvas,const std::vector<WaveformAnnot
     grid->cd(static_cast<int>(i-first)+1);
     gPad->SetMargin(.15,.025,.15,.025);gPad->SetTicks(1,1);
     const auto& c=cells[layout.order[i]];const auto& m=c.measurement;
-    const auto& yrange=scale==WaveformScale::Global?range:plan.layers.at(WaveformLayer(c.cell));
-    const double ymin=normalized?-.08:yrange.ymin,ymax=normalized?1.12:yrange.ymax;
+    const bool independent=plan.independent.count(c.cell);
+    if(independent){gPad->SetFrameLineColor(kViolet+2);gPad->SetFrameLineWidth(2);}
+    const auto& yrange=independent?plan.independent.at(c.cell):
+      scale==WaveformScale::Global?range:plan.layers.at(WaveformLayer(c.cell));
+    const double ymin=normalized?(independent&&m.hasPeak?std::min(-.08,yrange.ymin/m.amplitude):-.08):yrange.ymin,
+      ymax=normalized?(independent&&m.hasPeak?std::max(1.12,yrange.ymax/m.amplitude):1.12):yrange.ymax;
     if(!c.profile || (normalized&&!m.hasPeak)) {
       WaveformText(.20,.80,Form("%d",c.cell),.13);
-      WaveformText(.19,.50,c.profile?"no positive peak":"missing profile",.09,kRed+1);continue;
+      WaveformText(.19,.50,c.profile?"no positive peak":"missing profile",.09,kRed+1);
+      if(independent)WaveformText(.18,.32,"OUTLIER (absolute)",.08,kViolet+2);
+      continue;
     }
     auto* p=static_cast<TProfile*>(c.profile->Clone(Form("waveform_display_%zu",i)));
     p->SetDirectory(nullptr);p->SetBit(TObject::kCanDelete);
@@ -274,7 +347,14 @@ inline void DrawWaveformGridPage(TCanvas& canvas,const std::vector<WaveformAnnot
     // inside the actual frame, not outside neighboring pads.
     gPad->Modified();gPad->Update();
     if(annotated)DrawWaveformGuides(m,gPad->GetUxmin(),gPad->GetUxmax(),ymin,ymax,normalized);
-    DrawWaveformClipping(*p,m,ymin,ymax,!normalized&&plan.highPeakOutliers.count(c.cell));
+    DrawWaveformClipping(*p,m,ymin,ymax,!normalized&&!independent&&plan.highPeakOutliers.count(c.cell));
+    if(independent) {
+      WaveformText(.18,.56,"OUTLIER",.09,kViolet+2);
+      WaveformText(.18,.20,plan.outlierReasons.at(c.cell).c_str(),.055,kViolet+2);
+      WaveformText(.18,.44,normalized?"own A/peak axis":"own ADC axis",.08,kViolet+2);
+      if(m.hasPeak)WaveformText(.18,.32,Form("A=%.5g ADC",m.amplitude),.075,kViolet+2);
+    } else if(normalized&&plan.highPeakOutliers.count(c.cell))
+      WaveformText(.18,.57,"high absolute peak",.065,kViolet+2);
     TLatex cellLabel;cellLabel.SetNDC();cellLabel.SetTextFont(62);cellLabel.SetTextSize(.13);cellLabel.SetTextAlign(31);
     cellLabel.SetTextColor(m.peakAtSearchBoundary||!m.hasFWHM?kRed+1:kBlack);
     cellLabel.DrawLatex(.95,.82,Form("%d",c.cell));

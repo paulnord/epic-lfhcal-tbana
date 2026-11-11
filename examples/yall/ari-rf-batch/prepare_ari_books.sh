@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Preparation only. Safe to invoke from tcsh: /bin/bash prepare_ari_books.sh DEST [layer|robust|global]
+# Preparation only. Safe to invoke from tcsh: /bin/bash prepare_ari_books.sh DEST [isolated|layer|robust|global]
 set -euo pipefail
 umask 077
-[[ $# -le 2 ]] || { echo 'Usage: /bin/bash prepare_ari_books.sh FRESH_ABSOLUTE_DEST [layer|robust|global]' >&2; exit 2; }
+[[ $# -le 2 ]] || { echo 'Usage: /bin/bash prepare_ari_books.sh FRESH_ABSOLUTE_DEST [isolated|layer|robust|global]' >&2; exit 2; }
 dest=${1:-/gpfs01/star/scratch/pnord/ari-books-20261111}; mode=${2:-layer}
-[[ $mode == layer || $mode == robust || $mode == global ]] || { echo 'Scale must be layer, robust or global.' >&2; exit 2; }
+[[ $mode == isolated || $mode == layer || $mode == robust || $mode == global ]] || { echo 'Scale must be isolated, layer, robust or global.' >&2; exit 2; }
 [[ $dest == /* && $dest != *[!a-zA-Z0-9_./-]* && ! -e $dest ]] || { echo 'Use a fresh absolute destination, with no spaces or shell metacharacters.' >&2; exit 2; }
 [[ -z ${ARI_RF_BATCH_WORKER:-} && -z ${_CONDOR_JOB_AD:-} ]] || { echo 'Preparation belongs on the normal host shell.' >&2; exit 2; }
 for cmd in git python3 yall-run; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 2; }; done
@@ -18,7 +18,9 @@ if v<(0,12,0,0,7):raise SystemExit('Require yall-run 0.12.0a7 or newer; no insta
 PYVERSION
 eic=${EIC_SHELL:-/star/u/pnord/bin/eic-shell}
 [[ -x $eic && $eic == /* && $eic != *[!a-zA-Z0-9_./-]* ]] || { echo 'Set EIC_SHELL to the existing executable EIC launcher.' >&2; exit 2; }
-commit=008e973fec634aed9c33c6b23c252623c7d195ad
+commit=${ARI_SOURCE_COMMIT:-008e973fec634aed9c33c6b23c252623c7d195ad}
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || { echo "ARI_SOURCE_COMMIT must be a full lowercase 40-hex commit." >&2; exit 2; }
+[[ $mode != isolated || -n ${ARI_SOURCE_COMMIT:-} ]] || { echo "isolated requires an explicit ARI_SOURCE_COMMIT containing isolated display support." >&2; exit 2; }
 input_root=${ARI_INPUT_ROOT:-/gpfs01/star/scratch/pnord/ari-rebuild-eX4Mld}
 run302=${ARI_RUN302_ROOT:-/gpfs01/star/scratch/pnord/ari-run302-annotations-bdLvhL/work}
 # Bounded filesystem/CSV preflight only; do not read ROOT on the login host.
@@ -57,6 +59,9 @@ git -C "$dest/source" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$des
 git -C "$dest/source" checkout --detach "$commit"
 [[ $(git -C "$dest/source" rev-parse HEAD) == "$commit" ]]
 [[ -f "$dest/source/NewStructure/CombineWaveformBooks.cc" && -f "$dest/source/NewStructure/Tests/test_waveform_books.cc" ]]
+if [[ $mode == isolated ]]; then
+    grep -q 'WaveformScale::IsolatedLayer' "$dest/source/NewStructure/CombineWaveformBooks.cc" || { echo "Selected source lacks isolated display support." >&2; exit 2; }
+fi
 # Decoder is intentionally not initialized: these plotting/test targets do not need it.
 git -C "$dest/source" submodule status > "$dest/submodules.txt"
 cat > "$dest/run_books.sh" <<'WORKER'

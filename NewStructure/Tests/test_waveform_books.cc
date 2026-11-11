@@ -4,6 +4,7 @@
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <TUUID.h>
 int main(){
   using namespace waveform_books;
   const auto groups=Groups();size_t pages=0;for(const auto& g:groups)pages+=g.runs.size();
@@ -12,7 +13,8 @@ int main(){
   assert(Split("1,\"a,b\",\"a\"\"b\"")==Row({"1","a,b","a\"b"}));
   bool rejected=false;try{Split("\"unclosed");}catch(...){rejected=true;}assert(rejected);
   rejected=false;try{Number("nan");}catch(...){rejected=true;}assert(rejected);
-  const auto temp=std::filesystem::temp_directory_path()/Form("waveform-book-test-%d",gSystem->GetPid());
+  TUUID fixtureID;
+  const auto temp=std::filesystem::temp_directory_path()/std::string("waveform-book-test-"+std::string(fixtureID.AsString()));
   std::filesystem::create_directory(temp);
   std::ofstream manifest(temp/"inputs.csv");manifest<<"run,profile_root,measurements_csv\n";
   for(const auto& r:expected)manifest<<r.first<<",source.root,measurements.csv\n";manifest.close();
@@ -31,8 +33,8 @@ int main(){
     for(int base:{1152,1216,1408,1472,1536,1600,1792,1856})for(int i=0;i<8;++i){int cell=base+i;
       if(cell==1863)continue; // Legitimate absent-profile status stays unmeasured (0).
       TProfile p(Form("waveform1DfullCellID%d",cell),"",30,-20,280);
-      for(int b=1;b<=30;++b)p.Fill(p.GetBinCenter(b),b==10?100.:b==9||b==11?50.:0.);
-      p.Write();status.SetBinContent(cell+1,1);amplitude.SetBinContent(cell+1,100);
+      for(int b=1;b<=30;++b)p.Fill(p.GetBinCenter(b),(cell==1152?10.:1.)*(b==10?100.:b==9||b==11?50.:0.));
+      p.Write();status.SetBinContent(cell+1,1);amplitude.SetBinContent(cell+1,cell==1152?1000:100);
       time.SetBinContent(cell+1,75);width.SetBinContent(cell+1,20);
     }
     root.cd();status.Write();amplitude.Write();time.Write();width.Write();root.Close();
@@ -45,17 +47,17 @@ int main(){
     csv<<"run,cell,status,has_peak,has_fwhm,peak_bin,left_bin,right_bin,amplitude,peak_time_ns,left_ns,right_ns,fwhm_ns,source\n";
     for(int base:{1152,1216,1408,1472,1536,1600,1792,1856})for(int i=0;i<8;++i)
       if(base+i==1863)csv<<run<<",1863,1,0,0,-1,-1,-1,,,,,,synthetic\n";
-      else csv<<run<<','<<base+i<<",0,1,1,10,9,11,100,75,65,85,20,synthetic\n";
+      else csv<<run<<','<<base+i<<",0,1,1,10,9,11,"<<(base+i==1152?1000:100)<<",75,65,85,20,synthetic\n";
   }
   all.close();db.close();
-  Write((temp/"render.csv").string(),(temp/"database.csv").string(),(temp/"books").string(),lfhcal::WaveformScale::Layer);
+  Write((temp/"render.csv").string(),(temp/"database.csv").string(),(temp/"books").string(),lfhcal::WaveformScale::IsolatedLayer,"SYNTHETIC TEST DATA");
   assert(std::filesystem::file_size(temp/"books_Normalized.pdf")>10000);
   assert(std::filesystem::file_size(temp/"books_Unnormalized.pdf")>10000);
   auto loaded=Load(302,{(temp/"source.root").string(),(temp/"302.csv").string()});
-  assert(loaded.cells.front().profile->GetBinContent(10)==100.);
-  assert(loaded.cells.front().measurement.amplitude==100.);
+  assert(loaded.cells.front().profile->GetBinContent(10)==1000.);
+  assert(loaded.cells.front().measurement.amplitude==1000.);
   assert(loaded.cells.back().profile==nullptr);
-  rejected=false;try{Write((temp/"render.csv").string(),(temp/"database.csv").string(),(temp/"books").string(),lfhcal::WaveformScale::Layer);}catch(...){rejected=true;}assert(rejected);
+  rejected=false;try{Write((temp/"render.csv").string(),(temp/"database.csv").string(),(temp/"books").string(),lfhcal::WaveformScale::IsolatedLayer,"SYNTHETIC TEST DATA");}catch(...){rejected=true;}assert(rejected);
   // Malformed replay data must not silently create plausible plots.
   std::ifstream original(temp/"302.csv");std::stringstream buffer;buffer<<original.rdbuf();
   const std::string good=buffer.str();

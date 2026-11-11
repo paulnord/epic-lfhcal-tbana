@@ -2,6 +2,7 @@
 #include "WaveformAnnotations.h"
 #include <TROOT.h>
 #include <TH1.h>
+#include <TColor.h>
 #include <array>
 #include <filesystem>
 #include <iostream>
@@ -33,9 +34,9 @@ const std::map<int,Settings> expected={
  {359,{9,5,5,15}},{361,{9,3,5,1}},{363,{9,5,5,1}}};
 struct Group {std::string name;std::vector<int> runs;int color;};
 std::vector<Group> Groups() {
-  std::vector<Group> groups={{"RF",{298,300,302,304,306,310,329,333,335,337,339,341,343,345},kBlue+2},
-    {"CC",{353,347,298,349,351},kOrange+7},{"CF",{361,355,363,298},kGreen+2},
-    {"CFComp",{355,357,359},kMagenta+2}};
+  std::vector<Group> groups={{"RF",{298,300,302,304,306,310,329,333,335,337,339,341,343,345},TColor::GetColor("#176B79")},
+    {"CC",{353,347,298,349,351},TColor::GetColor("#6550A1")},{"CF",{361,355,363,298},TColor::GetColor("#A86520")},
+    {"CFComp",{355,357,359},TColor::GetColor("#357049")}};
   for(size_t i=0;i<groups.size();++i){const int index=i==0?0:i==1?2:i==2?1:3;
     std::sort(groups[i].runs.begin(),groups[i].runs.end(),[=](int a,int b){
       double va=i==0?80./expected.at(a)[0]:expected.at(a)[index];
@@ -100,19 +101,23 @@ Loaded Load(int run,const Input& input) {
   if(!cells.empty())throw std::runtime_error("CSV missing selected cells");
   lfhcal::ValidateWaveformAnnotationCells(loaded.cells);return loaded;
 }
-void Write(const std::string& manifest,const std::string& database,const std::string& base,lfhcal::WaveformScale scale) {
+void Write(const std::string& manifest,const std::string& database,const std::string& base,lfhcal::WaveformScale scale,const TString& notice="") {
   ValidateDatabase(database);const auto inputs=ReadManifest(manifest);
   const std::string absolute=base+"_Unnormalized.pdf",normalized=base+"_Normalized.pdf";
   for(const auto& p:{absolute,normalized})if(std::filesystem::exists(p))throw std::runtime_error("output exists: "+p);
   std::map<int,Loaded> loaded;for(const auto& item:inputs)loaded.emplace(item.first,Load(item.first,item.second));
-  gROOT->SetBatch(true);TCanvas canvas("combined_waveforms","",1600,1200);canvas.SetCanvasSize(1600,1200);
-  struct Paper { Float_t x,y; Paper(){gStyle->GetPaperSize(x,y);gStyle->SetPaperSize(26,20);} ~Paper(){gStyle->SetPaperSize(x,y);} } paper;
-  for(bool norm:{false,true}) {const auto& pdf=norm?normalized:absolute;canvas.Print((pdf+"[").c_str());
+  gROOT->SetBatch(true);TCanvas canvas("combined_waveforms","",1600,1350);canvas.SetCanvasSize(1600,1350);
+  // Keep the taller canvas within ROOT PDF's fixed A4 MediaBox, including its 20-point margins.
+  struct Paper { Float_t x,y; Paper(){gStyle->GetPaperSize(x,y);gStyle->SetPaperSize(23.6,20);} ~Paper(){gStyle->SetPaperSize(x,y);} } paper;
+  for(bool norm:{false,true}) {const auto& pdf=norm?normalized:absolute;canvas.Print((pdf+"[").c_str());int page=0;
     for(const auto& group:Groups())for(int run:group.runs) {
       const auto& s=expected.at(run);TString label;
-      if(group.name=="RF")label=Form("RF scan: R = %.5g k#Omega (nominal; RF%d)",80./s[0],s[0]);
+      const int code=s[group.name=="RF"?0:group.name=="CC"?2:group.name=="CF"?1:3];
+      const TString identifier=Form("%s = %d",group.name.c_str(),code);
+      const TString settings=Form("Settings: RF=%d  CF=%d  CC=%d  CFComp=%d",s[0],s[1],s[2],s[3]);
+      if(group.name=="RF")label=Form("RF scan | R = %.5g k#Omega (nominal)",80./s[0]);
       else label=Form("%s scan: %s = %d",group.name.c_str(),group.name.c_str(),s[group.name=="CC"?2:group.name=="CF"?1:3]);
-      lfhcal::DrawWaveformGridPage(canvas,loaded.at(run).cells,run,0,true,norm,label,scale,group.color);
+      lfhcal::DrawWaveformGridPage(canvas,loaded.at(run).cells,run,0,true,norm,label,scale,group.color,identifier,settings,++page,26,notice);
       canvas.Print(pdf.c_str());
     }
     canvas.Print((pdf+"]").c_str());
@@ -122,9 +127,9 @@ void Write(const std::string& manifest,const std::string& database,const std::st
 } // namespace waveform_books
 #ifndef WAVEFORM_BOOKS_NO_MAIN
 int main(int argc,char** argv) {
-  if(argc<4||argc>5){std::cerr<<"Usage: CombineWaveformBooks manifest.csv run_database.csv output_base [layer|robust|global]\n";return 2;}
-  try {std::string option=argc==5?argv[4]:"layer";auto scale=lfhcal::WaveformScale::Layer;
-    if(option=="robust")scale=lfhcal::WaveformScale::RobustLayer;else if(option=="global")scale=lfhcal::WaveformScale::Global;else if(option!="layer")throw std::runtime_error("unknown scale");
+  if(argc<4||argc>5){std::cerr<<"Usage: CombineWaveformBooks manifest.csv run_database.csv output_base [isolated|layer|robust|global]\n";return 2;}
+  try {std::string option=argc==5?argv[4]:"isolated";auto scale=lfhcal::WaveformScale::IsolatedLayer;
+    if(option=="layer")scale=lfhcal::WaveformScale::Layer;else if(option=="robust")scale=lfhcal::WaveformScale::RobustLayer;else if(option=="global")scale=lfhcal::WaveformScale::Global;else if(option!="isolated")throw std::runtime_error("unknown scale");
     waveform_books::Write(argv[1],argv[2],argv[3],scale);
   } catch(const std::exception& e){std::cerr<<"CombineWaveformBooks: "<<e.what()<<'\n';return 1;}return 0;
 }

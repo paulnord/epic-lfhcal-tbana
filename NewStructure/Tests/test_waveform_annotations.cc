@@ -168,6 +168,62 @@ try {
     Check(line->GetY1()>=CellPad(canvas,1)->GetUymin()&&line->GetY1()<=CellPad(canvas,1)->GetUymax()&&
           line->GetY2()>=CellPad(canvas,1)->GetUymin()&&line->GetY2()<=CellPad(canvas,1)->GetUymax(),"guides and clip markers stay within own y frame");
   }
+  const auto isolated=lfhcal::WaveformGridScalePlan(geometry,lfhcal::WaveformScale::IsolatedLayer);
+  Check(isolated.highPeakOutliers==std::set<int>{1152}&&isolated.independent.at(1152).ymax>1000.,"isolated peak gets full local ADC range");
+  Check(isolated.layers.at(0).ymax<15.,"isolated cell does not suppress shared layer");
+  lfhcal::DrawWaveformGridPage(canvas,geometry,300,0,true,false,"RF scan | R = 80 k#Omega (nominal)",lfhcal::WaveformScale::IsolatedLayer,kBlue+2,"RF=1","Settings: RF=1 CF=7 CC=5 CFComp=1");
+  Check(Display(CellPad(canvas,1))->GetMaximum()>1000.&&Display(CellPad(canvas,9))->GetMaximum()<15.,"outlier and neighbors have separate numeric axes");
+  Check(HasText(*CellPad(canvas,1),"own ADC axis")&&!HasLine(*CellPad(canvas,1),"waveform_clip_high"),"outlier flag is distinct from clipping");
+  Check(HasLine(*CellPad(canvas,1),"waveform_peak_amplitude"),"isolated peak amplitude guide remains visible");
+  auto* header=dynamic_cast<TPad*>(canvas.GetListOfPrimitives()->FindObject("waveform_header"));
+  Check(header&&HasText(*header,"RF=1")&&HasText(*header,"Settings:"),"prominent scan identifier and settings rendered");
+  bool prominent=false;TIter texts(header->GetListOfPrimitives());
+  while(auto* object=texts())if(auto* text=dynamic_cast<TLatex*>(object))
+    if(std::string(text->GetTitle())=="RF=1")prominent=text->GetTextSize()>.25&&text->GetTextColor()==kWhite;
+  Check(prominent,"large scan identifier is white on group-color banner");
+  // Include both tails in the isolated frame, without putting either tail on
+  // the neighbors' shared axis. Post-200 samples are not new peak measurements.
+  auto tails=Profile("isolated_tails",std::vector<double>(240,0.),-20.);
+  tails.Fill(30.5,2000.);tails.Fill(-10.5,-2000.);tails.Fill(210.5,6000.);
+  auto tailGeometry=geometry;tailGeometry.back().profile=&tails;
+  const auto tailPlan=lfhcal::WaveformGridScalePlan(tailGeometry,lfhcal::WaveformScale::IsolatedLayer);
+  Check(tailPlan.independent.at(1152).ymin<-1000.&&tailPlan.independent.at(1152).ymax>3000.,"isolated full visible range includes negative and late excursions");
+  Check(tailPlan.layers.at(0).ymin==0.&&tailPlan.layers.at(0).ymax<15.,"negative outlier tail excluded from neighbors as well");
+  lfhcal::DrawWaveformGridPage(canvas,tailGeometry,0,0,true,true,"SYNTHETIC TEST",lfhcal::WaveformScale::IsolatedLayer);
+  Check(Display(CellPad(canvas,1))->GetMinimum()<-1.&&Display(CellPad(canvas,1))->GetMaximum()>3.,"isolated normalized range expands without changing normalization");
+  Check(Display(CellPad(canvas,1))->GetBinContent(51)==tails.GetBinContent(51)/1000.,"normalized contents remain amplitude divided by saved peak");
+  Check(HasText(*CellPad(canvas,1),"own A/peak axis")&&!HasLine(*CellPad(canvas,1),"waveform_clip_high"),"normalized outlier explicitly labeled and not clipped");
+  auto missingPeak=geometry;missingPeak.back().measurement=WaveformMeasurement{};
+  Check(lfhcal::WaveformGridScalePlan(missingPeak,lfhcal::WaveformScale::IsolatedLayer).highPeakOutliers.empty(),"no-peak cell not flagged from invented saved amplitude");
+  auto paired=geometry;
+  for(auto& c:paired)if(c.cell==1216){c.profile=geometry.back().profile;c.measurement=geometry.back().measurement;}
+  const auto pairPlan=lfhcal::WaveformGridScalePlan(paired,lfhcal::WaveformScale::IsolatedLayer);
+  Check(pairPlan.independent.size()==2&&pairPlan.independent.count(1152)&&pairPlan.independent.count(1216)&&
+    pairPlan.layers.at(0).ymax<15.,"two large cells isolated from six ordinary same-layer peers");
+  // Extent flags cover negative-only and late-only display dominators, even
+  // without a positive saved peak, and do not invent normalization values.
+  auto negativeOnly=Profile("negative_only",{-2000.,-1.,-1.,-1.});
+  auto negativeGeometry=geometry;negativeGeometry.back()={1152,&negativeOnly,WaveformMeasurement{}};
+  const auto negativePlan=lfhcal::WaveformGridScalePlan(negativeGeometry,lfhcal::WaveformScale::IsolatedLayer);
+  Check(negativePlan.highPeakOutliers.empty()&&negativePlan.independent.count(1152)&&
+    negativePlan.outlierReasons.at(1152)=="visible - excursion","negative-only no-peak profile gets display extent flag");
+  Check(negativePlan.layers.at(0).ymin==0.&&negativePlan.independent.at(1152).ymin<-2000.,"negative-only outlier cannot flatten shared scale");
+  lfhcal::DrawWaveformGridPage(canvas,negativeGeometry,0,0,true,true,"SYNTHETIC TEST",lfhcal::WaveformScale::IsolatedLayer);
+  Check(!Display(CellPad(canvas,1))&&HasText(*CellPad(canvas,1),"no positive peak")&&HasText(*CellPad(canvas,1),"OUTLIER"),"no peak remains unnormalizable despite extent flag");
+  auto lateGeometry=geometry;lateGeometry.back()={1152,&late,original};
+  const auto latePlan=lfhcal::WaveformGridScalePlan(lateGeometry,lfhcal::WaveformScale::IsolatedLayer);
+  Check(latePlan.highPeakOutliers.empty()&&latePlan.independent.at(1152).ymax>1000.&&
+    latePlan.outlierReasons.at(1152)=="visible + excursion","post-200 spike flags ordinary saved peak via visible extent");
+  auto beyond=Profile("just_outside_visible",std::vector<double>(250,0.),-20.);
+  beyond.Fill(220.5,100000.);auto beyondGeometry=geometry;
+  beyondGeometry.back()={1152,&beyond,original};
+  Check(lfhcal::WaveformGridScalePlan(beyondGeometry,lfhcal::WaveformScale::IsolatedLayer).independent.empty(),"bin beginning at visible xmax is excluded like ROOT SetRangeUser");
+  auto nonfinite=Profile("nonfinite_display",{0.,0.,0.,0.});
+  for(int b=1;b<=4;++b)nonfinite.SetBinContent(b,std::numeric_limits<double>::quiet_NaN());
+  auto nanGeometry=geometry;nanGeometry.back()={1152,&nonfinite,WaveformMeasurement{}};
+  Check(lfhcal::WaveformGridScalePlan(nanGeometry,lfhcal::WaveformScale::IsolatedLayer).independent.empty(),"all-nonfinite profile contributes no invented visible extent");
+  std::vector<lfhcal::WaveformAnnotationCell> shortLayer={{0,&negativeOnly,WaveformMeasurement{}},{64,&pulse,original},{128,&pulse,original}};
+  Check(lfhcal::WaveformGridScalePlan(shortLayer,lfhcal::WaveformScale::IsolatedLayer).independent.empty(),"fewer than four finite visible profiles do not trigger extent exclusion");
   lfhcal::DrawWaveformGridPage(canvas,geometry,0,0,true,true,"SYNTHETIC TEST");
   Check(Display(CellPad(canvas,1))->GetMaximum()==1.12&&Display(CellPad(canvas,1))->GetBinContent(4)==1.,"normalized view unchanged with geometry layout");
   lfhcal::DrawWaveformGridPage(canvas,geometry,0,0,false,false,"SYNTHETIC TEST");
