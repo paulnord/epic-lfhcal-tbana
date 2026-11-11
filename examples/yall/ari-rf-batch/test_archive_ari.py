@@ -111,4 +111,17 @@ class TestArchive(unittest.TestCase):
     with self.assertRaisesRegex(RuntimeError,'Git source changed'):m.main()
     self.assertFalse((dest/'COPY_VERIFIED_RESTORABILITY_REVIEW_REQUIRED').exists())
    finally:m.sha=oldsha;sys.argv=oldargv
+ def test_unknown_quota_explicit_optin(self):
+  with tempfile.TemporaryDirectory() as td:
+   source,parent=self.fixture(pathlib.Path(td));(source/'a.csv').write_text('preserve')
+   old=sys.argv
+   try:
+    dest=parent/'new';sys.argv=['archive','--copy','--destination',str(dest),'--sources-quiescent','--accept-unknown-quota']
+    with contextlib.redirect_stdout(io.StringIO()):m.main()
+    report=json.loads((dest/'metadata/verified-inventory.json').read_text())
+    self.assertEqual(report['quota_status'],'unknown_explicitly_accepted')
+    self.assertTrue((dest/'COPY_VERIFIED_RESTORABILITY_REVIEW_REQUIRED').exists())
+    sys.argv.append('--quota-reviewed')
+    with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):m.main()
+   finally:sys.argv=old
 if __name__=='__main__':unittest.main()

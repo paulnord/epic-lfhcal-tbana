@@ -33,11 +33,13 @@ def main():
  ap.add_argument('--copy',action='store_true',help='Copy only after reviewing inventory, quiescing writers and quota')
  ap.add_argument('--destination',type=P,help='NEW direct child of verified PWG analysis parent')
  ap.add_argument('--sources-quiescent',action='store_true',help='User confirms no jobs/writers modifying these sources')
- ap.add_argument('--quota-reviewed',action='store_true',help='User checked applicable PWG user/group quota, not only df')
+ quota=ap.add_mutually_exclusive_group()
+ quota.add_argument('--quota-reviewed',action='store_true',help='User checked applicable PWG user/group quota, not only df')
+ quota.add_argument('--accept-unknown-quota',action='store_true',help='Explicitly attempt copy despite unknown quota; failure may leave a partial archive')
  a=ap.parse_args()
  os.umask(0o077)
- if a.copy and (not a.destination or not a.sources_quiescent or not a.quota_reviewed):
-  ap.error('--copy requires --destination, --sources-quiescent and --quota-reviewed')
+ if a.copy and (not a.destination or not a.sources_quiescent or not (a.quota_reviewed or a.accept_unknown_quota)):
+  ap.error('--copy requires --destination, --sources-quiescent and either --quota-reviewed or --accept-unknown-quota')
  roots=list(dict.fromkeys(P(x).resolve() for x in ROOTS+a.source))
  files={}; links={}; raw={}; refs={}; issues=[]; manifests=[]; repos={}; seen=set(); directories={}
  def addfile(p):
@@ -154,7 +156,7 @@ def main():
  if RUNS-hists:issues.append('Missing waveform histogram outputs: '+','.join(map(str,sorted(RUNS-hists))))
  if RUNS-csvs:issues.append('Missing waveform measurement CSVs: '+','.join(map(str,sorted(RUNS-csvs))))
  if missing:issues.append('Missing calibrated event inputs for runs: '+','.join(map(str,missing)))
- report={'utc':datetime.now(timezone.utc).isoformat(),'roots':list(map(str,roots)),
+ report={'quota_status':('unknown_explicitly_accepted' if a.accept_unknown_quota else 'user_reviewed' if a.quota_reviewed else 'not_reviewed'),'utc':datetime.now(timezone.utc).isoformat(),'roots':list(map(str,roots)),
   'files':files,'symlinks':links,'raw_references_not_copied':raw,'manifest_references':refs,
   'manifests':manifests,'git':repos,'issues':sorted(set(issues)),
   'coverage':{'meaning':'Nonempty readable file presence only; not scientific validation','expected_runs':sorted(RUNS),'calibrated_runs_present':sorted(present),'calibrated_runs_missing':missing,'waveform_histogram_runs_present':sorted(hists),'waveform_histogram_runs_missing':sorted(RUNS-hists),'measurement_csv_runs_present':sorted(csvs),'measurement_csv_runs_missing':sorted(RUNS-csvs)},
@@ -162,7 +164,7 @@ def main():
   'restorability':'NOT_CERTIFIED: review references, symlink relocation, campaign completion and scientific run coverage'}
  if not a.copy:
   if a.summary:
-   summary={k:report[k] for k in ('roots','coverage','copy_bytes','issues','restorability')}
+   summary={k:report[k] for k in ('roots','coverage','copy_bytes','quota_status','issues','restorability')}
    summary['issue_count']=len(report['issues'])
    summary['issues']=report['issues'][:20]
    summary['issues_truncated']=len(report['issues'])>20
@@ -179,6 +181,7 @@ def main():
  (dest/'SNAPSHOT_STARTED').write_text('Snapshot started. Only COPY_VERIFIED_RESTORABILITY_REVIEW_REQUIRED indicates byte verification finished. No completeness claim.\n')
  meta=dest/'metadata';meta.mkdir()
  (meta/'inventory-before.json').write_text(json.dumps(report,indent=2))
+ if a.accept_unknown_quota:print('WARNING: Quota is unknown and explicitly accepted; quota exhaustion may leave a partial archive.',flush=True)
  # Preflight EVERY valid Git bundle before creating/copying any payload.
  for i,(repo,metadata) in enumerate(repos.items()):
   if not metadata['valid_for_bundle']:continue
