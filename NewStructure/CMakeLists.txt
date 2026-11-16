@@ -268,3 +268,10 @@ if(BUILD_TESTING)
   target_link_libraries(test_waveform_books LFHCAL ${ROOT_LIBRARIES})
   add_test(NAME waveform_books COMMAND test_waveform_books)
 endif()
+
+# Plot-only trends from archived waveform measurement CSVs.
+add_executable(AriLayerTrends AriLayerTrends.cc)
+target_link_libraries(AriLayerTrends ${ROOT_LIBRARIES})
+if(BUILD_TESTING)
+  add_test(NAME ari_layer_trends COMMAND AriLayerTrends --self-test)
+endif()
