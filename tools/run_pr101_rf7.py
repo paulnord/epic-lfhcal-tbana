@@ -16,6 +16,7 @@ import sys
 import tempfile
 
 PIN = 'dedad9bb937ba4a97b6122da76f80129161d58fa'
+DECODER_PIN = '2a7f7d4e8b760ff9f9406e36d31e99c5b6fffa2c'
 REPOSITORY = 'https://github.com/paulnord/epic-lfhcal-tbana.git'
 PARENT = Path('/gpfs01/star/pwg/pnord/eic/2026TBdata/analyzed')
 RF7 = PARENT / 'ari-rf7-cs939lgs'
@@ -36,6 +37,7 @@ export TMPDIR="$tmp" TMP="$tmp" TEMP="$tmp"
 export ROOT_MAX_THREADS=1 OMP_NUM_THREADS=1
 cd "$work"
 root-config --version
+[[ -s source/NewStructure/h2g_decode/CMakeLists.txt && -s source/NewStructure/h2g_decode/src/hgc_decoder.h ]] || { echo 'Pinned decoder missing on worker; stopping before build' >&2; exit 2; }
 cmake -S source/NewStructure -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target DataAna --parallel 2
 export LD_LIBRARY_PATH="$work/build${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -130,10 +132,18 @@ def prepare(args):
     run(['git','-C',work/'source','checkout','--detach',PIN])
     actual=run(['git','-C',work/'source','rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
     if actual!=PIN: raise ValueError('Unexpected source revision')
+    # DataAna links Analysis, whose HGCROC_Convert.cc requires decoder headers.
+    # Match the original RF7 setup even though this test does not decode raw data.
+    run(['git','-C',work/'source','submodule','update','--init','--recursive'])
+    decoder=work/'source/NewStructure/h2g_decode'
+    decoder_sha=run(['git','-C',decoder,'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
+    if decoder_sha!=DECODER_PIN: raise ValueError('Unexpected decoder revision; no job submitted')
+    for required in ('CMakeLists.txt','src/hgc_decoder.h'):
+        if not (decoder/required).is_file(): raise ValueError('Missing decoder file: '+str(decoder/required))
     shutil.copyfile(Path(__file__),work/'run_pr101_rf7.py')
     (work/'worker.sh').write_text(RUNNER)
     (work/'preflight.C').write_text(PREFLIGHT)
-    (work/'parameters.json').write_text(json.dumps({'pin':PIN,'input':str(args.input),'runs':str(args.runs),'eic_shell':str(args.eic_shell),'events':args.events},indent=2)+'\n')
+    (work/'parameters.json').write_text(json.dumps({'pin':PIN,'decoder_pin':DECODER_PIN,'input':str(args.input),'runs':str(args.runs),'eic_shell':str(args.eic_shell),'events':args.events},indent=2)+'\n')
     sub=work/'test.sub';sub.write_text(submit_text(work))
     run(['condor_submit','-dry-run',work/'submit.ad',sub])
     if args.submit:
